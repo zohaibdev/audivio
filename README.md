@@ -11,6 +11,8 @@ See [CLAUDE.md](CLAUDE.md) for the full project brief and architecture decisions
 
 - `backend/` — Laravel 12 API (MySQL, Redis queues, Sanctum token auth)
 - `frontend/` — React 19 + TypeScript SPA (Vite)
+- `crawler/` — Node/Playwright page crawler, invoked as a subprocess by the
+  backend's queue jobs (`App\Services\Crawler\PlaywrightCrawlerClient`)
 
 ## Local development
 
@@ -42,6 +44,20 @@ cd frontend
 npm install
 cp .env.example .env   # already done on first setup
 npm run dev
+```
+
+### Crawler
+
+```bash
+cd crawler
+npm install   # also downloads Chromium via the postinstall hook
+```
+
+Nothing to run directly — the backend invokes `crawler/crawl.mjs` as a
+subprocess. Test the whole pipeline with:
+
+```bash
+php artisan audit:crawl https://example.com --pages=5 --wait
 ```
 
 ## Requirements

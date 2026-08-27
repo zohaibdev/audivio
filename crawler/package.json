@@ -1,0 +1,14 @@
+{
+  "name": "audivio-crawler",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright-based page crawler invoked as a subprocess by the Laravel backend's crawl jobs.",
+  "type": "module",
+  "main": "crawl.mjs",
+  "scripts": {
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}

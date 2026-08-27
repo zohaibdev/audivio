@@ -105,9 +105,68 @@ Work phase by phase — do not build the whole app at once.
   limitation — see Stack table). Add it when provisioning the Linux
   production/staging environment.
 
-Not built yet (do not build ahead of schedule): crawler, any audit module
-logic, AI provider implementations, report generation, PDF export,
-subscriptions/plans, admin, CMS, scheduling.
+### Phase 2 (Crawler) — done
+
+- **Schema**: `websites`, `audits`, `crawl_jobs`, `crawl_urls`, `audit_pages`
+  migrations + models, all explicitly `InnoDB` (see below), real FK
+  constraints with cascade/null-on-delete.
+- **Node/Playwright bridge**: `crawler/` is a third top-level directory
+  (sibling to `backend/`/`frontend/`) — PHP has no mature Playwright
+  binding, so `crawler/crawl.mjs` is invoked as a subprocess per page via
+  `App\Services\Crawler\PlaywrightCrawlerClient` (Symfony Process, array
+  args — never shell-interpolated), printing one JSON object to stdout.
+  `crawler/lib/extract.mjs` does the DOM extraction (headings, links,
+  images, forms, JSON-LD, heuristic CTA detection); `crawler/lib/ssrf.mjs`
+  re-validates every navigation's resolved IP from inside the browser
+  process itself.
+- **SSRF protection is layered, not single-point**: `App\Services\Crawler\UrlSecurityValidator`
+  validates scheme/port/credentials/query-length and resolves+checks the
+  hostname's IPs (via PHP's `FILTER_FLAG_NO_PRIV_RANGE|FILTER_FLAG_NO_RES_RANGE`)
+  before a URL is ever handed to Node; `crawl.mjs` independently re-resolves
+  and re-checks on the initial navigation *and every redirect hop* via
+  `page.route()`, because DNS can rebind between the PHP check and the
+  browser's actual connection, and redirects can point anywhere. Both
+  layers block localhost, loopback, private/link-local ranges (including
+  cloud metadata `169.254.169.254`), and non-http(s) schemes.
+- **Discovery**: `RobotsTxtService` (parses `Disallow`/`Sitemap` directives)
+  → `SitemapService` (handles sitemap indexes, same-domain filter, capped
+  at 20 sub-sitemaps / 5000 URLs) → falls back to breadth-first same-domain
+  link discovery from crawled pages (`CrawlOrchestrator::expandFrontier`)
+  when a site has no sitemap. Both `RobotsTxtService` and `SitemapService`
+  send an explicit `crawler.user_agent` header — some WAFs (hit this on
+  wordpress.org) 403 Laravel's default Guzzle UA with none set.
+- **Platform detection**: `PlatformDetector` runs on a bounded HTML sample
+  (`htmlSample`, first 200KB) + response headers from the homepage crawl
+  only — signature-matches Shopify/WordPress/WooCommerce/Webflow/Wix,
+  falls back to `custom` (unrecognized `<meta name="generator">`) or
+  `unknown` (no signal at all).
+- **Jobs**: `CrawlWebsiteJob` (seeds the crawl via `CrawlOrchestrator::startCrawl`,
+  dispatches `CrawlPageJob` per discovered URL) and `CrawlPageJob` (crawls
+  one URL, expands the frontier, marks the `CrawlJob`/`Audit` completed once
+  no pending/crawling URLs remain). Both carry a `RateLimited('crawler')`
+  middleware backed by `crawler.rate_limit_per_second` (registered in
+  `AppServiceProvider`).
+- **Logging**: dedicated `crawler` and `ai` log channels (`config/logging.php`)
+  — crawl failures log there with URL + error context, never just to the
+  default channel.
+- **Testing entry point**: `php artisan audit:crawl {url} --pages=N --wait`
+  — creates a `Website`/`Audit` and dispatches the real queue pipeline.
+  This is deliberately a CLI command, not a public API endpoint yet:
+  there's no rate limiting or plan-limit enforcement in front of "crawl any
+  URL" until Phase 6 (User System), and exposing that publicly first would
+  make this server an open crawling proxy.
+- **Known environment issue found & fixed**: this WAMP MySQL 5.7 install's
+  `default_storage_engine` is `MyISAM`, which silently accepts (and
+  ignores) foreign key clauses — cascades and referential integrity were
+  no-ops. Fixed by declaring `$table->engine = 'InnoDB';` explicitly in
+  every migration (Phase 1's included) rather than depending on server
+  defaults — portable to any deployment target regardless of its MySQL
+  config.
+
+Not built yet (do not build ahead of schedule): any audit *analysis*
+(performance/accessibility/SEO/etc. scoring), AI provider implementations,
+report generation, PDF export, subscriptions/plans, admin, CMS, scheduling,
+the public "create audit" API endpoint.
 
 ## MVP exclusions (do not build unless explicitly requested)
 
