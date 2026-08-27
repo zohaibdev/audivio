@@ -127,6 +127,34 @@ class AuthTest extends TestCase
         $response->assertStatus(200)->assertJsonStructure(['data' => ['user', 'token']]);
     }
 
+    public function test_registration_response_includes_the_new_subscription_and_plan(): void
+    {
+        Plan::create(['name' => 'Free', 'slug' => 'free', 'max_pages' => 25, 'daily_audit_limit' => 1, 'is_default' => true]);
+
+        $response = $this->postJson('/api/register', [
+            'name' => 'Ada Lovelace',
+            'email' => 'ada@example.com',
+            'password' => 'correct-horse-battery-staple1',
+            'password_confirmation' => 'correct-horse-battery-staple1',
+        ]);
+
+        $response->assertStatus(201)->assertJsonPath('data.user.subscription.plan.slug', 'free');
+    }
+
+    public function test_login_response_includes_the_current_subscription_and_plan(): void
+    {
+        $plan = Plan::create(['name' => 'Free', 'slug' => 'free', 'max_pages' => 25, 'daily_audit_limit' => 1, 'is_default' => true]);
+        $user = User::create(['name' => 'Ada', 'email' => 'ada@example.com', 'password' => 'correct-horse-battery-staple1']);
+        $user->subscription()->create(['plan_id' => $plan->id, 'started_at' => now()]);
+
+        $response = $this->postJson('/api/login', [
+            'email' => 'ada@example.com',
+            'password' => 'correct-horse-battery-staple1',
+        ]);
+
+        $response->assertStatus(200)->assertJsonPath('data.user.subscription.plan.slug', 'free');
+    }
+
     public function test_login_with_wrong_password_is_rejected(): void
     {
         User::create(['name' => 'Ada', 'email' => 'ada@example.com', 'password' => 'correct-horse-battery-staple1']);
@@ -154,6 +182,19 @@ class AuthTest extends TestCase
             ->getJson('/api/user')
             ->assertStatus(200)
             ->assertJsonPath('data.email', 'ada@example.com');
+    }
+
+    public function test_own_profile_includes_the_current_subscription_and_plan(): void
+    {
+        $plan = Plan::create(['name' => 'Free', 'slug' => 'free', 'max_pages' => 25, 'daily_audit_limit' => 1, 'is_default' => true]);
+        $user = User::create(['name' => 'Ada', 'email' => 'ada@example.com', 'password' => 'x']);
+        $user->subscription()->create(['plan_id' => $plan->id, 'started_at' => now()]);
+        $token = $user->createToken('api')->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/user')
+            ->assertStatus(200)
+            ->assertJsonPath('data.subscription.plan.slug', 'free');
     }
 
     public function test_unauthenticated_request_to_user_endpoint_is_rejected(): void

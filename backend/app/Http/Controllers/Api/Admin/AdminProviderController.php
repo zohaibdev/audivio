@@ -48,7 +48,10 @@ class AdminProviderController extends Controller
         $update = ['config' => $config];
 
         if (array_key_exists('api_key', $data)) {
-            $update['api_key'] = $data['api_key'];
+            // Normalize '' to null — encrypting an empty string still
+            // produces a non-null ciphertext, which would make
+            // isConfigured() think a real key exists.
+            $update['api_key'] = $data['api_key'] !== '' ? $data['api_key'] : null;
         }
 
         if (array_key_exists('model', $data)) {

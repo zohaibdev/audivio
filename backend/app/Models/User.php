@@ -62,6 +62,11 @@ class User extends Authenticatable
         return $this->hasMany(Website::class);
     }
 
+    public function audits(): HasMany
+    {
+        return $this->hasMany(Audit::class);
+    }
+
     public function auditSchedules(): HasMany
     {
         return $this->hasMany(AuditSchedule::class);

@@ -26,6 +26,22 @@ class AuditController extends Controller
         private readonly UsageLimitService $usageLimits,
     ) {}
 
+    /**
+     * The current user's own audit history — requires auth:sanctum
+     * (unlike store()/show(), which are anonymous-friendly), since an
+     * anonymous visitor has no persistent identity to list audits
+     * against.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        return ApiResponse::success(
+            $request->user()->audits()
+                ->with(['website', 'scores'])
+                ->orderByDesc('id')
+                ->paginate(25),
+        );
+    }
+
     public function store(CreateAuditRequest $request): JsonResponse
     {
         $url = $request->string('url')->toString();

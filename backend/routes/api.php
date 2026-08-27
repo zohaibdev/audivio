@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Admin\AdminFailedJobController;
 use App\Http\Controllers\Api\Admin\AdminLeadController;
 use App\Http\Controllers\Api\Admin\AdminPlanController;
 use App\Http\Controllers\Api\Admin\AdminProviderController;
+use App\Http\Controllers\Api\Admin\AdminSystemHealthController;
 use App\Http\Controllers\Api\Admin\AdminUsageController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminWebsiteController;
@@ -19,6 +20,8 @@ use App\Http\Controllers\Api\AuditScheduleController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CmsController;
 use App\Http\Controllers\Api\LeadController;
+use App\Http\Controllers\Api\PlanController;
+use App\Http\Controllers\Api\WebsiteController;
 use Illuminate\Support\Facades\Route;
 
 // throttle:5,1 (5/min/IP) — previously unthrottled, a real brute-force/
@@ -39,6 +42,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/audit-schedules', [AuditScheduleController::class, 'store']);
     Route::put('/audit-schedules/{auditSchedule}', [AuditScheduleController::class, 'update']);
     Route::delete('/audit-schedules/{auditSchedule}', [AuditScheduleController::class, 'destroy']);
+
+    // Self-service "my websites"/"my audits" — distinct from the
+    // Api\Admin equivalents, which list every user's data. Anonymous
+    // visitors have no persistent identity to list against, hence
+    // auth:sanctum rather than the optional-auth pattern audits/report
+    // use below.
+    Route::get('/websites', [WebsiteController::class, 'index']);
+    Route::get('/audits', [AuditController::class, 'index']);
 });
 
 // Anonymous-friendly: auth is optional here, resolved manually via
@@ -60,6 +71,7 @@ Route::middleware('throttle:10,1')->group(function () {
 // public, and read-only, so left unthrottled like any static content.
 Route::post('/leads', [LeadController::class, 'store'])->middleware('throttle:10,1');
 Route::get('/cms/{slug}', [CmsController::class, 'show']);
+Route::get('/plans', [PlanController::class, 'index']);
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index']);
@@ -76,6 +88,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::get('/failed-jobs', [AdminFailedJobController::class, 'index']);
     Route::delete('/failed-jobs/{id}', [AdminFailedJobController::class, 'destroy']);
 
+    Route::get('/system-health', [AdminSystemHealthController::class, 'index']);
     Route::get('/ai-usage', [AdminAiUsageController::class, 'index']);
     Route::get('/usage', [AdminUsageController::class, 'index']);
 

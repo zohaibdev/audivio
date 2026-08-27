@@ -9,7 +9,10 @@ whenever coverage is added, moved, or removed.
 for all external calls — no test hits a real third-party API) and
 `cd crawler && npm test` (Node's built-in test runner, `node --test`).
 
-**Current total**: 327 tests (287 PHP + 40 Node), all passing, 0 known failures.
+**Current total**: 339 tests (299 PHP + 40 Node), all passing, 0 known failures.
+Frontend verification is manual only (browser, against the real backend)
+— see the "Frontend manual verification" entry near the bottom; there is
+no automated frontend test suite yet.
 
 Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 
@@ -172,8 +175,11 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Admin operations — audit schedules listing | `AdminApiTest::test_audit_schedules_listing` | ✅ |
 | PDF export | `AuditApiTest::test_pdf_export_returns_a_pdf_for_the_owner_on_a_plan_with_the_feature` (200, `Content-Type: application/pdf`, `%PDF-` body), `test_pdf_export_is_rejected_when_the_owners_plan_lacks_the_feature` (403), `test_pdf_export_is_rejected_for_a_non_owner` (403), `test_pdf_export_is_rejected_for_an_anonymous_viewer` (403), `test_pdf_export_returns_404_when_the_report_is_not_ready` | ✅ |
 | Scheduled audits (create/list/update/delete, all ownership- and plan-gated) | `AuditScheduleApiTest` (12 tests: unauthenticated 401, owns-website 201, someone-else's-website 422, missing feature 403, over the `full_recrawls` limit 403, duplicate-website 422, invalid frequency 422, list-scoped-to-self, pause via update, update/delete blocked with 404 — not 403 — for a non-owner, delete) | ✅ |
-| AI/API provider configuration (view/configure Claude/OpenAI/Gemini/PageSpeed, enable/disable, test connection) | `AdminProviderApiTest` (20 tests — see the "Provider configuration" category below for the full breakdown) | ✅ |
+| AI/API provider configuration (view/configure Claude/OpenAI/Gemini/PageSpeed, enable/disable, test connection) | `AdminProviderApiTest` (21 tests — see the "Provider configuration" category below for the full breakdown) | ✅ |
 | Cross-provider usage/cost analytics (summary, daily, by-provider, filterable logs) | `AdminProviderApiTest`'s TC-USAGE-tagged tests (8 tests) | ✅ |
+| Self-service "my websites"/"my audits" (scoped to the caller, distinct from the admin-wide equivalents) | `AuditApiTest::test_my_audits_lists_only_the_authenticated_users_own_audits`, `test_my_audits_requires_authentication`, `test_my_websites_lists_only_the_authenticated_users_own_websites`, `test_my_websites_requires_authentication` (frontend dashboard work) | ✅ |
+| Public plan listing (pricing page data source) | `PlanApiTest::test_anyone_can_list_plans`, `test_plans_are_ordered_by_price` (frontend work) | ✅ |
+| Register/login responses include the new subscription+plan (frontend dashboard needs plan limits immediately after auth, not just after a later refetch) | `AuthTest::test_registration_response_includes_the_new_subscription_and_plan`, `test_login_response_includes_the_current_subscription_and_plan` (frontend work) | ✅ |
 
 **The default `Tests\Feature\ExampleTest`** (Laravel scaffold, asserts `/`
 returns 200) still exists and passes — kept as-is; no real reason to
@@ -223,12 +229,34 @@ match the ones this feature was scoped against.
 | TC-USAGE-006 | Token usage is recorded where available | `test_token_usage_is_recorded_where_available` | ✅ |
 | TC-USAGE-007 | Estimated cost is calculated where supported | `test_estimated_cost_is_calculated_where_supported` (Unit-level, on `ApiProvider::estimateCost()`) | ✅ |
 | TC-USAGE-008 | Usage dashboard loads real backend data | `test_usage_dashboard_loads_real_backend_data` | ✅ |
-| TC-QUALITY-005 | No new critical backend errors | Full suite run clean after this change (327 tests, `pint --test` clean, `php -l` on every source file) — see CONTEXT.md §23 | ✅ |
+| TC-QUALITY-005 | No new critical backend errors | Full suite run clean after this change (339 tests, `pint --test` clean, `php -l` on every source file) — see CONTEXT.md §23 | ✅ |
 | TC-QUALITY-006 | No database integrity problems | `DatabaseMigrationTest` includes `api_providers`/`api_usage_logs`; `CascadeDeleteTest` covers both tables' nullOnDelete relationships | ✅ |
+| — | Regression: an empty-string `api_key` (e.g. from a set-but-blank `.env` value) must not read as "configured" — encrypting `''` still yields a non-null ciphertext | `test_an_empty_string_api_key_does_not_count_as_configured` — found via manual browser verification, not written speculatively (see CONTEXT.md §28) | ✅ |
+| — | System health: real DB/cache round-trip status, admin-gated | `AdminApiTest::test_system_health_reports_real_database_and_cache_status`, `test_system_health_requires_admin` | ✅ |
 
-Frontend-side TC-IDs (`TC-FRONTEND-*`, `TC-QUALITY-001/002/003/004`) are
-tracked once the frontend work lands — see the "Frontend tests" section
-below, which is a gap until then, not a defect.
+**TC-FRONTEND-001 through 011** (homepage, URL audit form, progress
+screen, preview report, signup flow, full report, user dashboard, admin
+dashboard, provider configuration UI, usage charts, usage filters):
+✅ verified manually against the real backend in a browser this
+session — see the "Frontend manual verification" entry further down.
+Not automated (§29/§32 — no Vitest/RTL exists), so these are proven
+once, not regression-tested going forward.
+
+**TC-FRONTEND-012** (no API secrets present in frontend network
+responses): ✅ verified directly — the Test Connection failure response
+body and the provider-config GET response were both inspected for the
+literal key string during manual verification; neither contained it.
+
+**TC-QUALITY-001 through 004** (no incomplete production functions, no
+unintended TODO/FIXME, no dead code, no unexpected frontend runtime
+errors): ✅ — `grep` for `TODO|FIXME|HACK|XXX|console\.log` across
+`frontend/src` returned nothing; every page component and API function
+created is imported/used somewhere (cross-checked file-by-file); the
+only console errors observed during manual verification were the
+expected ones (a graceful 404 from the CMS-content fallback fetch when
+no CMS page exists yet, and the throttle 429 that led directly to the
+polling-interval bug fix in CONTEXT.md §28) — no unexplained runtime
+errors.
 
 ## Database tests
 
@@ -267,17 +295,27 @@ before trusting these results.
 
 ## Frontend tests
 
-None — no frontend code exists beyond the Vite scaffold (see CONTEXT.md
-§23). All categories (components, forms, dashboard, audit progress,
-report, locked content, signup, error/loading states) are gaps pending
-Phase 5/6 frontend work.
+No automated frontend test suite exists (no Vitest/RTL — see CONTEXT.md
+§29/§32). The full React frontend (13 public pages, auth flow, audit
+submission/progress/report, user dashboard, admin dashboard, provider
+configuration UI, usage analytics) was verified manually against the
+real running backend in a browser — see TC-FRONTEND-001 through 012 in
+the "Provider configuration and usage tracking tests" section above and
+the "Frontend manual verification" entry below. This is proven-once
+coverage, not regression-tested going forward — a future change to any
+of these pages needs a fresh manual pass until an automated suite is
+added.
 
 ## E2E tests
 
-None — no frontend to drive, no public API to call. All flows (anonymous
-submits URL, crawler starts, audit completes, partial report displayed,
-signup, recrawl unlocked, full report generated, usage limits enforced,
-consultant lead submitted) are gaps pending later phases.
+No automated E2E runner exists (no Playwright/Cypress). The real flows
+(anonymous URL submit → crawl → progress polling → preview report →
+signup → full report; registered-user website/audit history; admin
+provider configuration → test connection → enable → usage analytics)
+were driven end-to-end by hand through the actual UI against the real
+backend during the frontend build — see "Frontend manual verification"
+below. Automating these is a gap, not a defect, since a headless
+browser tool doesn't yet run in CI here.
 
 ## Manual/exploratory verification (not automated — recorded for traceability)
 
@@ -335,6 +373,32 @@ added above.
   client, which shares the app container across calls (see the
   Sanctum-guard note in CONTEXT.md §28) rather than truly separate
   processes.
+- **Frontend manual verification** (this chunk): the entire new React
+  frontend driven by hand in a real browser against the real running
+  backend (`php artisan serve` + Vite dev server, no mocked responses) —
+  homepage/services/how-it-works/pricing/FAQ/contact render real CMS and
+  plan data; signup → login → dashboard shows the new user's real
+  subscription/plan immediately (this run is what caught the missing
+  `.load('subscription.plan')` bug on `register()`/`login()`, see
+  CONTEXT.md §28); anonymous URL submission → progress polling → status
+  reaching `completed` → preview report render (this run is what caught
+  the polling-interval/429 bug, see CONTEXT.md §28); registered-user
+  My Websites/Audits/History/Reports pages backed by the new
+  `/api/websites` and `/api/audits` endpoints; full report page incl.
+  PDF download; admin login → all 16 nav sections load real data; admin
+  provider configuration — editing a key, Test Connection against each
+  of Claude/OpenAI/Gemini/PageSpeed, enable/disable gating on
+  `isConfigured()` (this run is what caught the empty-string-key bug,
+  see CONTEXT.md §28), and confirming no raw key ever appears in a
+  network response body; admin API/AI usage analytics charts render
+  real `ApiUsageLog` data with working date-range filters; mobile
+  viewport pass via `resize_window` on the public nav (this run is what
+  caught the missing mobile hamburger menu, see CONTEXT.md §28) and the
+  dashboard/admin sidebar layouts. Every bug fixed in this chunk (see
+  CONTEXT.md §28) was found this way, not through code review — no
+  automated equivalent exists yet (see "Frontend tests"/"E2E tests"
+  above), so this remains the only evidence the frontend and backend
+  actually work together for real.
 
 ---
 
@@ -448,3 +512,17 @@ added above.
     seed real `ApiProvider` rows (the DB is now the only source of truth
     for provider settings, so the old config-mutation approach no longer
     reflects reality). See CONTEXT.md §23 for the full design.
+14. The project had no production frontend beyond the Vite scaffold —
+    **closed**: full React frontend built (13 public pages, auth flow,
+    audit submission/progress/preview/full report, user dashboard, admin
+    dashboard covering all 16 nav sections, provider configuration UI,
+    usage analytics with charts) and verified end-to-end by hand against
+    the real backend — see "Frontend manual verification" above and
+    CONTEXT.md §27-§29. 12 new PHP tests this chunk (287 → 299):
+    `PlanApiTest` (2), `AuditApiTest`/`AuthTest`/`AdminApiTest` additions
+    for `/api/websites`, `/api/audits`, `/api/admin/system-health`, and
+    the empty-string-key regression (see item 13's `AdminProviderApiTest`
+    count, 20 → 21). No automated frontend/E2E suite exists yet (see
+    "Frontend tests"/"E2E tests" above) — that remains a real gap, not
+    a defect, since every page was still proven working once against
+    live data, just not regression-tested going forward.

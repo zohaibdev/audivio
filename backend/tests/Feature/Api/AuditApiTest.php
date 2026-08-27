@@ -375,6 +375,53 @@ class AuditApiTest extends TestCase
         $this->getJson("/api/audits/{$audit->id}/report/pdf")->assertStatus(404);
     }
 
+    public function test_my_audits_lists_only_the_authenticated_users_own_audits(): void
+    {
+        $owner = $this->makePlanAndUser(email: 'owner@example.com');
+        $ownerToken = $owner->createToken('api')->plainTextToken;
+        $this->withHeader('Authorization', "Bearer {$ownerToken}")->postJson('/api/audits', ['url' => 'https://example.com']);
+
+        $someoneElse = $this->makePlanAndUser(email: 'someone-else@example.com');
+        $this->app['auth']->forgetGuards();
+        $this->withHeader('Authorization', 'Bearer '.$someoneElse->createToken('api')->plainTextToken)
+            ->postJson('/api/audits', ['url' => 'https://example.com']);
+
+        $this->app['auth']->forgetGuards();
+        $response = $this->withHeader('Authorization', "Bearer {$ownerToken}")->getJson('/api/audits');
+
+        $response->assertStatus(200);
+        $this->assertSame(1, $response->json('data.total'));
+    }
+
+    public function test_my_audits_requires_authentication(): void
+    {
+        $this->getJson('/api/audits')->assertStatus(401);
+    }
+
+    public function test_my_websites_lists_only_the_authenticated_users_own_websites(): void
+    {
+        $owner = $this->makePlanAndUser(email: 'owner@example.com');
+        $ownerToken = $owner->createToken('api')->plainTextToken;
+        $this->withHeader('Authorization', "Bearer {$ownerToken}")->postJson('/api/audits', ['url' => 'https://example.com']);
+
+        $someoneElse = $this->makePlanAndUser(email: 'someone-else@example.com');
+        $this->app['auth']->forgetGuards();
+        $this->withHeader('Authorization', 'Bearer '.$someoneElse->createToken('api')->plainTextToken)
+            ->postJson('/api/audits', ['url' => 'https://example.com']);
+
+        $this->app['auth']->forgetGuards();
+        $response = $this->withHeader('Authorization', "Bearer {$ownerToken}")->getJson('/api/websites');
+
+        $response->assertStatus(200);
+        $this->assertSame(1, $response->json('data.total'));
+        $this->assertSame(1, $response->json('data.data.0.audits_count'));
+    }
+
+    public function test_my_websites_requires_authentication(): void
+    {
+        $this->getJson('/api/websites')->assertStatus(401);
+    }
+
     public function test_requests_beyond_the_rate_limit_are_throttled(): void
     {
         for ($i = 0; $i < 10; $i++) {

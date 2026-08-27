@@ -50,11 +50,17 @@ class ProviderSeeder extends Seeder
             return;
         }
 
+        // Normalize an empty-string env value (e.g. `GEMINI_API_KEY=` with
+        // nothing after it) to null — storing '' would still encrypt to a
+        // non-null ciphertext blob, which would make isConfigured() think
+        // a key exists when there's really nothing usable there.
+        $apiKey = $apiKey !== null && $apiKey !== '' ? $apiKey : null;
+
         ApiProvider::create([
             'slug' => $slug,
             'name' => $name,
             'provider_type' => $type,
-            'is_enabled' => ! empty($apiKey),
+            'is_enabled' => $apiKey !== null,
             'api_key' => $apiKey,
             'model' => $model,
             'config' => $config,

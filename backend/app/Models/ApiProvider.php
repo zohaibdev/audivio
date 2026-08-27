@@ -53,20 +53,11 @@ class ApiProvider extends Model
 
     public function getMaskedKeyAttribute(): ?string
     {
-        $key = $this->attributes['api_key'] ?? null;
-
-        if ($key === null) {
+        if (! $this->isConfigured()) {
             return null;
         }
 
-        // Decrypt once (via the cast, through the real accessor) rather
-        // than duplicating decryption logic here.
         $plain = $this->api_key;
-
-        if ($plain === null || $plain === '') {
-            return null;
-        }
-
         $length = strlen($plain);
 
         if ($length <= 8) {
@@ -78,7 +69,16 @@ class ApiProvider extends Model
 
     public function isConfigured(): bool
     {
-        return ! empty($this->attributes['api_key'] ?? null);
+        // Checking raw ciphertext presence isn't enough: encrypting an
+        // empty string still produces a non-null ciphertext blob, so an
+        // explicitly-blank key (e.g. an unset .env var seeded as '')
+        // would otherwise read as "configured." Decrypt and check the
+        // real value instead.
+        if (($this->attributes['api_key'] ?? null) === null) {
+            return false;
+        }
+
+        return ! empty($this->api_key);
     }
 
     public function getConfigValue(string $key, mixed $default = null): mixed

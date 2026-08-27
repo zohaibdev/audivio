@@ -81,6 +81,26 @@ class AdminProviderApiTest extends TestCase
         $this->assertSame('sk-ant-test-key', ApiProvider::where('slug', 'claude')->first()->api_key);
     }
 
+    public function test_an_empty_string_api_key_does_not_count_as_configured(): void
+    {
+        // Encrypting '' still produces a non-null ciphertext blob — a
+        // naive "is the raw column non-null" check would wrongly report
+        // this provider as configured. Covers both the model-level fix
+        // and the controller's own normalization of '' to null.
+        $provider = $this->seedProvider('claude');
+        $provider->update(['api_key' => '']);
+
+        $this->assertFalse($provider->fresh()->isConfigured());
+        $this->assertNull($provider->fresh()->masked_key);
+
+        $token = $this->tokenFor($this->makeAdmin());
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson('/api/admin/providers/claude', ['api_key' => '']);
+
+        $response->assertStatus(200)->assertJsonPath('data.is_configured', false);
+        $this->assertNull($provider->fresh()->api_key);
+    }
+
     public function test_admin_can_configure_openai(): void
     {
         $this->seedProvider('openai');

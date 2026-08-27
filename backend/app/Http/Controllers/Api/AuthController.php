@@ -35,7 +35,7 @@ class AuthController extends Controller
 
         $token = $user->createToken('api')->plainTextToken;
 
-        return ApiResponse::success(['user' => $user, 'token' => $token], status: 201);
+        return ApiResponse::success(['user' => $user->load('subscription.plan'), 'token' => $token], status: 201);
     }
 
     public function login(LoginRequest $request): JsonResponse
@@ -48,7 +48,7 @@ class AuthController extends Controller
 
         $token = $user->createToken('api')->plainTextToken;
 
-        return ApiResponse::success(['user' => $user, 'token' => $token]);
+        return ApiResponse::success(['user' => $user->load('subscription.plan'), 'token' => $token]);
     }
 
     public function logout(Request $request): JsonResponse
@@ -60,6 +60,6 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        return ApiResponse::success($request->user());
+        return ApiResponse::success($request->user()->load('subscription.plan'));
     }
 }

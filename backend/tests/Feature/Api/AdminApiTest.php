@@ -244,6 +244,23 @@ class AdminApiTest extends TestCase
             ->assertJsonStructure(['data' => ['by_provider', 'by_category', 'recent']]);
     }
 
+    public function test_system_health_reports_real_database_and_cache_status(): void
+    {
+        $token = $this->tokenFor($this->makeAdmin());
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/admin/system-health');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.database.status', 'ok')
+            ->assertJsonPath('data.cache.status', 'ok')
+            ->assertJsonStructure(['data' => ['database', 'cache', 'queue_connection']]);
+    }
+
+    public function test_system_health_requires_admin(): void
+    {
+        $this->getJson('/api/admin/system-health')->assertStatus(401);
+    }
+
     // --- Leads: public capture + admin management ---
 
     public function test_anyone_can_submit_a_lead(): void

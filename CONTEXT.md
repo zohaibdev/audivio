@@ -105,20 +105,74 @@ allowed origins).
 
 ## 5. React frontend architecture
 
+Built out-of-phase-order (§30) — the original 10-phase plan never
+allocated a phase to the frontend at all; it was requested directly.
+React 19 + TypeScript + Vite, Tailwind CSS v4 (`@tailwindcss/vite`
+plugin, no separate PostCSS config), `recharts` for admin charts,
+`react-router-dom` v7 for routing. No data-fetching library (TanStack
+Query/SWR) — plain `axios` + `useEffect`, consistent with the app's
+overall preference for the simplest thing that works over adding a
+dependency for a single concern.
+
 ```
 frontend/src/
-  api/        client.ts — axios instance, VITE_API_URL base, bearer-token
-              request interceptor reading localStorage 'auth_token'
-  components/ empty — nothing built yet
-  pages/      empty
-  hooks/      empty
-  types/      empty
-  lib/        empty
+  api/          client.ts (axios instance + bearer interceptor + ApiRequestError/
+                unwrap() — the one place that translates transport errors into
+                app-level ones), auth.ts, audits.ts, websites.ts, schedules.ts,
+                leads.ts, cms.ts, plans.ts, admin.ts (every /admin/* endpoint)
+  contexts/     AuthContext.tsx — user/isLoading/login/register/logout,
+                token in localStorage, hydrates from GET /api/user on mount
+  components/
+    layout/     PublicLayout (marketing header/footer + mobile menu),
+                SidebarLayout (shared shell for both /dashboard and /admin,
+                parameterized by title+navItems — one component, not two),
+                RouteGuards (RequireAuth, RequireAdmin)
+    ui/         Card, Button, Input, Badge/SeverityBadge/StatusBadge, Spinner,
+                ErrorState, EmptyState, StatCard, ScoreGauge, Pagination
+    charts/     LineChartCard, BarChartCard (recharts wrappers with a
+                consistent card/empty-state shell)
+    audit/      AuditUrlForm (shared by the homepage hero, the dedicated
+                /audit page, and the dashboard overview — one implementation,
+                three entry points), AuditProgressSteps
+    report/     ReportOverviewCard, IssueList, RecommendationList,
+                PageFindingsTable, ReportView (assembles all of the above,
+                branches on `is_full_access`)
+    admin/      ProviderCard (the provider-config form + test-connection UI)
+  pages/
+    public/     HomePage, ServicesPage, HowItWorksPage, PricingPage (fetches
+                real plans via GET /api/plans), FaqPage, ContactPage (lead
+                capture form)
+    auth/       LoginPage, SignupPage, ForgotPasswordPage (intentionally
+                read-only/informational — see §24)
+    audit/      SubmitAuditPage, AuditStatusPage (one adaptive page serving
+                progress + preview report + full report — see §24)
+    dashboard/  Overview, Websites, Audits (serves "Audits"/"Audit History"/
+                "Reports" — see §24), Schedules, Usage, Profile (read-only —
+                no profile-update endpoint exists), Subscription (read-only —
+                no self-service plan-change endpoint exists)
+    admin/      DashboardHome, Users, Websites, Audits, Leads, Providers,
+                ApiUsage (serves "API Usage" and "Logs" — see §24), AiUsage,
+                Plans (serves "Plans" and "Usage Limits"), Cms, Settings (a
+                hub linking to Providers/Plans/Cms/SystemHealth), SystemHealth,
+                FailedJobs
+  types/index.ts  Every shared response shape (User, Report, ApiProviderSummary,
+                UsageSummary, AdminDashboardSummary, etc.) in one file
+App.tsx         All routing — three route trees (public, RequireAuth+dashboard,
+                RequireAdmin+admin) plus a catch-all 404
 ```
 
-Only the Vite scaffold page renders currently. No real UI has been built —
-that starts in earnest around Phase 5 (Report System) / Phase 6 (User
-System) per the timeline in §27.
+No automated frontend test suite exists (no Vitest/React Testing Library
+set up) — verification for this work was `tsc -b && vite build` (must
+pass with zero errors — `noUnusedLocals`/`noUnusedParameters` are on, so
+this also catches dead code), `oxlint` (the project's configured
+linter — the only warnings it raises are the generic
+`set-state-in-effect` pattern inherent to plain fetch+`useEffect` data
+loading, present on every data-fetching page by design, and one
+`only-export-components` note on `AuthContext.tsx` for co-locating the
+provider and its hook), and manual verification through the actual
+running app in a browser (every flow in §24 was exercised against the
+real backend, not mocked). See §32 for the full picture and why this is
+an accepted gap, not an oversight.
 
 ## 6. Database architecture
 
@@ -162,10 +216,13 @@ storage), `notifications`.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/api/register` | none | Create a user, subscribe to the default plan, issue a token |
-| POST | `/api/login` | none | Issue a token for valid credentials |
+| POST | `/api/register` | none | Create a user, subscribe to the default plan, issue a token. Response's `data.user` includes `subscription.plan` (added for the frontend's dashboard, which needs plan limits right after signup, not just after a later `/api/user` refetch) |
+| POST | `/api/login` | none | Issue a token for valid credentials. Same `subscription.plan` inclusion as register |
 | POST | `/api/logout` | required | Revoke the current token |
-| GET | `/api/user` | required | Current authenticated user |
+| GET | `/api/user` | required | Current authenticated user, with `subscription.plan` eager-loaded |
+| GET | `/api/websites` | required | The caller's own websites, paginated, each with `audits_count` and `latestAudit.scores` — distinct from `/admin/websites` below, which lists every user's |
+| GET | `/api/audits` | required | The caller's own audit history, paginated, with `website`+`scores` — distinct from `/admin/audits` below |
+| GET | `/api/plans` | none | Every plan, ordered by price — the pricing page's data source, so paid tiers appear automatically once an admin creates them via `/admin/plans` |
 | POST | `/api/audits` | **optional** | Create a website + audit, dispatch the crawl. `throttle:10,1`. |
 | GET | `/api/audits/{audit}` | **optional** | Poll status/progress — no report data |
 | GET | `/api/audits/{audit}/report` | **optional** | Fetch the report, filtered per viewer (§20) |
@@ -226,6 +283,7 @@ middleware alias, which checks `$request->user()->is_admin`):
 | Full CRUD `/cms`, `/cms/{page}`, PUT/DELETE `/cms/{page}/sections/{sectionKey}` | CMS page + section management. Section endpoints are an upsert-by-key — one PUT both creates and edits, so the frontend never needs to know which case it is |
 | GET `/providers`, GET `/providers/{slug}`, PUT `/providers/{slug}`, PATCH `/providers/{slug}/status`, POST `/providers/{slug}/test` | AI/API provider configuration (§23) — `{slug}` not `{id}`; `api_key` is never returned, only `masked_key` |
 | GET `/usage/summary`, `/usage/daily`, `/usage/by-provider`, `/usage/logs` | Cross-provider usage/cost analytics from `api_usage_logs` (§23) — distinct from `/ai-usage` above |
+| GET | `/system-health` | Real DB connectivity check (`DB::connection()->getPdo()`) and real cache round-trip check, plus the configured queue connection name (not a live queue heartbeat — nothing in this stack exposes one) |
 
 There is no "promote a user to admin" endpoint — `is_admin` is set
 directly in the database (or via `tinker`) by design. A self-service or
@@ -680,10 +738,80 @@ block is `api_usage_logs`-based, today-scoped).
 
 ## 24. Frontend functionality
 
-**Not built yet beyond the Vite scaffold.** `src/api/client.ts` exists
-(axios + bearer interceptor) but no page, component, or route has been
-implemented. The default Vite "Get started" counter page is still what
-renders at `/`.
+**Public site**: homepage (URL-submission hero, six-audit-category
+explainer, free-vs-paid explainer, consultant CTA, CMS-driven hero
+text with a hardcoded fallback when no CMS row exists yet), Services,
+How It Works, Pricing (real data from `GET /api/plans`, §8 — not
+hardcoded tiers), FAQ, Contact (feeds `POST /api/leads`).
+
+**Auth**: Login, Signup (client-side mirrors the backend's password
+policy as a hint, real validation still happens server-side), Forgot
+Password. The last one is **deliberately read-only/informational** —
+there is no password-reset backend (§9/§29), so this page says so and
+points to Contact instead of submitting to an endpoint that doesn't
+exist.
+
+**Audit flow**: a submitted URL (from the homepage hero, the dedicated
+`/audit` page, or the dashboard overview — all three use the same
+`AuditUrlForm` component) navigates to `/audits/{id}`, one adaptive
+page (`AuditStatusPage`) that **serves progress, preview report, and
+full report as one continuous view, not three separate pages** —
+the backend already unifies "status" and "report, filtered by
+access" into two endpoints, and the frontend mirrors that rather than
+fragmenting one continuous experience into artificial page boundaries.
+It polls `GET /api/audits/{id}` every 7s (deliberately under the
+`throttle:10,1` ceiling those routes share — see the known-bug note in
+§28 this fixes) until `completed`/`failed`, then fetches the report,
+retrying a few times if `GenerateReportJob` hasn't finished yet. A 429
+during polling triggers a longer backoff rather than a hard error.
+`ReportView` renders the full spec'd section list (overview scores,
+critical/high issues, other issues gated by `is_full_access`,
+recommendations, AI analysis, page-level findings) plus a PDF-download
+button that streams the file via `axios` (a plain `<a href>` can't
+carry the bearer token) and surfaces the backend's real 403 message
+when the viewer's plan lacks `pdf_export`.
+
+**User dashboard** (`RequireAuth`): Overview (latest audit's scores,
+website count, today's usage, quick audit form), My Websites
+(`GET /api/websites`, §8), Audits (`GET /api/audits`, §8 — **this one
+page deliberately serves the spec's "Audits," "Audit History," and
+"Reports" nav concepts**, since the backend has one audit-history
+dataset, not three; clicking a row goes straight to its report),
+Scheduled Audits (full CRUD against the existing `/api/audit-schedules`
+from §22), Usage (today's count vs. the plan's daily limit, computed
+client-side from the audits list — there's no dedicated "my usage
+today" endpoint), Profile and Subscription (**both read-only** — no
+profile-update or self-service plan-change endpoint exists; showing an
+editable form would either do nothing or call an endpoint that isn't
+there, so neither pretends to).
+
+**Admin dashboard** (`RequireAdmin`): Dashboard (every card and chart
+from `AdminDashboardService::summary()`, §21/§23, including the new
+`provider_usage_today` block), Users, Websites, Audits, Leads (status
+management + notes, full CRUD against the Phase 7 endpoints), AI & API
+Providers (§23's centerpiece — masked-key display, configure, enable/
+disable, real test-connection with a live provider request), API Usage
+(**serves both "API Usage" and "Logs"** — filterable/paginated
+`api_usage_logs` table plus the summary/daily/by-provider charts),
+AI Usage (the separate `ai_analyses`-based view, §23), Plans (**serves
+both "Plans" and "Usage Limits"** — one CRUD form already has every
+limit field), CMS (page + section management, including the free-text
+section-key upsert from §7), Settings (a hub linking to the other
+config pages rather than a fourth place to configure the same things),
+System Health (real DB/cache round-trip checks via a new
+`GET /api/admin/system-health` endpoint, §8 — queue/Redis/Horizon
+status is reported as "configured connection name" only, not a live
+heartbeat, because nothing in this stack currently exposes one — see
+the honesty note in `AdminSystemHealthController`), Failed Jobs
+(list + delete, matching the backend's deliberate no-retry design).
+
+**Consolidations, stated plainly**: three places in the spec's nav
+list name more pages than the backend has distinct datasets for
+(Audits/Audit History/Reports; API Usage/Logs; Plans/Usage Limits).
+Each is one real page/dataset wired to multiple nav labels rather than
+two or three pages rendering the same query — this was a deliberate
+choice to avoid literal duplication for its own sake, not a shortcut
+that dropped functionality; every named capability is reachable.
 
 ## 25. Queue/job architecture
 
@@ -765,6 +893,10 @@ before trusting the first (middleware) implementation.
 ## 27. Current development status
 
 Phases 1-9 complete and committed. See §28/29 for what's outstanding.
+Two pieces of out-of-phase-order work also landed after Phase 9: the
+DB-backed AI/API provider config + usage tracking system (§23) and the
+full frontend (§5/§24) — the original 10-phase plan never allocated a
+phase to the frontend at all.
 
 | Phase | Days | Status |
 |---|---|---|
@@ -777,6 +909,7 @@ Phases 1-9 complete and committed. See §28/29 for what's outstanding.
 | 7. Admin and CMS | 41-46 | ✅ done |
 | 8. PDF and Scheduling | 47-50 | ✅ done |
 | 9. Testing and Security | 51-58 | ✅ done — see §26 for the security hardening (rate limits, password policy, security headers, audit-ID ownership check) and §32 for the testing-gap closures |
+| — Provider config + usage tracking, full frontend (out of phase order) | — | ✅ done — §5, §23, §24 |
 | 10. Production | 59-60 | ⬜ not started |
 
 ## 28. Known bugs
@@ -828,6 +961,36 @@ None currently open. Three were found and fixed during development
   response is finalized either way. Not a shipped defect, but worth
   remembering: **a middleware's post-`$next()` code is a success-path
   hook, not a guaranteed one.** (Phase 9)
+
+- Encrypting an empty string still produces a non-null ciphertext
+  blob — `ApiProvider::isConfigured()` originally checked raw
+  ciphertext presence (`! empty($this->attributes['api_key'])`), so a
+  provider whose `.env` variable was set-but-empty (e.g. `GEMINI_API_KEY=`
+  with nothing after it) got seeded with `api_key = ''`, which then
+  read as "configured" even though there's no usable key. Caught during
+  manual browser verification of the admin Providers page (Gemini
+  showed "Configured" with no key visible). Fixed in three places:
+  `isConfigured()` now decrypts and checks the real value;
+  `ProviderSeeder` normalizes an empty env value to `null` before
+  seeding; `AdminProviderController::update()` normalizes an empty
+  submitted `api_key` to `null` too. (Provider config work)
+- The audit status/report polling loop (`AuditStatusPage`, §24) started
+  at a 3s interval, exceeding the `throttle:10,1` (10/min) limit those
+  routes share — any audit taking longer than ~30s to complete
+  triggered a real 429 that the page surfaced as a hard error. Found
+  by actually running a live audit against `example.com` during manual
+  verification. Fixed by slowing the interval to 7s (safely under the
+  6s/request ceiling) and treating a 429 during polling as "wait
+  longer," not "something is wrong" — it backs off and retries instead
+  of failing. (Provider config work / frontend)
+- `AuthController::register()`/`login()` returned the bare `$user`
+  model with no `subscription`/`plan` relation loaded, unlike `me()`
+  (which already had `.load('subscription.plan')` from Phase 9's audit-
+  ID-ownership work). The dashboard's "next available audit"/daily-limit
+  hints silently showed nothing until the next full page load re-fetched
+  `/api/user`. Found the same way — running the real signup flow in a
+  browser and noticing the plan-dependent UI was blank. Fixed by adding
+  the same eager-load to both. (Frontend)
 
 **Testing-only gotcha #2, not a bug** (found writing the PDF-export
 anonymous-viewer test, Phase 8): `$this->withHeader('Authorization', ...)`
@@ -906,6 +1069,27 @@ authenticated actors in one method, use one of these two patterns.
   concrete pricing/limits were invented since the spec doesn't specify
   them and "complex billing" is an MVP exclusion (see Phase 6's
   `PlanSeeder` comment).
+- **No automated frontend test suite** (no Vitest/React Testing
+  Library). Verification for the frontend work was `tsc -b && vite
+  build` (zero errors, `noUnusedLocals`/`noUnusedParameters` on),
+  `oxlint`, and manual exercise of every flow against the real running
+  backend in a browser — not a substitute for real component/unit
+  tests, but real functional verification, not a claim based on reading
+  the code. Add a test runner before this frontend grows much further.
+- **A failed "Test Connection" attempt doesn't record a response
+  time** — `ClaudeProvider::testConnection()` (and its OpenAI/Gemini
+  equivalents) return `response_time_ms: null` on the caught-exception
+  path, even though the underlying HTTP call's elapsed time was
+  measured before the exception was thrown; `AiProviderException`
+  doesn't carry it. Minor telemetry completeness gap in the admin API
+  Usage page's average-response-time figure for failed test-connection
+  rows specifically — not a functional defect (success/failure and the
+  error message are still accurate).
+- **PageSpeed's "Test Connection"** runs a real PageSpeed Insights
+  call against a fixed test URL (`https://example.com`), which is slow
+  (10-30s, per §14) — the admin UI has no separate longer timeout or
+  "this may take a while" messaging for that one provider's test
+  button specifically.
 
 ## 30. Pending tasks
 
@@ -917,13 +1101,21 @@ deliberately left as accepted limitations or deferred product decisions
 rather than being fixed speculatively — revisit only if real usage
 shows they're actually load-bearing problems, not preemptively.
 
-**Out-of-spec-order work**: the DB-backed AI/API provider configuration
-and usage-tracking system (§23) and the full frontend (public site,
-user dashboard, audit flow, admin dashboard, provider-config UI, usage
-analytics — see §24) were requested directly, ahead of Phase 10, since
-the original 10-phase plan never allocated a phase to the frontend at
-all. After the frontend is complete: **Phase 10: Production** remains
-the last phase in the original plan.
+**Out-of-spec-order work, now done**: the DB-backed AI/API provider
+configuration and usage-tracking system (§23) and the full frontend
+(public site, user dashboard, audit flow, admin dashboard,
+provider-config UI, usage analytics — see §5/§24) were requested
+directly, ahead of Phase 10, since the original 10-phase plan never
+allocated a phase to the frontend at all.
+
+**Next up in spec order: Phase 10: Production** — the last phase.
+Candidates for that pass, not yet started: no automated frontend test
+suite exists yet (§29/§32); real AI provider keys have never been
+exercised against a live provider from this codebase (§29); `.env`'s
+`APP_DEBUG` needs to be confirmed `false` for a real deployment (this
+dev environment intentionally runs with it on); production queue
+worker/Horizon setup (this dev box can't run either — no `pcntl`/
+`posix` on Windows, §25).
 
 ## 31. Important technical decisions
 
@@ -1088,6 +1280,36 @@ the last phase in the original plan.
   shapes: `ai_analyses` is the per-audit AI cache/result record (drives
   the cache-before-call rule); `api_usage_logs` is cross-provider ops/
   cost telemetry, the only one of the two that covers PageSpeed at all.
+- **Tailwind CSS v4 + plain `axios`/`useEffect`, no data-fetching
+  library** (§5) — Tailwind for fast, consistent styling without
+  hand-rolled CSS at this scale; skipping TanStack Query/SWR because
+  every page's fetch need (load on mount, refetch on an explicit
+  action) is simple enough that the library's caching/dedup machinery
+  isn't earning its cost yet — revisit if the app grows enough shared-
+  data-across-pages need to justify it.
+- **`AuditStatusPage` is one adaptive page for progress + preview
+  report + full report, not three routes** (§24) — the backend already
+  collapses "status" and "report, filtered by `is_full_access`" into
+  two endpoints; three separate frontend pages would either duplicate
+  the polling/fetch logic three times or awkwardly share it across
+  route boundaries for no real benefit, since it's genuinely one
+  continuous user experience (submit → wait → see results).
+- **Three nav concepts each collapse onto one real page/dataset**
+  (§24: Audits/Audit History/Reports; API Usage/Logs; Plans/Usage
+  Limits) — the backend has one dataset for each pair/triple, not
+  several; building visually-identical pages against the same query
+  would be duplication with no functional gain. Every named capability
+  in the original nav list is still reachable, just not fragmented into
+  more page loads than the data supports.
+- **Profile and Subscription pages are read-only** (§24) — there is no
+  profile-update or self-service plan-change endpoint on the backend.
+  An editable form with nothing real to submit to would either silently
+  no-op or call an endpoint that doesn't exist; showing accurate
+  read-only data was judged more honest than either.
+- **PDF download goes through `axios` as a blob, not a plain
+  `<a href>`** (§24) — the endpoint requires the Sanctum bearer token,
+  which a plain link has no way to attach; a blob fetch keeps the
+  existing bearer-token interceptor in the request path.
 
 ## 32. Testing architecture
 
@@ -1119,8 +1341,11 @@ asserting "no exception was thrown." `AdminProviderApiTest` (§23) proves
 the provider-config/usage-tracking system end-to-end against real HTTP
 requests: `Http::fake()`'d provider calls, real encryption round-trips,
 masked-key assertions against the raw response body (not just the
-decoded JSON path), and real daily/date-range aggregation queries. 287
-PHP tests currently, all passing.
+decoded JSON path), and real daily/date-range aggregation queries. Two
+small self-service endpoints (`GET /api/websites`, `GET /api/audits`)
+and one public one (`GET /api/plans`) were added directly for the
+frontend to consume, each with real ownership-scoping tests
+(`AuditApiTest`). 299 PHP tests currently, all passing.
 
 Crawler: `crawler/lib/*.test.mjs`, run via `npm test` (Node's built-in
 `node --test`, no added dependency). Covers the SSRF logic
@@ -1129,14 +1354,31 @@ defense-in-depth layer described in §26, tested independently of the PHP
 side since the two can't share code across the language boundary. 40
 Node tests currently, all passing.
 
-**327 tests total** (287 PHP + 40 Node). See `tests/TEST_CASES.md` at the
+**339 tests total** (299 PHP + 40 Node). See `tests/TEST_CASES.md` at the
 repo root for the full registry mapped to test-requirement categories,
 coverage status, and any remaining gaps.
 
-Frontend: no test setup exists yet (no components exist yet to test).
+Frontend: no automated test suite (§5/§29) — verification was
+`tsc -b && vite build` (zero errors), `oxlint`, and manual exercise of
+every page against the real backend in a browser: signup → dashboard
+(plan data correctly present, per the register/login bug fix in §28) →
+submitting a real audit against `example.com` → watching it process
+through a real queue worker → viewing the completed report (all six
+category scores, expandable issues, recommendations) → a PDF-download
+attempt correctly blocked with the real 403 message (free plan lacks
+`pdf_export`) → the admin dashboard (real cards/charts reflecting that
+same audit and its AI-call attempts) → configuring a provider with a
+fake key → Test Connection making a real request to the real Anthropic
+API and surfacing the real 401 safely, with no credential leakage
+anywhere in the response → the mobile public-nav menu. This caught three
+real bugs (§28), which is the point of actually running the app instead
+of only reading the code — but it is not a substitute for an automated
+suite, which this project still doesn't have for the frontend.
 
-E2E: none exist yet — there's no frontend to drive and no public API to
-call.
+E2E: none exist yet — no Cypress/Playwright browser-automation suite
+is wired into this repo's test commands. The manual verification pass
+above exercised the equivalent flows by hand, once, in this session;
+it is not regression-tested and will not catch a future break.
 
 ---
 
