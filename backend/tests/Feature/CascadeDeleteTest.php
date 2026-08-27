@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\ScheduleFrequency;
 use App\Models\AiAnalysis;
+use App\Models\ApiUsageLog;
 use App\Models\Audit;
 use App\Models\AuditIssue;
 use App\Models\AuditPage;
@@ -256,5 +257,28 @@ class CascadeDeleteTest extends TestCase
         $website->delete();
 
         $this->assertNull(AuditSchedule::find($schedule->id));
+    }
+
+    public function test_deleting_a_user_nulls_the_api_usage_logs_user_id_instead_of_deleting_the_log(): void
+    {
+        $user = User::create(['name' => 'Test', 'email' => 'test@example.com', 'password' => 'x']);
+        $log = ApiUsageLog::create(['provider' => 'claude', 'service' => 'ai_analysis', 'success' => true, 'user_id' => $user->id]);
+
+        $user->delete();
+
+        $this->assertNotNull($log->fresh());
+        $this->assertNull($log->fresh()->user_id);
+    }
+
+    public function test_deleting_an_audit_nulls_the_api_usage_logs_audit_id_instead_of_deleting_the_log(): void
+    {
+        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
+        $log = ApiUsageLog::create(['provider' => 'claude', 'service' => 'ai_analysis', 'success' => true, 'audit_id' => $audit->id]);
+
+        $audit->delete();
+
+        $this->assertNotNull($log->fresh());
+        $this->assertNull($log->fresh()->audit_id);
     }
 }

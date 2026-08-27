@@ -10,5 +10,7 @@ final readonly class AiResponse
         public array $raw = [],
         public ?int $promptTokens = null,
         public ?int $completionTokens = null,
+        public ?int $responseTimeMs = null,
+        public ?int $httpStatus = null,
     ) {}
 }

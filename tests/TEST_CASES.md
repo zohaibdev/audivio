@@ -9,7 +9,7 @@ whenever coverage is added, moved, or removed.
 for all external calls — no test hits a real third-party API) and
 `cd crawler && npm test` (Node's built-in test runner, `node --test`).
 
-**Current total**: 297 tests (257 PHP + 40 Node), all passing, 0 known failures.
+**Current total**: 327 tests (287 PHP + 40 Node), all passing, 0 known failures.
 
 Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 
@@ -81,7 +81,7 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Platform detection | Wix (static asset domain, header) | `PlatformDetectorTest::test_detects_wix_from_static_asset_domain`, `test_detects_wix_from_header` | ✅ |
 | Platform detection | Signal priority (Shopify wins over a simultaneous WordPress match) | `PlatformDetectorTest::test_shopify_signal_takes_priority_over_wordpress` | ✅ |
 | Platform detection | Unrecognized generator meta → Custom; no signal at all → Unknown | `PlatformDetectorTest::test_unrecognized_generator_meta_is_custom`, `test_no_signals_at_all_is_unknown`, `test_empty_html_is_unknown` | ✅ |
-| URL normalization | Trailing-slash homepage dedup | — | ⬜ gap: fixed as a real bug (see CONTEXT.md §27) but not regression-tested — a sitemap URL matching the seed URL modulo trailing slash should not be double-created as a `CrawlUrl` |
+| URL normalization | Trailing-slash homepage dedup | — | ⬜ gap: fixed as a real bug (see CONTEXT.md §28) but not regression-tested — a sitemap URL matching the seed URL modulo trailing slash should not be double-created as a `CrawlUrl` |
 | SSRF / URL security | Loopback (IPv4 `127.0.0.1` + IPv6 `::1`), private ranges (10/8, 172.16/12, 192.168/16), cloud metadata (`169.254.169.254`), IPv6 unique-local (`fc00::/7`) | `UrlSecurityValidatorTest::test_loopback_ipv4_is_blocked` and 6 sibling `test_*_is_blocked` methods | ✅ |
 | SSRF / URL security | Public IP literal allowed | `UrlSecurityValidatorTest::test_public_ip_literal_is_allowed` | ✅ |
 | SSRF / URL security | `localhost` / case-insensitive / `*.localhost` subdomain blocked | `UrlSecurityValidatorTest::test_localhost_hostname_is_blocked` + 2 siblings | ✅ |
@@ -120,7 +120,7 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Report visibility | Anonymous view always shows the overview (scores) | `ReportVisibilityFilterTest::test_anonymous_view_always_shows_the_overview` | ✅ |
 | Report access | Anonymous audit grants full access to no one — not even a logged-in viewer, not even its own anonymous creator | `ReportAccessResolverTest::test_anonymous_audit_grants_no_one_full_access_even_a_logged_in_viewer` | ✅ |
 | Report access | Owner viewing their own audit has full access | `ReportAccessResolverTest::test_owner_viewing_their_own_audit_has_full_access` | ✅ |
-| Report access | A different registered user does NOT get full access to someone else's audit (closed an authorization gap — see CONTEXT.md §9/§27) | `ReportAccessResolverTest::test_a_different_registered_user_does_not_get_full_access_to_someone_elses_audit` | ✅ |
+| Report access | A different registered user does NOT get full access to someone else's audit (closed an authorization gap — see CONTEXT.md §9/§28) | `ReportAccessResolverTest::test_a_different_registered_user_does_not_get_full_access_to_someone_elses_audit` | ✅ |
 | Report access | Anonymous viewer of a registered user's audit has no full access | `ReportAccessResolverTest::test_anonymous_viewer_of_a_registered_users_audit_has_no_full_access` | ✅ |
 | Admin dashboard | Users/admins counted separately | `AdminDashboardServiceTest::test_counts_users_and_admins_separately` | ✅ |
 | Admin dashboard | Audits grouped by status | `AdminDashboardServiceTest::test_audits_grouped_by_status` | ✅ |
@@ -128,12 +128,17 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Admin dashboard | AI usage separates successful from failed calls, sums tokens | `AdminDashboardServiceTest::test_ai_usage_separates_successful_from_failed_calls_and_sums_tokens` | ✅ |
 | Admin dashboard | Empty database returns zeros, not errors/exceptions | `AdminDashboardServiceTest::test_empty_database_returns_zeros_not_errors` | ✅ |
 | Admin dashboard | Audit schedules counted total vs. active separately | `AdminDashboardServiceTest::test_audit_schedules_counts_total_and_active_separately` | ✅ |
+| Admin dashboard | Today's AI request/token/cost totals and PageSpeed request count, summarized separately from yesterday's | `AdminDashboardServiceTest::test_provider_usage_today_summarizes_ai_and_pagespeed_separately` | ✅ |
 | Scheduling | `ScheduleFrequency::nextRunFrom` advances by exactly one day/week/month and does not mutate the given instant | `ScheduleFrequencyTest` (4 tests) | ✅ |
 | Scheduling | A user with no plan, or a plan without the `scheduled_audits` feature, cannot create a schedule | `AuditSchedulerServiceTest::test_a_user_with_no_plan_cannot_create_a_schedule`, `test_a_plan_without_the_scheduled_audits_feature_cannot_create_a_schedule` | ✅ |
 | Scheduling | A plan with the feature can create schedules up to its `full_recrawls` limit; inactive schedules don't count against it | `AuditSchedulerServiceTest::test_a_plan_with_the_feature_can_create_a_schedule_up_to_its_full_recrawls_limit`, `test_inactive_schedules_do_not_count_against_the_limit` | ✅ |
 | Scheduling | Creating a schedule sets `next_run_at` per the chosen frequency | `AuditSchedulerServiceTest::test_create_sets_next_run_at_based_on_frequency` | ✅ |
 | Scheduling | `runDue()` dispatches a crawl and advances the schedule for due, active schedules only — ignores not-yet-due and inactive ones | `AuditSchedulerServiceTest::test_run_due_dispatches_a_crawl_and_advances_the_schedule`, `test_run_due_ignores_schedules_not_yet_due`, `test_run_due_ignores_inactive_schedules` | ✅ |
 | PDF export | Renders a valid PDF binary (`%PDF-` signature) for a report with issues/recommendations/AI analysis, and for one with none of those | `ReportPdfServiceTest` (2 tests) | ✅ |
+| AI providers | Claude/OpenAI/Gemini throw when no `ApiProvider` row exists, when disabled, and on an error status; success parses response+usage; a failure records `last_failure_at`/`last_error` on the provider row | `ProvidersTest` (14 tests, extended in the provider-config work) | ✅ |
+| AI providers | `testConnection()` works even while the provider is disabled (only requires configured), and fails safely with a message when no key exists | `ProvidersTest::test_claude_test_connection_succeeds_even_when_disabled`, `test_claude_test_connection_fails_safely_without_a_key` | ✅ |
+| AI analysis | A successful/failed call writes an `api_usage_logs` row with the right provider/service/tokens/audit; analysis is skipped once the provider's configured daily request limit is reached | `AiAnalysisServiceTest::test_successful_call_writes_an_api_usage_log`, `test_failed_call_writes_a_failed_api_usage_log`, `test_analysis_is_skipped_once_the_daily_limit_is_reached` | ✅ |
+| Provider cost estimation | Returns a computed cost when both per-1k-token rates are configured; returns `null` (never a guessed number) when neither is set | `AdminProviderApiTest::test_estimated_cost_is_calculated_where_supported` | ✅ |
 
 ## Feature tests
 
@@ -141,7 +146,7 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 |---|---|---|
 | Signup | `AuthTest::test_registration_creates_a_user_and_returns_a_token`, `test_registration_subscribes_the_user_to_the_default_plan`, `test_registration_rejects_a_duplicate_email`, `test_registration_rejects_mismatched_password_confirmation` | ✅ |
 | Login | `AuthTest::test_login_with_correct_credentials_returns_a_token`, `test_login_with_wrong_password_is_rejected`, `test_login_with_unknown_email_is_rejected` | ✅ |
-| Logout | `AuthTest::test_logout_revokes_the_current_token` (see CONTEXT.md §27 for the Sanctum-guard testing gotcha this test works around) | ✅ |
+| Logout | `AuthTest::test_logout_revokes_the_current_token` (see CONTEXT.md §28 for the Sanctum-guard testing gotcha this test works around) | ✅ |
 | Authenticated profile fetch / rejection when unauthenticated | `AuthTest::test_authenticated_user_can_fetch_their_own_profile`, `test_unauthenticated_request_to_user_endpoint_is_rejected` | ✅ |
 | Website creation | Implicit in every `AuditApiTest` audit-creation case (a `Website` row is created alongside the `Audit`) — no dedicated test since there's no standalone website-creation endpoint | ✅ (via `AuditApiTest`) |
 | Audit creation (anonymous) | `AuditApiTest::test_anonymous_visitor_can_create_an_audit`, `test_created_audit_has_no_user_id_for_an_anonymous_request`, `test_anonymous_audit_is_capped_at_the_configured_anonymous_page_limit` | ✅ |
@@ -167,6 +172,8 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Admin operations — audit schedules listing | `AdminApiTest::test_audit_schedules_listing` | ✅ |
 | PDF export | `AuditApiTest::test_pdf_export_returns_a_pdf_for_the_owner_on_a_plan_with_the_feature` (200, `Content-Type: application/pdf`, `%PDF-` body), `test_pdf_export_is_rejected_when_the_owners_plan_lacks_the_feature` (403), `test_pdf_export_is_rejected_for_a_non_owner` (403), `test_pdf_export_is_rejected_for_an_anonymous_viewer` (403), `test_pdf_export_returns_404_when_the_report_is_not_ready` | ✅ |
 | Scheduled audits (create/list/update/delete, all ownership- and plan-gated) | `AuditScheduleApiTest` (12 tests: unauthenticated 401, owns-website 201, someone-else's-website 422, missing feature 403, over the `full_recrawls` limit 403, duplicate-website 422, invalid frequency 422, list-scoped-to-self, pause via update, update/delete blocked with 404 — not 403 — for a non-owner, delete) | ✅ |
+| AI/API provider configuration (view/configure Claude/OpenAI/Gemini/PageSpeed, enable/disable, test connection) | `AdminProviderApiTest` (20 tests — see the "Provider configuration" category below for the full breakdown) | ✅ |
+| Cross-provider usage/cost analytics (summary, daily, by-provider, filterable logs) | `AdminProviderApiTest`'s TC-USAGE-tagged tests (8 tests) | ✅ |
 
 **The default `Tests\Feature\ExampleTest`** (Laravel scaffold, asserts `/`
 returns 200) still exists and passes — kept as-is; no real reason to
@@ -183,13 +190,45 @@ actual functionality either way.
 | Status codes (200/201/202/401/403/404/409/422/429) | Exercised across `AuthTest`/`AuditApiTest`/`AdminApiTest`/`AuditScheduleApiTest` — every status code the API actually returns has at least one test asserting it, including 403 (non-admin; PDF/schedule plan-feature gates), 404-not-403 for another user's schedule (a deliberate choice not to confirm it exists), and 409 (plan deletion conflict) | ✅ |
 | Response schema | `AuthTest::test_registration_creates_a_user_and_returns_a_token` asserts `assertJsonStructure(['data' => ['user', 'token']])`; `AdminApiTest::test_dashboard_returns_summary_data` asserts the full dashboard shape; the PDF export test asserts `Content-Type: application/pdf` and a `%PDF-` body instead of the usual JSON envelope; other tests assert specific `assertJsonPath()` values | ✅ |
 | Error handling (SSRF rejection, usage-limit rejection, plan-deletion conflict, schedule limit/feature gates) | `AuditApiTest::test_unsafe_url_is_rejected_before_creating_any_records`, usage-limit tests (see Feature tests table), `AdminApiTest::test_admin_cannot_delete_a_plan_with_an_active_subscription`, `AuditScheduleApiTest::test_a_plan_without_the_scheduled_audits_feature_is_rejected`, `test_a_second_website_beyond_the_plans_full_recrawls_limit_is_rejected` | ✅ |
-| Rate limits | `AuditApiTest::test_requests_beyond_the_rate_limit_are_throttled`, `AuthTest::test_login_attempts_beyond_the_rate_limit_are_throttled`, `test_registration_attempts_beyond_the_rate_limit_are_throttled`, `AdminApiTest::test_lead_submissions_beyond_the_rate_limit_are_throttled` (Phase 9 — `/register`/`/login`/`/leads` were previously unthrottled, see CONTEXT.md §25) | ✅ |
+| Rate limits | `AuditApiTest::test_requests_beyond_the_rate_limit_are_throttled`, `AuthTest::test_login_attempts_beyond_the_rate_limit_are_throttled`, `test_registration_attempts_beyond_the_rate_limit_are_throttled`, `AdminApiTest::test_lead_submissions_beyond_the_rate_limit_are_throttled` (Phase 9 — `/register`/`/login`/`/leads` were previously unthrottled, see CONTEXT.md §26) | ✅ |
 | Security — cross-user data leakage | `AuditApiTest::test_report_endpoint_does_not_grant_full_access_to_a_different_registered_user`, `test_show_hides_a_registered_audit_from_a_different_registered_user`, `test_show_hides_a_registered_audit_from_an_anonymous_viewer` (Phase 9 — closed the audit-ID-enumeration gap for registered audits, CONTEXT.md §9) | ✅ |
 | Pagination | `AdminApiTest::test_users_listing_is_paginated_and_includes_subscription` and every other admin listing test asserts the paginator shape (`current_page`/`total`/`data`) | ✅ |
 | Duplicate/malicious input beyond SSRF | `AuditApiTest::test_oversized_url_is_rejected_with_a_validation_error`, `test_non_string_url_is_rejected_with_a_validation_error`, `AuthTest::test_registration_rejects_an_oversized_name`, `test_registration_safely_stores_an_injection_style_name_without_executing_it`, `AdminApiTest::test_lead_submission_rejects_an_oversized_message`, `test_lead_submission_safely_stores_injection_and_script_style_strings_without_executing_them` (Phase 9 — the injection/XSS-style tests assert the string is stored verbatim and the table survives intact, proving parameter binding rather than just "no error was thrown") | ✅ |
-| Password policy | `AuthTest::test_registration_rejects_a_password_with_no_numbers`, `test_registration_rejects_a_password_under_eight_characters` (Phase 9 — tightened from Laravel's bare 8-characters-only default, CONTEXT.md §25) | ✅ |
-| Security headers | `AuthTest::test_successful_api_responses_include_baseline_security_headers`, `test_exception_rendered_api_responses_also_include_security_headers` (the second one specifically proves the `RequestHandled`-listener approach, not a middleware, since middleware after-code is skipped on the exception path — CONTEXT.md §25/§27) | ✅ |
+| Password policy | `AuthTest::test_registration_rejects_a_password_with_no_numbers`, `test_registration_rejects_a_password_under_eight_characters` (Phase 9 — tightened from Laravel's bare 8-characters-only default, CONTEXT.md §26) | ✅ |
+| Security headers | `AuthTest::test_successful_api_responses_include_baseline_security_headers`, `test_exception_rendered_api_responses_also_include_security_headers` (the second one specifically proves the `RequestHandled`-listener approach, not a middleware, since middleware after-code is skipped on the exception path — CONTEXT.md §26/§28) | ✅ |
 | Backward compatibility | — | ⬜ n/a — no prior API version exists to be compatible with |
+
+## Provider configuration and usage tracking tests
+
+All in `tests/Feature/Api/AdminProviderApiTest.php` unless noted. TC-IDs
+match the ones this feature was scoped against.
+
+| TC-ID | Case | Test | Status |
+|---|---|---|---|
+| TC-ADMIN-PROVIDER-001 | Admin can view provider configuration | `test_admin_can_view_provider_configuration` | ✅ |
+| TC-ADMIN-PROVIDER-002 | Admin can configure Claude | `test_admin_can_configure_claude` | ✅ |
+| TC-ADMIN-PROVIDER-003 | Admin can configure OpenAI | `test_admin_can_configure_openai` | ✅ |
+| TC-ADMIN-PROVIDER-004 | Admin can configure Gemini | `test_admin_can_configure_gemini` | ✅ |
+| TC-ADMIN-PROVIDER-005 | Admin can configure Google PageSpeed | `test_admin_can_configure_google_pagespeed` | ✅ |
+| TC-ADMIN-PROVIDER-006 | Admin can enable/disable a provider | `test_admin_can_enable_and_disable_a_provider`, `test_enabling_a_provider_without_a_key_is_rejected` | ✅ |
+| TC-ADMIN-PROVIDER-007 | Provider API key is never returned in full | `test_provider_api_key_is_never_returned_in_full` — asserts the raw key string is absent from the full response body, not just that a specific JSON key is missing | ✅ |
+| TC-ADMIN-PROVIDER-008 | Non-admin cannot access provider configuration | `test_non_admin_cannot_access_provider_configuration`, `test_unauthenticated_request_is_rejected` | ✅ |
+| TC-ADMIN-PROVIDER-009 | Test connection succeeds with valid credentials | `test_connection_succeeds_with_valid_credentials` | ✅ |
+| TC-ADMIN-PROVIDER-010 | Test connection fails safely with invalid credentials | `test_connection_fails_safely_with_invalid_credentials` — asserts the response never contains the raw key | ✅ |
+| TC-USAGE-001 | Every provider request creates a usage record | `test_every_provider_request_creates_a_usage_record` | ✅ |
+| TC-USAGE-002 | Daily request aggregation is correct | `test_daily_request_aggregation_is_correct` | ✅ |
+| TC-USAGE-003 | Provider usage filtering works | `test_usage_provider_filtering_works` | ✅ |
+| TC-USAGE-004 | Date filtering works | `test_usage_date_filtering_works` | ✅ |
+| TC-USAGE-005 | Failed requests are counted | `test_failed_requests_are_counted` | ✅ |
+| TC-USAGE-006 | Token usage is recorded where available | `test_token_usage_is_recorded_where_available` | ✅ |
+| TC-USAGE-007 | Estimated cost is calculated where supported | `test_estimated_cost_is_calculated_where_supported` (Unit-level, on `ApiProvider::estimateCost()`) | ✅ |
+| TC-USAGE-008 | Usage dashboard loads real backend data | `test_usage_dashboard_loads_real_backend_data` | ✅ |
+| TC-QUALITY-005 | No new critical backend errors | Full suite run clean after this change (327 tests, `pint --test` clean, `php -l` on every source file) — see CONTEXT.md §23 | ✅ |
+| TC-QUALITY-006 | No database integrity problems | `DatabaseMigrationTest` includes `api_providers`/`api_usage_logs`; `CascadeDeleteTest` covers both tables' nullOnDelete relationships | ✅ |
+
+Frontend-side TC-IDs (`TC-FRONTEND-*`, `TC-QUALITY-001/002/003/004`) are
+tracked once the frontend work lands — see the "Frontend tests" section
+below, which is a gap until then, not a defect.
 
 ## Database tests
 
@@ -218,6 +257,8 @@ actual functionality either way.
 | Cascade delete: cms_page → cms_sections | `CascadeDeleteTest::test_deleting_a_cms_page_cascades_to_its_sections` | ✅ |
 | Cascade delete: user → audit_schedules | `CascadeDeleteTest::test_deleting_a_user_cascades_to_their_audit_schedules` | ✅ |
 | Cascade delete: website → audit_schedules | `CascadeDeleteTest::test_deleting_a_website_cascades_to_its_audit_schedules` | ✅ |
+| Null-on-delete: user → api_usage_log.user_id (log itself survives) | `CascadeDeleteTest::test_deleting_a_user_nulls_the_api_usage_logs_user_id_instead_of_deleting_the_log` | ✅ |
+| Null-on-delete: audit → api_usage_log.audit_id (log itself survives) | `CascadeDeleteTest::test_deleting_an_audit_nulls_the_api_usage_logs_audit_id_instead_of_deleting_the_log` | ✅ |
 
 All cascade tests above were confirmed to exercise real DB-level FK
 enforcement, not vacuous passes — `config/database.php`'s sqlite
@@ -292,7 +333,7 @@ added above.
   issuance/verification, and real middleware stack working together —
   `AuditApiTest`/`AuthTest` cover the same logic through Laravel's test
   client, which shares the app container across calls (see the
-  Sanctum-guard note in CONTEXT.md §27) rather than truly separate
+  Sanctum-guard note in CONTEXT.md §28) rather than truly separate
   processes.
 
 ---
@@ -332,7 +373,7 @@ added above.
    (30 tests, Phase 7) exercise the real HTTP endpoints, not just the
    services behind them — authentication, authorization (including a
    cross-user isolation check that caught a real Sanctum-guard testing
-   gotcha, documented in CONTEXT.md §27; and admin-gate 401/403 checks),
+   gotcha, documented in CONTEXT.md §28; and admin-gate 401/403 checks),
    validation, status codes, error handling, rate limiting, and
    pagination.
 7. ~~Everything under Frontend/E2E, and the Feature-level flows
@@ -341,7 +382,7 @@ added above.
    closed** (Phase 7): lead capture and admin (dashboard, resource
    listings, plan CRUD, CMS, lead management) are now built and tested
    via `AdminApiTest`. Frontend/E2E for these remains a gap since no
-   frontend UI exists yet for admin or lead capture — see CONTEXT.md §26
+   frontend UI exists yet for admin or lead capture — see CONTEXT.md §27
    for phase status.
 8. ~~`OpenAiProvider`/`GeminiProvider` only have their success-path
    parsing tested; the missing-key/error-status pair is only verified
@@ -390,5 +431,20 @@ added above.
     test suite caught a real implementation bug before it shipped: a
     first (middleware-based) version silently missed every
     exception-rendered response (401/403/422/429/404) because middleware
-    post-`$next()` code doesn't run on that path — see CONTEXT.md §25/§27
+    post-`$next()` code doesn't run on that path — see CONTEXT.md §26/§28
     for the fix (a `RequestHandled` event listener instead).
+13. AI/API provider credentials and limits lived in `.env`/`config/*.php`
+    with no admin UI, no encryption, no usage/cost tracking beyond
+    `ai_analyses`' per-audit records, and no coverage for PageSpeed at
+    all — **closed**: DB-backed encrypted provider config
+    (`App\Models\ApiProvider`) and cross-provider usage tracking
+    (`App\Models\ApiUsageLog`), with admin CRUD/test-connection/usage-
+    analytics endpoints. 30 new PHP tests this chunk (257 → 287):
+    `AdminProviderApiTest` (20, see the "Provider configuration and
+    usage tracking tests" section above for the full TC-ID mapping),
+    `AiAnalysisServiceTest` additions (3), `AdminDashboardServiceTest`
+    addition (1), `CascadeDeleteTest` additions (2), plus `ProvidersTest`
+    growing from 10 to 14 as its `config()`-based setup was rewritten to
+    seed real `ApiProvider` rows (the DB is now the only source of truth
+    for provider settings, so the old config-mutation approach no longer
+    reflects reality). See CONTEXT.md §23 for the full design.

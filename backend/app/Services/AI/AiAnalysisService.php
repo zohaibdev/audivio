@@ -5,6 +5,8 @@ namespace App\Services\AI;
 use App\DTOs\AiResponse;
 use App\Enums\AuditCategory;
 use App\Models\AiAnalysis;
+use App\Models\ApiProvider;
+use App\Models\ApiUsageLog;
 use App\Models\Audit;
 use Illuminate\Support\Facades\Log;
 
@@ -48,6 +50,18 @@ class AiAnalysisService
 
         $provider = $this->providerFactory->make();
 
+        if ($this->exceedsConfiguredLimits($provider->name())) {
+            Log::channel('ai')->warning('AI analysis skipped: provider request limit reached', [
+                'audit_id' => $audit->id,
+                'category' => $category->value,
+                'provider' => $provider->name(),
+            ]);
+
+            $this->logUsage($provider->name(), $category, $audit, success: false, errorCategory: 'limit_exceeded');
+
+            return null;
+        }
+
         try {
             $response = $provider->analyze($prompt, $context);
         } catch (\Throwable $e) {
@@ -68,6 +82,16 @@ class AiAnalysisService
                 ],
             );
 
+            $httpStatus = $e instanceof AiProviderException ? $e->httpStatus : null;
+            $this->logUsage(
+                $provider->name(),
+                $category,
+                $audit,
+                success: false,
+                httpStatus: $httpStatus,
+                errorCategory: $httpStatus !== null ? 'http_error' : 'exception',
+            );
+
             return null;
         }
 
@@ -84,6 +108,82 @@ class AiAnalysisService
             ],
         );
 
+        $this->logUsage(
+            $provider->name(),
+            $category,
+            $audit,
+            success: true,
+            httpStatus: $response->httpStatus,
+            responseTimeMs: $response->responseTimeMs,
+            promptTokens: $response->promptTokens,
+            completionTokens: $response->completionTokens,
+        );
+
         return $response;
+    }
+
+    private function exceedsConfiguredLimits(string $providerSlug): bool
+    {
+        $provider = ApiProvider::where('slug', $providerSlug)->first();
+
+        if ($provider === null) {
+            return false;
+        }
+
+        $dailyLimit = $provider->getConfigValue('daily_request_limit');
+        $monthlyLimit = $provider->getConfigValue('monthly_request_limit');
+
+        if ($dailyLimit !== null) {
+            $today = ApiUsageLog::where('provider', $providerSlug)->whereDate('created_at', now()->toDateString())->count();
+            if ($today >= $dailyLimit) {
+                return true;
+            }
+        }
+
+        if ($monthlyLimit !== null) {
+            $thisMonth = ApiUsageLog::where('provider', $providerSlug)
+                ->whereYear('created_at', now()->year)
+                ->whereMonth('created_at', now()->month)
+                ->count();
+            if ($thisMonth >= $monthlyLimit) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function logUsage(
+        string $providerSlug,
+        AuditCategory $category,
+        Audit $audit,
+        bool $success,
+        ?int $httpStatus = null,
+        ?int $responseTimeMs = null,
+        ?int $promptTokens = null,
+        ?int $completionTokens = null,
+        ?string $errorCategory = null,
+    ): void {
+        $provider = ApiProvider::where('slug', $providerSlug)->first();
+        $totalTokens = ($promptTokens !== null || $completionTokens !== null)
+            ? ($promptTokens ?? 0) + ($completionTokens ?? 0)
+            : null;
+
+        ApiUsageLog::create([
+            'provider' => $providerSlug,
+            'service' => 'ai_analysis',
+            'request_type' => $category->value,
+            'audit_id' => $audit->id,
+            'user_id' => $audit->user_id,
+            'model' => $provider?->model,
+            'success' => $success,
+            'http_status' => $httpStatus,
+            'response_time_ms' => $responseTimeMs,
+            'prompt_tokens' => $promptTokens,
+            'completion_tokens' => $completionTokens,
+            'total_tokens' => $totalTokens,
+            'estimated_cost' => $provider?->estimateCost($promptTokens, $completionTokens),
+            'error_category' => $errorCategory,
+        ]);
     }
 }

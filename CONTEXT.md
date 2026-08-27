@@ -118,12 +118,12 @@ frontend/src/
 
 Only the Vite scaffold page renders currently. No real UI has been built —
 that starts in earnest around Phase 5 (Report System) / Phase 6 (User
-System) per the timeline in §26.
+System) per the timeline in §27.
 
 ## 6. Database architecture
 
 MySQL, **every table explicitly declares `$table->engine = 'InnoDB'`** in
-its migration — see the known-issue note in §30, this is not optional
+its migration — see the known-issue note in §31, this is not optional
 boilerplate. `Builder::defaultStringLength(191)` is set in
 `AppServiceProvider::boot()` for the same underlying reason (old-MySQL
 `utf8mb4` index length limits).
@@ -150,6 +150,8 @@ boilerplate. `Builder::defaultStringLength(191)` is set in
 | `cms_pages` | slug (unique), title, meta_description (nullable) | `hasMany` sections (ordered by `sort_order`) |
 | `cms_sections` | cms_page_id, section_key (not an enum — admins add new named sections without a migration), content (json), sort_order; unique `(cms_page_id, section_key)` | `belongsTo` page |
 | `audit_schedules` | user_id, website_id, frequency (enum string: daily/weekly/monthly), is_active (default true), next_run_at, last_run_at (nullable); unique `(user_id, website_id)` — one schedule per website | `belongsTo` user, website |
+| `api_providers` | slug (unique: claude/openai/gemini/pagespeed), name, provider_type (ai/audit), is_enabled, api_key (text, `encrypted` cast — never serialized, see `$hidden`), model (nullable), config (json — max_tokens, temperature, request_timeout, daily/monthly limits, mobile/desktop toggles, cost-per-1k-token rates), last_success_at, last_failure_at, last_error | none (referenced by slug string, not FK, from `api_usage_logs`) |
+| `api_usage_logs` | provider (string, not FK'd — see §23), service, request_type (nullable), user_id (nullable), audit_id (nullable), model (nullable), success, http_status (nullable), response_time_ms (nullable), prompt_tokens/completion_tokens/total_tokens (nullable), estimated_cost (nullable), error_category (nullable) | `belongsTo` user, audit (both nullOnDelete) |
 
 **Not yet created** (planned, per the original spec's full table list):
 `report_sections` (deferred — a single `reports.content` JSON blob covers
@@ -216,12 +218,14 @@ middleware alias, which checks `$request->user()->is_admin`):
 | GET | `/audits`, `/audits/{audit}` | Paginated listing / single audit with scores+issues+crawl job |
 | GET | `/crawl-jobs` | Paginated crawl job listing |
 | GET | `/audit-schedules` | Paginated listing of every user's schedules, with user+website eager-loaded — read-only, no admin CRUD since schedules are user-owned (§22) |
-| GET | `/failed-jobs`, DELETE `/failed-jobs/{id}` | List/remove Laravel's own failed-job bookkeeping rows (no retry endpoint yet — see §28) |
+| GET | `/failed-jobs`, DELETE `/failed-jobs/{id}` | List/remove Laravel's own failed-job bookkeeping rows (no retry endpoint yet — see §29) |
 | GET | `/ai-usage` | Aggregates by provider and category, plus the 50 most recent `ai_analyses` rows |
-| GET/POST `/plans`, PUT/DELETE `/plans/{plan}` | Full plan CRUD — **the only place paid tiers get created**, since none are seeded (§28) |
+| GET/POST `/plans`, PUT/DELETE `/plans/{plan}` | Full plan CRUD — **the only place paid tiers get created**, since none are seeded (§29) |
 | GET | `/usage` | Paginated `usage_logs`, filterable by `user_id`/`action` |
 | GET `/leads`, GET `/leads/{lead}`, PUT `/leads/{lead}`, POST `/leads/{lead}/activities` | Lead management — status updates auto-log a `LeadActivity`; manual notes via the activities endpoint |
 | Full CRUD `/cms`, `/cms/{page}`, PUT/DELETE `/cms/{page}/sections/{sectionKey}` | CMS page + section management. Section endpoints are an upsert-by-key — one PUT both creates and edits, so the frontend never needs to know which case it is |
+| GET `/providers`, GET `/providers/{slug}`, PUT `/providers/{slug}`, PATCH `/providers/{slug}/status`, POST `/providers/{slug}/test` | AI/API provider configuration (§23) — `{slug}` not `{id}`; `api_key` is never returned, only `masked_key` |
+| GET `/usage/summary`, `/usage/daily`, `/usage/by-provider`, `/usage/logs` | Cross-provider usage/cost analytics from `api_usage_logs` (§23) — distinct from `/ai-usage` above |
 
 There is no "promote a user to admin" endpoint — `is_admin` is set
 directly in the database (or via `tinker`) by design. A self-service or
@@ -243,7 +247,7 @@ takes the *specific* viewer, not just "is this audit owned by someone."
 An earlier version of this class only checked whether the audit had
 *any* owner, which would have let any authenticated viewer see another
 user's full report by guessing/knowing the audit ID — caught and fixed
-before any real caller used it (see §27 for the equivalent bug that
+before any real caller used it (see §28 for the equivalent bug that
 *did* ship and get fixed, in `CalculateScoreJob`; this one was a design
 review catch, not a shipped defect).
 
@@ -504,7 +508,7 @@ as of Phase 6 — not just "does this audit have some owner." Rules:
 
 All 11 modules from the spec's `admin.modules` list are built as API
 endpoints (§8) — this is backend-only; there's no admin frontend yet
-(§23), so these are the surface a future admin UI would consume.
+(§24), so these are the surface a future admin UI would consume.
 
 `AdminDashboardService::summary()` is the one piece of real aggregation
 logic, isolated and unit-tested independently of the controller —
@@ -554,7 +558,7 @@ endpoint's behavior.
 **Scheduled (recurring) audits** (`App\Services\Schedule\AuditSchedulerService`,
 `audit_schedules` table, `App\Enums\ScheduleFrequency`: daily/weekly/
 monthly): a registered-user-only feature (no anonymous path) gated by
-two plan fields that sat unused since Phase 6 (see §7, §30) —
+two plan fields that sat unused since Phase 6 (see §7, §31) —
 `Plan::hasFeature('scheduled_audits')` decides whether a user can
 schedule at all, and `plans.full_recrawls` caps how many *active*
 schedules (i.e. distinct websites on a recurring cadence) a user can
@@ -595,14 +599,93 @@ total and active) — consistent with every other resource's admin
 visibility, no CRUD since schedules are user-owned and admins have no
 product reason to create one on a user's behalf.
 
-## 23. Frontend functionality
+## 23. AI/API provider configuration and usage tracking
+
+**Provider config moved from `.env`/`config/*.php` to a DB-backed,
+admin-editable table** (`api_providers`, `App\Models\ApiProvider`) —
+credentials are encrypted at rest via Eloquent's `encrypted` cast
+(AES-256-CBC, `APP_KEY`), never appear in `$hidden`-protected
+serialization, and the model exposes only `masked_key` (first 4 + last
+4 chars, e.g. `sk-a****mnop`). `ProviderSeeder` imports any existing
+`.env` credentials once on first run as a migration convenience; from
+then on the admin UI is the source of truth, not `.env`. Provider-
+specific settings that don't apply uniformly (temperature, mobile/
+desktop toggles, request/token limits, per-1k-token cost rates) live in
+a `config` JSON column rather than dedicated nullable columns, so a
+future fifth provider is a config shape, not a migration — this is what
+"future provider support" means in practice here, not literally
+provider-agnostic *code* (the admin "Test Connection" action is still a
+4-way `match` in `AdminProviderController::test()`, since only 4
+providers exist to test).
+
+`App\Services\Provider\ProviderResolver` (no constructor dependencies,
+safe to `new` directly) is the one place that decides whether a
+provider is usable: `resolve()` requires enabled + configured (used by
+real `analyze()`/`PageSpeedService::analyze()` calls — throws
+`AiProviderException` otherwise, same graceful-degradation contract as
+before), `resolveConfigured()` requires only configured (used by "Test
+Connection," so an admin can validate a key before flipping it on).
+`ClaudeProvider`/`OpenAiProvider`/`GeminiProvider` each extract a
+private `performRequest()` shared between `analyze()` and the new
+`testConnection()` (added to the `AiProvider` contract) — avoids
+duplicating the HTTP-call/parsing logic between the two paths.
+
+**Usage tracking** (`api_usage_logs`, `App\Models\ApiUsageLog`) is a
+cross-provider, request-level log distinct from `ai_analyses` — the two
+answer different questions and neither replaces the other:
+`ai_analyses` is the per-audit AI cache/result record (§12, unique per
+audit+category+context-hash, drives the cache-before-call rule);
+`api_usage_logs` is ops/cost telemetry (provider, service, model,
+success, http_status, response_time_ms, tokens, estimated_cost,
+error_category) covering *every* external call including PageSpeed,
+which `ai_analyses` never covered at all. `AiAnalysisService::analyze()`
+writes one row per attempt (success or failure) after the existing
+`ai_analyses` write; `PageSpeedService::analyze()` does the same.
+Estimated cost is computed via `ApiProvider::estimateCost()`, which
+returns `null` (not a guessed number) when the admin hasn't set
+`cost_per_1k_input_tokens`/`cost_per_1k_output_tokens`.
+
+**Per-provider request limits** (`config.daily_request_limit`/
+`monthly_request_limit`) are enforced at the same two chokepoints:
+`AiAnalysisService::analyze()` checks before calling a provider and
+logs a `limit_exceeded`-category row instead of returning null
+silently; `PageSpeedService::analyze()` does the same for its one
+(daily-only) limit. Reached limits degrade gracefully (return `null`,
+caller falls back to deterministic-only results) — same contract a
+missing/disabled provider already had.
+
+**Admin API** (`/api/admin/providers/*`, `/api/admin/usage/*`, §8):
+provider CRUD is a `{slug}`-keyed resource (`ApiProvider::getRouteKeyName()`
+returns `'slug'`, not `id`) — `GET /providers`, `GET /providers/{slug}`,
+`PUT /providers/{slug}` (configure — merges submitted config keys into
+the existing `config` JSON rather than replacing it wholesale),
+`PATCH /providers/{slug}/status` (enable/disable — rejects enabling an
+unconfigured provider with 422), `POST /providers/{slug}/test` (test
+connection — logs its own `api_usage_logs` row under
+`service: 'test_connection'`). Usage analytics
+(`AdminApiUsageController`, separate from the existing
+`AdminAiUsageController`) expose `/usage/summary`, `/usage/daily`,
+`/usage/by-provider`, `/usage/logs` (paginated, filterable by provider/
+service/model/user/audit/success/date range) — token and cost figures
+are fields within these responses rather than the spec's suggested
+separate `/usage/tokens`/`/usage/cost` endpoints, a deliberate
+consolidation to avoid three endpoints returning overlapping subsets of
+the same query.
+
+`AdminDashboardService::summary()['provider_usage_today']` adds
+today's AI request/token/cost totals and PageSpeed request count to the
+existing dashboard aggregate, alongside the pre-existing `ai_usage`
+block (which stays `ai_analyses`-based, per-audit-scoped — the new
+block is `api_usage_logs`-based, today-scoped).
+
+## 24. Frontend functionality
 
 **Not built yet beyond the Vite scaffold.** `src/api/client.ts` exists
 (axios + bearer interceptor) but no page, component, or route has been
 implemented. The default Vite "Get started" counter page is still what
 renders at `/`.
 
-## 24. Queue/job architecture
+## 25. Queue/job architecture
 
 Redis-backed (`predis` client). **Redis itself is not installed on this
 dev machine** — every end-to-end test so far has used
@@ -619,7 +702,7 @@ Job graph: `CrawlWebsiteJob` → N × `CrawlPageJob` (each can spawn more
 per registered module, order not deterministic) → whichever finishes
 last → `CalculateScoreJob`.
 
-## 25. Security requirements
+## 26. Security requirements
 
 SSRF protection is layered, not single-point, because DNS can rebind
 between a check and the actual connection, and redirects can retarget
@@ -679,9 +762,9 @@ it's the one hook that actually covers both. Caught by writing the test
 for it (`AuthTest::test_exception_rendered_api_responses_also_include_security_headers`)
 before trusting the first (middleware) implementation.
 
-## 26. Current development status
+## 27. Current development status
 
-Phases 1-9 complete and committed. See §27/28 for what's outstanding.
+Phases 1-9 complete and committed. See §28/29 for what's outstanding.
 
 | Phase | Days | Status |
 |---|---|---|
@@ -693,10 +776,10 @@ Phases 1-9 complete and committed. See §27/28 for what's outstanding.
 | 6. User System (auth endpoints, subscriptions, plans) | 37-40 | ✅ done |
 | 7. Admin and CMS | 41-46 | ✅ done |
 | 8. PDF and Scheduling | 47-50 | ✅ done |
-| 9. Testing and Security | 51-58 | ✅ done — see §25 for the security hardening (rate limits, password policy, security headers, audit-ID ownership check) and §31 for the testing-gap closures |
+| 9. Testing and Security | 51-58 | ✅ done — see §26 for the security hardening (rate limits, password policy, security headers, audit-ID ownership check) and §32 for the testing-gap closures |
 | 10. Production | 59-60 | ⬜ not started |
 
-## 27. Known bugs
+## 28. Known bugs
 
 None currently open. Three were found and fixed during development
 (kept here for history, not because they're still present):
@@ -740,7 +823,7 @@ None currently open. Three were found and fixed during development
   pipeline (Sanctum's `AuthenticationException` on a 401, validation's
   422, throttle's 429, etc.) — the exception unwinds straight to the
   Kernel's handler, skipping every middleware's after-code. Caught
-  before shipping by writing the exception-path test first (see §25);
+  before shipping by writing the exception-path test first (see §26);
   replaced with a `RequestHandled` event listener, which fires after the
   response is finalized either way. Not a shipped defect, but worth
   remembering: **a middleware's post-`$next()` code is a success-path
@@ -775,7 +858,7 @@ second simulated request) and verifying cross-user report isolation
 authenticated calls). If a future test needs to simulate two different
 authenticated actors in one method, use one of these two patterns.
 
-## 28. Known limitations
+## 29. Known limitations
 
 - **Redis is not installed** on this dev machine. All testing uses the
   `database` queue/cache driver as a per-command env override.
@@ -824,18 +907,25 @@ authenticated actors in one method, use one of these two patterns.
   them and "complex billing" is an MVP exclusion (see Phase 6's
   `PlanSeeder` comment).
 
-## 29. Pending tasks
+## 30. Pending tasks
 
-In spec order, next up is **Phase 10: Production** — the last phase.
 Phase 9's hardening pass closed the audit-ID-enumeration gap and the
-unthrottled-auth-endpoints gap; the remaining §28 items
+unthrottled-auth-endpoints gap; the remaining §29 items
 (IP-based-anonymous-tracking, no "promote to admin" endpoint, no email
 verification/password reset, Sanctum tokens never expiring) were
 deliberately left as accepted limitations or deferred product decisions
 rather than being fixed speculatively — revisit only if real usage
 shows they're actually load-bearing problems, not preemptively.
 
-## 30. Important technical decisions
+**Out-of-spec-order work**: the DB-backed AI/API provider configuration
+and usage-tracking system (§23) and the full frontend (public site,
+user dashboard, audit flow, admin dashboard, provider-config UI, usage
+analytics — see §24) were requested directly, ahead of Phase 10, since
+the original 10-phase plan never allocated a phase to the frontend at
+all. After the frontend is complete: **Phase 10: Production** remains
+the last phase in the original plan.
+
+## 31. Important technical decisions
 
 - **Separate SPA + API**, not Inertia — chosen so frontend/backend can
   scale and deploy independently (user-approved architecture choice at
@@ -965,7 +1055,7 @@ shows they're actually load-bearing problems, not preemptively.
   for an anonymous audit to have an "owner" to check against in the
   first place.
 - **Security headers are added via a `RequestHandled` event listener,
-  not a terminable middleware** — see §25/§27. A middleware's
+  not a terminable middleware** — see §26/§28. A middleware's
   post-`$next()` code is skipped whenever an exception is thrown deeper
   in the pipeline, which is exactly when most of these responses
   (401/403/422/429/404) are produced; `RequestHandled` fires after the
@@ -974,15 +1064,32 @@ shows they're actually load-bearing problems, not preemptively.
   numbers**, not left at Laravel's bare "8 characters, nothing else"
   default — a minimal, defensible baseline that doesn't require a
   product decision the way a specific token-expiration duration would
-  (see the Sanctum-expiration limitation in §28, deliberately left
+  (see the Sanctum-expiration limitation in §29, deliberately left
   alone for that reason).
 - **`/register`/`/login` throttled tighter (`throttle:5,1`) than
   `/audits`/`/leads` (`throttle:10,1`)** — credential-guessing and
   signup-spam are a more direct abuse vector per request than creating
   an audit or submitting a lead, both of which are already bounded by
   usage limits (§19) and a lead-capture form's low incentive to spam.
+- **Provider credentials moved from `.env` to an encrypted, admin-
+  editable DB table** (§23) — a deliberate architectural change (not
+  just a UI on top of existing config) so an admin can rotate a key or
+  flip a provider off without a redeploy. `.env` values are imported
+  once by `ProviderSeeder` as a migration convenience, then the DB is
+  the sole source of truth.
+- **One generic `api_usage_logs` table for every provider, not one
+  table per provider or a provider-specific schema per type** — a
+  single request-level log with a plain `provider` string column scales
+  to a future fifth provider without a migration, and lets the same
+  admin usage-analytics queries (daily/by-provider/summary) work
+  unchanged regardless of which providers exist.
+- **`ai_analyses` and `api_usage_logs` deliberately coexist rather than
+  one replacing the other** (§23) — different questions, different
+  shapes: `ai_analyses` is the per-audit AI cache/result record (drives
+  the cache-before-call rule); `api_usage_logs` is cross-provider ops/
+  cost telemetry, the only one of the two that covers PageSpeed at all.
 
-## 31. Testing architecture
+## 32. Testing architecture
 
 Backend: PHPUnit, `backend/tests/Unit/...` and `backend/tests/Feature/...`,
 SQLite in-memory DB for tests (`phpunit.xml`), `RefreshDatabase` trait
@@ -1008,17 +1115,21 @@ the configured limit and assert 429, the audit-ID-ownership tests assert
 a different account gets a 404 (not just that `ReportAccessResolver` was
 called), and the injection/XSS-style-input tests assert the string was
 stored verbatim and the table survives intact rather than merely
-asserting "no exception was thrown." 257 PHP tests currently, all
-passing.
+asserting "no exception was thrown." `AdminProviderApiTest` (§23) proves
+the provider-config/usage-tracking system end-to-end against real HTTP
+requests: `Http::fake()`'d provider calls, real encryption round-trips,
+masked-key assertions against the raw response body (not just the
+decoded JSON path), and real daily/date-range aggregation queries. 287
+PHP tests currently, all passing.
 
 Crawler: `crawler/lib/*.test.mjs`, run via `npm test` (Node's built-in
 `node --test`, no added dependency). Covers the SSRF logic
 (`isPrivateAddress`, `assertHostnameIsPublic`) directly — the same
-defense-in-depth layer described in §25, tested independently of the PHP
+defense-in-depth layer described in §26, tested independently of the PHP
 side since the two can't share code across the language boundary. 40
 Node tests currently, all passing.
 
-**297 tests total** (257 PHP + 40 Node). See `tests/TEST_CASES.md` at the
+**327 tests total** (287 PHP + 40 Node). See `tests/TEST_CASES.md` at the
 repo root for the full registry mapped to test-requirement categories,
 coverage status, and any remaining gaps.
 

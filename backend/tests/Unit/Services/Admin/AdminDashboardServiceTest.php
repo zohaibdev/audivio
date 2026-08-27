@@ -4,6 +4,7 @@ namespace Tests\Unit\Services\Admin;
 
 use App\Enums\ScheduleFrequency;
 use App\Models\AiAnalysis;
+use App\Models\ApiUsageLog;
 use App\Models\Audit;
 use App\Models\AuditSchedule;
 use App\Models\Lead;
@@ -84,6 +85,22 @@ class AdminDashboardServiceTest extends TestCase
         $this->assertSame(1, $summary['audit_schedules']['active']);
     }
 
+    public function test_provider_usage_today_summarizes_ai_and_pagespeed_separately(): void
+    {
+        ApiUsageLog::create(['provider' => 'claude', 'service' => 'ai_analysis', 'success' => true, 'total_tokens' => 100, 'estimated_cost' => 0.01]);
+        ApiUsageLog::create(['provider' => 'openai', 'service' => 'ai_analysis', 'success' => true, 'total_tokens' => 50, 'estimated_cost' => 0.02]);
+        ApiUsageLog::create(['provider' => 'pagespeed', 'service' => 'pagespeed_analyze', 'success' => true]);
+        $yesterday = ApiUsageLog::create(['provider' => 'claude', 'service' => 'ai_analysis', 'success' => true, 'total_tokens' => 999]);
+        $yesterday->forceFill(['created_at' => now()->subDay()])->save();
+
+        $summary = (new AdminDashboardService)->summary();
+
+        $this->assertSame(2, $summary['provider_usage_today']['ai_requests']);
+        $this->assertSame(150, $summary['provider_usage_today']['ai_tokens']);
+        $this->assertSame(0.03, $summary['provider_usage_today']['estimated_ai_cost']);
+        $this->assertSame(1, $summary['provider_usage_today']['pagespeed_requests']);
+    }
+
     public function test_empty_database_returns_zeros_not_errors(): void
     {
         $summary = (new AdminDashboardService)->summary();
@@ -94,5 +111,6 @@ class AdminDashboardServiceTest extends TestCase
         $this->assertSame(0, $summary['ai_usage']['total_calls']);
         $this->assertSame(0, $summary['failed_jobs']['total']);
         $this->assertSame(0, $summary['audit_schedules']['total']);
+        $this->assertSame(0, $summary['provider_usage_today']['ai_requests']);
     }
 }

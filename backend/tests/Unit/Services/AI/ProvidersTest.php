@@ -2,18 +2,34 @@
 
 namespace Tests\Unit\Services\AI;
 
+use App\Models\ApiProvider;
 use App\Services\AI\AiProviderException;
 use App\Services\AI\ClaudeProvider;
 use App\Services\AI\GeminiProvider;
 use App\Services\AI\OpenAiProvider;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ProvidersTest extends TestCase
 {
+    use RefreshDatabase;
+
+    private function seedProvider(string $slug, string $model, ?string $apiKey = 'test-key', bool $enabled = true): ApiProvider
+    {
+        return ApiProvider::create([
+            'slug' => $slug,
+            'name' => $slug,
+            'provider_type' => 'ai',
+            'is_enabled' => $enabled,
+            'api_key' => $apiKey,
+            'model' => $model,
+        ]);
+    }
+
     public function test_claude_provider_parses_response_and_usage(): void
     {
-        config(['ai.providers.claude.api_key' => 'test-key']);
+        $this->seedProvider('claude', 'claude-sonnet-5');
 
         Http::fake([
             'api.anthropic.com/*' => Http::response([
@@ -28,6 +44,7 @@ class ProvidersTest extends TestCase
         $this->assertSame(10, $response->promptTokens);
         $this->assertSame(20, $response->completionTokens);
         $this->assertSame('claude', $response->provider);
+        $this->assertNotNull($response->responseTimeMs);
 
         Http::assertSent(function ($request) {
             return $request->hasHeader('x-api-key', 'test-key')
@@ -37,7 +54,7 @@ class ProvidersTest extends TestCase
 
     public function test_claude_provider_appends_context_as_json(): void
     {
-        config(['ai.providers.claude.api_key' => 'test-key']);
+        $this->seedProvider('claude', 'claude-sonnet-5');
         Http::fake(['api.anthropic.com/*' => Http::response(['content' => [], 'usage' => []])]);
 
         (new ClaudeProvider)->analyze('Prompt', ['pages' => ['a', 'b']]);
@@ -47,7 +64,15 @@ class ProvidersTest extends TestCase
 
     public function test_claude_provider_throws_without_api_key(): void
     {
-        config(['ai.providers.claude.api_key' => null]);
+        // No ApiProvider row seeded at all — the natural "not configured" state.
+        $this->expectException(AiProviderException::class);
+
+        (new ClaudeProvider)->analyze('Prompt');
+    }
+
+    public function test_claude_provider_throws_when_disabled(): void
+    {
+        $this->seedProvider('claude', 'claude-sonnet-5', enabled: false);
 
         $this->expectException(AiProviderException::class);
 
@@ -56,7 +81,7 @@ class ProvidersTest extends TestCase
 
     public function test_claude_provider_throws_on_error_status(): void
     {
-        config(['ai.providers.claude.api_key' => 'test-key']);
+        $this->seedProvider('claude', 'claude-sonnet-5');
         Http::fake(['api.anthropic.com/*' => Http::response(['error' => 'bad request'], 400)]);
 
         $this->expectException(AiProviderException::class);
@@ -64,9 +89,25 @@ class ProvidersTest extends TestCase
         (new ClaudeProvider)->analyze('Prompt');
     }
 
+    public function test_claude_provider_records_failure_on_the_provider_row(): void
+    {
+        $provider = $this->seedProvider('claude', 'claude-sonnet-5');
+        Http::fake(['api.anthropic.com/*' => Http::response(['error' => 'bad request'], 400)]);
+
+        try {
+            (new ClaudeProvider)->analyze('Prompt');
+        } catch (AiProviderException) {
+            // expected
+        }
+
+        $provider->refresh();
+        $this->assertNotNull($provider->last_failure_at);
+        $this->assertNotNull($provider->last_error);
+    }
+
     public function test_openai_provider_parses_response_and_usage(): void
     {
-        config(['ai.providers.openai.api_key' => 'test-key']);
+        $this->seedProvider('openai', 'gpt-5');
 
         Http::fake([
             'api.openai.com/*' => Http::response([
@@ -86,8 +127,6 @@ class ProvidersTest extends TestCase
 
     public function test_openai_provider_throws_without_api_key(): void
     {
-        config(['ai.providers.openai.api_key' => null]);
-
         $this->expectException(AiProviderException::class);
 
         (new OpenAiProvider)->analyze('Prompt');
@@ -95,7 +134,7 @@ class ProvidersTest extends TestCase
 
     public function test_openai_provider_throws_on_error_status(): void
     {
-        config(['ai.providers.openai.api_key' => 'test-key']);
+        $this->seedProvider('openai', 'gpt-5');
         Http::fake(['api.openai.com/*' => Http::response(['error' => 'bad request'], 400)]);
 
         $this->expectException(AiProviderException::class);
@@ -105,7 +144,7 @@ class ProvidersTest extends TestCase
 
     public function test_gemini_provider_parses_response_and_usage(): void
     {
-        config(['ai.providers.gemini.api_key' => 'test-key']);
+        $this->seedProvider('gemini', 'gemini-3-pro');
 
         Http::fake([
             'generativelanguage.googleapis.com/*' => Http::response([
@@ -125,8 +164,6 @@ class ProvidersTest extends TestCase
 
     public function test_gemini_provider_throws_without_api_key(): void
     {
-        config(['ai.providers.gemini.api_key' => null]);
-
         $this->expectException(AiProviderException::class);
 
         (new GeminiProvider)->analyze('Prompt');
@@ -134,11 +171,33 @@ class ProvidersTest extends TestCase
 
     public function test_gemini_provider_throws_on_error_status(): void
     {
-        config(['ai.providers.gemini.api_key' => 'test-key']);
+        $this->seedProvider('gemini', 'gemini-3-pro');
         Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['error' => 'bad request'], 400)]);
 
         $this->expectException(AiProviderException::class);
 
         (new GeminiProvider)->analyze('Prompt');
+    }
+
+    public function test_claude_test_connection_succeeds_even_when_disabled(): void
+    {
+        $this->seedProvider('claude', 'claude-sonnet-5', enabled: false);
+        Http::fake(['api.anthropic.com/*' => Http::response([
+            'content' => [['type' => 'text', 'text' => 'OK']],
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ])]);
+
+        $result = (new ClaudeProvider)->testConnection();
+
+        $this->assertTrue($result['success']);
+        $this->assertNotNull($result['response_time_ms']);
+    }
+
+    public function test_claude_test_connection_fails_safely_without_a_key(): void
+    {
+        $result = (new ClaudeProvider)->testConnection();
+
+        $this->assertFalse($result['success']);
+        $this->assertIsString($result['message']);
     }
 }

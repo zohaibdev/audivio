@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AdminAiUsageController;
+use App\Http\Controllers\Api\Admin\AdminApiUsageController;
 use App\Http\Controllers\Api\Admin\AdminAuditController;
 use App\Http\Controllers\Api\Admin\AdminAuditScheduleController;
 use App\Http\Controllers\Api\Admin\AdminCmsController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\Api\Admin\AdminDashboardController;
 use App\Http\Controllers\Api\Admin\AdminFailedJobController;
 use App\Http\Controllers\Api\Admin\AdminLeadController;
 use App\Http\Controllers\Api\Admin\AdminPlanController;
+use App\Http\Controllers\Api\Admin\AdminProviderController;
 use App\Http\Controllers\Api\Admin\AdminUsageController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminWebsiteController;
@@ -76,6 +78,24 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
 
     Route::get('/ai-usage', [AdminAiUsageController::class, 'index']);
     Route::get('/usage', [AdminUsageController::class, 'index']);
+
+    // AI & API provider configuration — credentials are encrypted at rest
+    // (App\Models\ApiProvider) and never returned in full; every response
+    // here carries only masked_key. {apiProvider} binds by slug (claude,
+    // openai, gemini, pagespeed), not numeric id.
+    Route::get('/providers', [AdminProviderController::class, 'index']);
+    Route::get('/providers/{apiProvider}', [AdminProviderController::class, 'show']);
+    Route::put('/providers/{apiProvider}', [AdminProviderController::class, 'update']);
+    Route::patch('/providers/{apiProvider}/status', [AdminProviderController::class, 'updateStatus']);
+    Route::post('/providers/{apiProvider}/test', [AdminProviderController::class, 'test']);
+
+    // Cross-provider request/cost telemetry from api_usage_logs — distinct
+    // from /ai-usage above, which reports on ai_analyses (per-audit AI
+    // results, not raw request-level ops data across every provider).
+    Route::get('/usage/summary', [AdminApiUsageController::class, 'summary']);
+    Route::get('/usage/daily', [AdminApiUsageController::class, 'daily']);
+    Route::get('/usage/by-provider', [AdminApiUsageController::class, 'byProvider']);
+    Route::get('/usage/logs', [AdminApiUsageController::class, 'logs']);
 
     Route::apiResource('plans', AdminPlanController::class)->except(['show']);
 

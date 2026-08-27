@@ -14,12 +14,6 @@ class AioAuditModuleTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        config(['ai.providers.claude.api_key' => null]); // exercise the no-API-key fallback path
-    }
-
     private function makeAudit(): Audit
     {
         $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);

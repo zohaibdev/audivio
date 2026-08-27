@@ -68,7 +68,7 @@ class AdminApiTest extends TestCase
         $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson('/api/admin/dashboard')
             ->assertStatus(200)
-            ->assertJsonStructure(['data' => ['users', 'websites', 'audits', 'leads', 'ai_usage', 'failed_jobs', 'audit_schedules']]);
+            ->assertJsonStructure(['data' => ['users', 'websites', 'audits', 'leads', 'ai_usage', 'failed_jobs', 'audit_schedules', 'provider_usage_today']]);
     }
 
     public function test_users_listing_is_paginated_and_includes_subscription(): void

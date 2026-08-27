@@ -35,8 +35,9 @@ return [
         ],
     ],
 
-    'pagespeed' => [
-        'key' => env('PAGESPEED_API_KEY'),
-    ],
+    // PageSpeed's API key, along with every AI provider's, now lives in
+    // the DB-backed `api_providers` table (admin-editable, encrypted at
+    // rest) — see App\Models\ApiProvider and ProviderSeeder. Not read
+    // from here anymore.
 
 ];

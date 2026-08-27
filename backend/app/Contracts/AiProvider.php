@@ -16,4 +16,14 @@ interface AiProvider
     public function analyze(string $prompt, array $context = []): AiResponse;
 
     public function name(): string;
+
+    /**
+     * Sends one real, minimal request to prove the configured credentials
+     * actually work — used by the admin "Test Connection" action. Unlike
+     * analyze(), this only requires the provider to be *configured*, not
+     * enabled, so an admin can validate a key before flipping it on.
+     *
+     * @return array{success: bool, response_time_ms: ?int, message: string}
+     */
+    public function testConnection(): array;
 }
