@@ -5,6 +5,7 @@ namespace Tests\Unit\Services\Audit;
 use App\Models\Audit;
 use App\Models\AuditPage;
 use App\Models\Website;
+use App\Services\AI\AiAnalysisService;
 use App\Services\Audit\EcommerceAuditModule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -38,7 +39,7 @@ class EcommerceAuditModuleTest extends TestCase
             'structured_data' => [],
         ]);
 
-        $result = (new EcommerceAuditModule(app(\App\Services\AI\AiAnalysisService::class)))->run($audit->fresh());
+        $result = (new EcommerceAuditModule(app(AiAnalysisService::class)))->run($audit->fresh());
 
         $this->assertSame(100, $result->score);
         $this->assertCount(0, $result->issues);
@@ -56,7 +57,7 @@ class EcommerceAuditModuleTest extends TestCase
             'structured_data' => [],
         ]);
 
-        $result = (new EcommerceAuditModule(app(\App\Services\AI\AiAnalysisService::class)))->run($audit->fresh());
+        $result = (new EcommerceAuditModule(app(AiAnalysisService::class)))->run($audit->fresh());
 
         $codes = collect($result->issues)->pluck('code');
         $this->assertTrue($codes->contains('ecommerce.missing_product_schema'));
@@ -75,7 +76,7 @@ class EcommerceAuditModuleTest extends TestCase
             'structured_data' => [['@type' => 'Product', 'name' => 'Widget']],
         ]);
 
-        $result = (new EcommerceAuditModule(app(\App\Services\AI\AiAnalysisService::class)))->run($audit->fresh());
+        $result = (new EcommerceAuditModule(app(AiAnalysisService::class)))->run($audit->fresh());
 
         $codes = collect($result->issues)->pluck('code');
         $this->assertTrue($codes->contains('ecommerce.missing_purchase_cta'));
@@ -94,7 +95,7 @@ class EcommerceAuditModuleTest extends TestCase
             'structured_data' => [],
         ]);
 
-        $result = (new EcommerceAuditModule(app(\App\Services\AI\AiAnalysisService::class)))->run($audit->fresh());
+        $result = (new EcommerceAuditModule(app(AiAnalysisService::class)))->run($audit->fresh());
 
         $codes = collect($result->issues)->pluck('code');
         $this->assertTrue($codes->contains('ecommerce.missing_product_schema'));

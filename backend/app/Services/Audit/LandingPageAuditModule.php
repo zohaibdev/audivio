@@ -14,8 +14,7 @@ class LandingPageAuditModule implements AuditModule
 {
     public function __construct(
         private readonly AiAnalysisService $ai,
-    ) {
-    }
+    ) {}
 
     public function category(): AuditCategory
     {

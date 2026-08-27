@@ -4,7 +4,6 @@ namespace App\Services\Audit;
 
 use App\Models\Audit;
 use App\Models\AuditPage;
-use Illuminate\Support\Collection;
 
 /**
  * Builds the compact, pre-extracted context sent to AI providers.

@@ -19,9 +19,7 @@ class CalculateScoreJob implements ShouldQueue
 
     public int $tries = 2;
 
-    public function __construct(public readonly Audit $audit)
-    {
-    }
+    public function __construct(public readonly Audit $audit) {}
 
     public function handle(ScoreCalculator $calculator): void
     {

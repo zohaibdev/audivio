@@ -22,9 +22,7 @@ class CrawlWebsiteJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public function __construct(public readonly Audit $audit)
-    {
-    }
+    public function __construct(public readonly Audit $audit) {}
 
     public function middleware(): array
     {

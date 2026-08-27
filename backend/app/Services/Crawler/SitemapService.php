@@ -13,8 +13,7 @@ class SitemapService
 
     public function __construct(
         private readonly UrlSecurityValidator $validator,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  string[]  $sitemapUrls  Seed sitemap URLs (from robots.txt or the default /sitemap.xml)

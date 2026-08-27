@@ -9,8 +9,7 @@ class RobotsTxtService
 {
     public function __construct(
         private readonly UrlSecurityValidator $validator,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array{disallow: string[], sitemaps: string[]}

@@ -35,8 +35,7 @@ class RunAuditModuleJob implements ShouldQueue
     public function __construct(
         public readonly Audit $audit,
         public readonly string $moduleClass,
-    ) {
-    }
+    ) {}
 
     public function handle(): void
     {

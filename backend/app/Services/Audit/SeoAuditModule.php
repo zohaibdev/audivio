@@ -9,6 +9,7 @@ use App\Enums\AuditCategory;
 use App\Enums\IssueSeverity;
 use App\Models\Audit;
 use App\Models\AuditPage;
+use Illuminate\Support\Collection;
 
 class SeoAuditModule implements AuditModule
 {
@@ -197,7 +198,7 @@ class SeoAuditModule implements AuditModule
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<string, int>  $urlStatusMap
+     * @param  Collection<string, int>  $urlStatusMap
      * @return AuditIssueData[]
      */
     private function checkBrokenInternalLinks(AuditPage $page, $urlStatusMap, string $domain): array

@@ -3,7 +3,6 @@
 namespace App\Services\Crawler;
 
 use App\DTOs\CrawledPageData;
-use App\Enums\AuditStatus;
 use App\Enums\CrawlJobStatus;
 use App\Enums\CrawlUrlStatus;
 use App\Models\Audit;
@@ -22,8 +21,7 @@ class CrawlOrchestrator
         private readonly SitemapService $sitemap,
         private readonly PlatformDetector $platformDetector,
         private readonly PlaywrightCrawlerClient $crawlerClient,
-    ) {
-    }
+    ) {}
 
     /**
      * Crawl the homepage, detect the platform, discover the rest of the

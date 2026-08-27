@@ -14,8 +14,7 @@ class PerformanceAuditModule implements AuditModule
 {
     public function __construct(
         private readonly PageSpeedService $pageSpeed,
-    ) {
-    }
+    ) {}
 
     public function category(): AuditCategory
     {

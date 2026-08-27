@@ -15,6 +15,5 @@ final readonly class AuditModuleResult
         public int $score,
         public array $issues = [],
         public array $breakdown = [],
-    ) {
-    }
+    ) {}
 }

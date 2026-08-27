@@ -3,8 +3,8 @@
 namespace Tests\Unit\Services\AI;
 
 use App\Enums\AuditCategory;
-use App\Models\Audit;
 use App\Models\AiAnalysis;
+use App\Models\Audit;
 use App\Models\Website;
 use App\Services\AI\AiAnalysisService;
 use Illuminate\Foundation\Testing\RefreshDatabase;

@@ -4,6 +4,4 @@ namespace App\Services\Crawler;
 
 use Exception;
 
-class SsrfValidationException extends Exception
-{
-}
+class SsrfValidationException extends Exception {}

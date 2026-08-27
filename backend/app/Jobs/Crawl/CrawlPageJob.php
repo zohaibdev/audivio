@@ -20,9 +20,7 @@ class CrawlPageJob implements ShouldQueue
 
     public int $tries = 2;
 
-    public function __construct(public readonly CrawlUrl $crawlUrl)
-    {
-    }
+    public function __construct(public readonly CrawlUrl $crawlUrl) {}
 
     public function middleware(): array
     {

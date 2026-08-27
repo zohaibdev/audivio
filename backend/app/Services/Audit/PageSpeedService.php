@@ -17,8 +17,8 @@ class PageSpeedService
 
     /**
      * @return array{score: int, lcpMs: ?float, cls: ?float, tbtMs: ?float, fcpMs: ?float}|null
-     *              Null if the API key isn't configured or the call fails —
-     *              callers must degrade gracefully, not fail the whole audit.
+     *                                                                                          Null if the API key isn't configured or the call fails —
+     *                                                                                          callers must degrade gracefully, not fail the whole audit.
      */
     public function analyze(string $url): ?array
     {

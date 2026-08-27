@@ -4,8 +4,8 @@ namespace App\Services\AI;
 
 use App\DTOs\AiResponse;
 use App\Enums\AuditCategory;
-use App\Models\Audit;
 use App\Models\AiAnalysis;
+use App\Models\Audit;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -19,8 +19,7 @@ class AiAnalysisService
 {
     public function __construct(
         private readonly AiProviderFactory $providerFactory,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array<string, mixed>  $context  Pre-extracted structured data only — never raw page HTML.

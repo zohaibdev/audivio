@@ -13,6 +13,5 @@ final readonly class AuditIssueData
         public ?string $recommendation = null,
         public ?int $auditPageId = null,
         public array $meta = [],
-    ) {
-    }
+    ) {}
 }

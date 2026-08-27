@@ -23,8 +23,7 @@ final readonly class CrawledPageData
         public array $headers = [],
         public string $htmlSample = '',
         public ?array $accessibilityViolations = null,
-    ) {
-    }
+    ) {}
 
     public static function fromArray(array $data): self
     {
