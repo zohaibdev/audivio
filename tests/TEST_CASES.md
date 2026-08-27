@@ -9,7 +9,7 @@ whenever coverage is added, moved, or removed.
 for all external calls — no test hits a real third-party API) and
 `cd crawler && npm test` (Node's built-in test runner, `node --test`).
 
-**Current total**: 158 tests (118 PHP + 40 Node), all passing, 0 known failures.
+**Current total**: 201 tests (161 PHP + 40 Node), all passing, 0 known failures.
 
 Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 
@@ -95,7 +95,15 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | SSRF / URL security (Node) | `isPrivateAddress` — IPv6 loopback/unspecified/unique-local/link-local + IPv4-mapped addresses (both blocked and allowed cases) | `crawler/lib/ssrf.test.mjs` — `isPrivateAddress (IPv6)` suite, 9 cases | ✅ |
 | SSRF / URL security (Node) | Malformed address treated as private (fail closed) | `crawler/lib/ssrf.test.mjs::treats a malformed address as private` | ✅ |
 | SSRF / URL security (Node) | `assertHostnameIsPublic` — localhost, empty hostname, IP-literal loopback/private/cloud-metadata/IPv6-loopback all rejected without a real DNS query; public IP literal allowed; real hostname resolves via actual DNS and is allowed | `crawler/lib/ssrf.test.mjs` — `assertHostnameIsPublic` suite, 8 cases | ✅ |
-| Usage calculation | Plan limit enforcement | — | ⬜ gap: not built yet (no `plans` table — see CONTEXT.md §19) |
+| Usage calculation | Anonymous with no prior usage can create an audit | `UsageLimitServiceTest::test_anonymous_with_no_prior_usage_can_create_an_audit` | ✅ |
+| Usage calculation | Anonymous with a prior audit from the same IP is blocked (lifetime limit) | `UsageLimitServiceTest::test_anonymous_with_a_prior_audit_from_the_same_ip_cannot_create_another` | ✅ |
+| Usage calculation | Anonymous limit is scoped per IP | `UsageLimitServiceTest::test_anonymous_limit_is_scoped_per_ip` | ✅ |
+| Usage calculation | Registered user under/at their plan's daily limit | `UsageLimitServiceTest::test_registered_user_under_their_daily_limit_can_create_an_audit`, `test_registered_user_at_their_daily_limit_cannot_create_another` | ✅ |
+| Usage calculation | Registered user's daily limit resets on a new day | `UsageLimitServiceTest::test_registered_users_limit_resets_on_a_new_day` | ✅ |
+| Usage calculation | Registered user with no subscription cannot create an audit | `UsageLimitServiceTest::test_registered_user_with_no_subscription_cannot_create_an_audit` | ✅ |
+| Usage calculation | One user's usage doesn't affect a different user's limit | `UsageLimitServiceTest::test_a_users_own_usage_does_not_affect_a_different_users_limit` | ✅ |
+| Usage calculation | max_pages: anonymous uses config, registered uses their plan, no-subscription falls back to anonymous config | `UsageLimitServiceTest::test_max_pages_for_anonymous_uses_config` + 2 siblings | ✅ |
+| Usage calculation | Recording usage persists a `usage_logs` row with the right references | `UsageLimitServiceTest::test_record_audit_created_persists_a_usage_log` | ✅ |
 | Report visibility | Anonymous 60% visibility split | — | ⬜ gap: not built yet (see CONTEXT.md §20) |
 | Recommendation logic | Report-level recommendation list: only issues with a `recommendation` included, worst severity first | `ReportBuilderTest::test_recommendations_only_include_issues_with_a_recommendation_worst_first` | ✅ |
 | Severity calculation | Covered indirectly via `ScoreCalculator` and each module's issue tests above | — | ✅ (via above) |
@@ -110,35 +118,55 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Report visibility | Anonymous view respects configured issue/recommendation limits | `ReportVisibilityFilterTest::test_anonymous_view_respects_configured_limits` | ✅ |
 | Report visibility | Hidden counts reflect ALL hidden issues (not just excess major-severity ones) | `ReportVisibilityFilterTest::test_anonymous_view_reports_hidden_counts` | ✅ |
 | Report visibility | Anonymous view always shows the overview (scores) | `ReportVisibilityFilterTest::test_anonymous_view_always_shows_the_overview` | ✅ |
-| Report access | Anonymous audit (no user_id) has no full access | `ReportAccessResolverTest::test_anonymous_audit_has_no_full_access` | ✅ |
-| Report access | Registered user's audit has full access (interim rule — see CONTEXT.md §20) | `ReportAccessResolverTest::test_registered_users_audit_has_full_access` | ✅ |
+| Report access | Anonymous audit grants full access to no one — not even a logged-in viewer, not even its own anonymous creator | `ReportAccessResolverTest::test_anonymous_audit_grants_no_one_full_access_even_a_logged_in_viewer` | ✅ |
+| Report access | Owner viewing their own audit has full access | `ReportAccessResolverTest::test_owner_viewing_their_own_audit_has_full_access` | ✅ |
+| Report access | A different registered user does NOT get full access to someone else's audit (closed an authorization gap — see CONTEXT.md §9/§26) | `ReportAccessResolverTest::test_a_different_registered_user_does_not_get_full_access_to_someone_elses_audit` | ✅ |
+| Report access | Anonymous viewer of a registered user's audit has no full access | `ReportAccessResolverTest::test_anonymous_viewer_of_a_registered_users_audit_has_no_full_access` | ✅ |
 
 ## Feature tests
 
 | Flow | Test | Status |
 |---|---|---|
-| Signup | — | ⬜ not built (Phase 6) |
-| Login | — | ⬜ not built (Phase 6) |
-| Website creation | — | ⬜ not built (no API endpoint yet) |
-| Audit creation | — | ⬜ not built (no API endpoint yet — CLI-only, see below) |
+| Signup | `AuthTest::test_registration_creates_a_user_and_returns_a_token`, `test_registration_subscribes_the_user_to_the_default_plan`, `test_registration_rejects_a_duplicate_email`, `test_registration_rejects_mismatched_password_confirmation` | ✅ |
+| Login | `AuthTest::test_login_with_correct_credentials_returns_a_token`, `test_login_with_wrong_password_is_rejected`, `test_login_with_unknown_email_is_rejected` | ✅ |
+| Logout | `AuthTest::test_logout_revokes_the_current_token` (see CONTEXT.md §26 for the Sanctum-guard testing gotcha this test works around) | ✅ |
+| Authenticated profile fetch / rejection when unauthenticated | `AuthTest::test_authenticated_user_can_fetch_their_own_profile`, `test_unauthenticated_request_to_user_endpoint_is_rejected` | ✅ |
+| Website creation | Implicit in every `AuditApiTest` audit-creation case (a `Website` row is created alongside the `Audit`) — no dedicated test since there's no standalone website-creation endpoint | ✅ (via `AuditApiTest`) |
+| Audit creation (anonymous) | `AuditApiTest::test_anonymous_visitor_can_create_an_audit`, `test_created_audit_has_no_user_id_for_an_anonymous_request`, `test_anonymous_audit_is_capped_at_the_configured_anonymous_page_limit` | ✅ |
+| Audit creation (registered) | `AuditApiTest::test_registered_user_can_create_an_audit_with_their_plans_page_limit` — asserts the plan's page limit, not the anonymous one, and that `user_id` is set | ✅ |
+| Audit creation validation/security | `AuditApiTest::test_unsafe_url_is_rejected_before_creating_any_records` (SSRF, 422, zero records created), `test_missing_url_is_rejected_with_a_validation_error` (422) | ✅ |
+| Audit creation respects usage limits | `AuditApiTest::test_second_audit_from_the_same_anonymous_ip_is_rejected`, `test_registered_user_hitting_their_daily_limit_is_rejected`, `test_a_registered_users_limit_is_independent_of_an_exhausted_anonymous_ip_limit` (429s, correctly isolated per actor) | ✅ |
+| Audit status polling | `AuditApiTest::test_show_returns_audit_status`, `test_show_for_an_unknown_audit_returns_404` | ✅ |
+| Report fetch, correctly scoped per viewer | `AuditApiTest::test_report_endpoint_returns_the_anonymous_view_for_an_anonymous_viewer`, `test_report_endpoint_returns_full_access_for_the_audits_owner`, `test_report_endpoint_does_not_grant_full_access_to_a_different_registered_user` | ✅ |
+| API rate limiting | `AuditApiTest::test_requests_beyond_the_rate_limit_are_throttled` — fires 11 requests against `throttle:10,1`, asserts the 11th gets a real 429 | ✅ |
 | Crawler dispatch → audit completion (full pipeline: crawl → 7 modules → overall score) | `CrawlAndAnalyzePipelineTest::test_full_pipeline_produces_a_completed_audit_with_all_category_scores` — real `CrawlOrchestrator`, real SSRF validation, real platform detection, all 7 real audit modules, real scoring math; only `PlaywrightCrawlerClient` (no real browser) and outbound HTTP (no real robots.txt/sitemap fetch) are faked. Dispatches through the actual queue pipeline (`sync` driver in tests runs it inline). Asserts all 8 score rows (7 categories + overall) equal exactly 100 for a page crafted to be flawless against every deterministic rule. | ✅ |
 | Audit failure handling | `CrawlAndAnalyzePipelineTest::test_pipeline_marks_audit_failed_when_the_homepage_crawl_fails` — homepage crawl throws, asserts `Audit.status = failed`, `error_message` set, zero pages/scores/**reports** created | ✅ |
 | Report generation | Covered by `CrawlAndAnalyzePipelineTest::test_full_pipeline_produces_a_completed_audit_with_all_category_scores`, which now also asserts `GenerateReportJob` created a `Report` row with correct content | ✅ |
-| Usage limits | — | ⬜ not built (Phase 6) |
-| Recrawl | — | ⬜ not built (Phase 6) |
+| Usage limits | See `AuditApiTest`'s usage-limit rows above (API level) and `UsageLimitServiceTest` (Unit level) | ✅ |
+| Recrawl | — | ⬜ not built — no recrawl endpoint/feature exists yet (only `full_recrawls` sits unused on `plans`, reserved for when it's built) |
 | Lead creation | — | ⬜ not built (no `leads` table yet) |
 | Admin operations | — | ⬜ not built (Phase 7) |
 
 **The default `Tests\Feature\ExampleTest`** (Laravel scaffold, asserts `/`
-returns 200) still exists and passes — not yet replaced with a real
-Feature test since there is no real HTTP-facing feature to test.
+returns 200) still exists and passes — kept as-is; no real reason to
+replace it, the `web.php` root route it tests isn't part of this app's
+actual functionality either way.
 
 ## API tests
 
-None — no API endpoints exist beyond the Sanctum-scaffolded
-`GET /api/user`. All categories (authentication, authorization,
-validation, status codes, response schema, error handling, rate limits,
-security) are gaps pending Phase 5/6.
+| Category | Test | Status |
+|---|---|---|
+| Authentication (register/login/logout/me) | `AuthTest` (10 tests, see Feature tests table above) | ✅ |
+| Authorization (report access scoped to the real viewer) | `AuditApiTest`'s report-access tests (see Feature tests table above) | ✅ |
+| Validation (missing/invalid input → 422) | `AuthTest::test_registration_rejects_mismatched_password_confirmation`, `AuditApiTest::test_missing_url_is_rejected_with_a_validation_error` | ✅ |
+| Status codes (200/201/202/401/404/422/429) | Exercised across `AuthTest`/`AuditApiTest` — every status code the API actually returns has at least one test asserting it | ✅ |
+| Response schema | `AuthTest::test_registration_creates_a_user_and_returns_a_token` asserts `assertJsonStructure(['data' => ['user', 'token']])`; other tests assert specific `assertJsonPath()` values | ✅ |
+| Error handling (SSRF rejection, usage-limit rejection) | `AuditApiTest::test_unsafe_url_is_rejected_before_creating_any_records`, usage-limit tests (see Feature tests table) | ✅ |
+| Rate limits | `AuditApiTest::test_requests_beyond_the_rate_limit_are_throttled` | ✅ |
+| Security — cross-user data leakage | `AuditApiTest::test_report_endpoint_does_not_grant_full_access_to_a_different_registered_user` | ✅ |
+| Pagination | — | ⬜ n/a — no list endpoints exist yet (Phase 7 admin listings will need this) |
+| Duplicate/malicious input beyond SSRF | — | ⬜ gap: no test sends e.g. oversized payloads, unexpected types, or injection-style strings to the audit/auth endpoints — Laravel's validation layer handles most of this by construction, but it isn't explicitly exercised |
+| Backward compatibility | — | ⬜ n/a — no prior API version exists to be compatible with |
 
 ## Database tests
 
@@ -155,6 +183,10 @@ security) are gaps pending Phase 5/6.
 | Null-on-delete: crawl_url → audit_page.crawl_url_id (page itself survives) | `CascadeDeleteTest::test_deleting_a_crawl_url_nulls_the_audit_pages_crawl_url_id_instead_of_deleting_the_page` | ✅ |
 | Cascade delete: audit_page → its issues (site-wide issues with no audit_page_id survive) | `CascadeDeleteTest::test_deleting_an_audit_page_cascades_to_its_issues` | ✅ |
 | No orphaned rows: crawl_urls after deleting the owning audit (transitively, via crawl_job) | `CascadeDeleteTest::test_no_orphaned_crawl_urls_remain_after_deleting_the_owning_audit` | ✅ |
+| Cascade delete: user → subscription | `CascadeDeleteTest::test_deleting_a_user_cascades_to_their_subscription` | ✅ |
+| Restrict delete: a plan with an active subscription cannot be deleted | `CascadeDeleteTest::test_deleting_a_plan_with_an_active_subscription_is_prevented` — asserts the DB actually throws `QueryException`, not just that the app happens not to call delete | ✅ |
+| Cascade delete: user → usage_logs | `CascadeDeleteTest::test_deleting_a_user_cascades_to_their_usage_logs` | ✅ |
+| Null-on-delete: website/audit → usage_logs.website_id/audit_id (log itself survives) | `CascadeDeleteTest::test_deleting_a_website_or_audit_nulls_the_usage_logs_references_instead_of_deleting_the_log` | ✅ |
 
 All cascade tests above were confirmed to exercise real DB-level FK
 enforcement, not vacuous passes — `config/database.php`'s sqlite
@@ -217,6 +249,20 @@ added above.
   the full `ReportVisibilityFilterTest` suite, though the manual run
   remains the only evidence real crawled/AI-analysis data (not
   hand-crafted fixtures) flows correctly end to end into a report.
+- Full public API flow via real HTTP against a running `php artisan
+  serve` (Phase 6): register → login → anonymous audit creation
+  (max_pages correctly capped at 5, second attempt from the same IP
+  correctly 429'd) → registered-user audit creation (correctly
+  independent of the exhausted anonymous IP limit, max_pages correctly
+  25 from the plan) → status polling → report fetch showing
+  `is_full_access: false` for the anonymous view and `true` for the
+  owner's authenticated view of the same audit. This is the only
+  end-to-end evidence of the real HTTP kernel, real Sanctum token
+  issuance/verification, and real middleware stack working together —
+  `AuditApiTest`/`AuthTest` cover the same logic through Laravel's test
+  client, which shares the app container across calls (see the
+  Sanctum-guard note in CONTEXT.md §26) rather than truly separate
+  processes.
 
 ---
 
@@ -242,21 +288,33 @@ added above.
    `LandingPageAuditModuleTest` (4), `ConversionAuditModuleTest` (4).
 5. ~~Migration rollback and cascade-delete behavior were unverified~~ —
    **closed**: `DatabaseMigrationTest` (3 tests: fresh migrate, single-
-   step rollback + re-migrate, full reset) and `CascadeDeleteTest` (7
-   tests covering every declared `cascadeOnDelete()`/`nullOnDelete()`
-   relationship in the schema), confirmed to exercise real FK
+   step rollback + re-migrate, full reset) and `CascadeDeleteTest` (11
+   tests as of Phase 6, covering every declared
+   `cascadeOnDelete()`/`nullOnDelete()` relationship in the schema plus
+   the one `RESTRICT`-by-default relationship — `plans` ← `subscriptions`
+   — that deliberately prevents deletion), confirmed to exercise real FK
    enforcement (not vacuous passes) by checking SQLite's
    `foreign_key_constraints` connection setting first.
-6. Everything under Feature/API/Frontend/E2E beyond the crawl/analyze
-   pipeline is a gap because the corresponding features don't exist yet
-   (signup, login, report generation, admin, CMS, etc.) — not a testing
-   shortfall, just not built. See CONTEXT.md §25 for phase status.
-7. `OpenAiProvider`/`GeminiProvider` only have their success-path parsing
+6. ~~No API tests existed~~ — **closed** (Phase 6): `AuthTest` (10
+   tests) and `AuditApiTest` (15 tests) exercise the real HTTP
+   endpoints, not just the services behind them — authentication,
+   authorization (including a cross-user isolation check that caught a
+   real Sanctum-guard testing gotcha, documented in CONTEXT.md §26),
+   validation, status codes, error handling, and rate limiting.
+7. Everything under Frontend/E2E, and the Feature-level flows explicitly
+   marked not-built above (recrawl, leads, admin), is a gap because the
+   corresponding features don't exist yet — not a testing shortfall,
+   just not built. See CONTEXT.md §25 for phase status.
+8. `OpenAiProvider`/`GeminiProvider` only have their success-path parsing
    tested; the missing-key/error-status pair is only verified for
    `ClaudeProvider`. Low priority — the failure behavior is structurally
    identical across all three (shared `AiProviderException` pattern), not
    independently implemented per provider.
-8. No test asserts the DB rejects a duplicate insert against the
+9. No test asserts the DB rejects a duplicate insert against the
    `audit_scores` (per audit+category) or `ai_analyses` (cache key)
    unique constraints directly — only exercised indirectly via
    `updateOrCreate` call sites.
+10. No test sends oversized payloads, unexpected types, or injection-
+    style strings to the audit/auth endpoints beyond what Laravel's
+    validation layer handles by construction (see the API tests table's
+    "Duplicate/malicious input" row).

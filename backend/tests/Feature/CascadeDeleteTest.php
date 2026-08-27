@@ -9,9 +9,13 @@ use App\Models\AuditPage;
 use App\Models\AuditScore;
 use App\Models\CrawlJob;
 use App\Models\CrawlUrl;
+use App\Models\Plan;
 use App\Models\Report;
+use App\Models\Subscription;
+use App\Models\UsageLog;
 use App\Models\User;
 use App\Models\Website;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -119,5 +123,56 @@ class CascadeDeleteTest extends TestCase
         $audit->delete();
 
         $this->assertSame(0, CrawlUrl::where('crawl_job_id', $crawlJob->id)->count());
+    }
+
+    private function makePlan(): Plan
+    {
+        return Plan::create(['name' => 'Free', 'slug' => 'free', 'max_pages' => 25, 'daily_audit_limit' => 1, 'is_default' => true]);
+    }
+
+    public function test_deleting_a_user_cascades_to_their_subscription(): void
+    {
+        $plan = $this->makePlan();
+        $user = User::create(['name' => 'Test', 'email' => 'test@example.com', 'password' => 'x']);
+        $subscription = Subscription::create(['user_id' => $user->id, 'plan_id' => $plan->id, 'started_at' => now()]);
+
+        $user->delete();
+
+        $this->assertNull(Subscription::find($subscription->id));
+    }
+
+    public function test_deleting_a_plan_with_an_active_subscription_is_prevented(): void
+    {
+        $plan = $this->makePlan();
+        $user = User::create(['name' => 'Test', 'email' => 'test@example.com', 'password' => 'x']);
+        Subscription::create(['user_id' => $user->id, 'plan_id' => $plan->id, 'started_at' => now()]);
+
+        $this->expectException(QueryException::class);
+
+        $plan->delete();
+    }
+
+    public function test_deleting_a_user_cascades_to_their_usage_logs(): void
+    {
+        $user = User::create(['name' => 'Test', 'email' => 'test@example.com', 'password' => 'x']);
+        $log = UsageLog::create(['user_id' => $user->id, 'action' => 'audit_created']);
+
+        $user->delete();
+
+        $this->assertNull(UsageLog::find($log->id));
+    }
+
+    public function test_deleting_a_website_or_audit_nulls_the_usage_logs_references_instead_of_deleting_the_log(): void
+    {
+        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
+        $log = UsageLog::create(['ip_address' => '203.0.113.1', 'action' => 'audit_created', 'website_id' => $website->id, 'audit_id' => $audit->id]);
+
+        $audit->delete();
+        $website->delete();
+
+        $this->assertNotNull($log->fresh());
+        $this->assertNull($log->fresh()->website_id);
+        $this->assertNull($log->fresh()->audit_id);
     }
 }

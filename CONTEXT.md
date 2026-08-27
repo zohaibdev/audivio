@@ -141,31 +141,74 @@ boilerplate. `Builder::defaultStringLength(191)` is set in
 | `audit_scores` | audit_id, category (unique per audit incl. `overall`), score, breakdown (json) | `belongsTo` audit |
 | `ai_analyses` | audit_id, category, provider, context_hash, context (json), prompt, response, prompt_tokens, completion_tokens, error | `belongsTo` audit; unique `(audit_id, category, context_hash)` — the cache key |
 | `reports` | audit_id (unique), content (json — always the FULL report; visibility is a read-time filter, not stored), generated_at | `belongsTo` audit |
+| `plans` | name, slug (unique), price_cents, max_pages, daily_audit_limit, full_recrawls, is_default, features (json) | `hasMany` subscriptions |
+| `subscriptions` | user_id (unique — one active plan per user, no history), plan_id, status, started_at, ends_at | `belongsTo` user, plan |
+| `usage_logs` | user_id (nullable — anonymous tracked by IP instead), ip_address, action, website_id (nullable), audit_id (nullable) | `belongsTo` user, website, audit |
 
 **Not yet created** (planned, per the original spec's full table list):
 `report_sections` (deferred — a single `reports.content` JSON blob covers
 Phase 5's needs; revisit only if PDF pagination in Phase 8 needs
-per-section storage), `subscriptions`, `plans`, `usage_logs`, `leads`,
-`lead_activities`, `cms_pages`, `cms_sections`, `audit_schedules`,
-`notifications`.
+per-section storage), `leads`, `lead_activities`, `cms_pages`,
+`cms_sections`, `audit_schedules`, `notifications`.
 
 ## 8. API endpoints and responsibilities
 
-**None exist yet.** The only way to trigger an audit is
-`php artisan audit:crawl {url} --pages=N --wait` (a CLI command, not an
-API route) — deliberate: there is no rate limiting or plan-limit
-enforcement in front of "crawl any URL" until Phase 6 (User System), and a
-public unauthenticated "audit any URL" endpoint today would make this
-server an open crawling proxy. `routes/api.php` only has the Sanctum-
-scaffolded `GET /api/user`.
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/api/register` | none | Create a user, subscribe to the default plan, issue a token |
+| POST | `/api/login` | none | Issue a token for valid credentials |
+| POST | `/api/logout` | required | Revoke the current token |
+| GET | `/api/user` | required | Current authenticated user |
+| POST | `/api/audits` | **optional** | Create a website + audit, dispatch the crawl. `throttle:10,1`. |
+| GET | `/api/audits/{audit}` | **optional** | Poll status/progress — no report data |
+| GET | `/api/audits/{audit}/report` | **optional** | Fetch the report, filtered per viewer (§20) |
+
+"Optional" auth: the route carries no `auth:sanctum` middleware (which
+would reject an unauthenticated request outright), and the controller
+calls `$request->user('sanctum')` directly — Sanctum's guard resolves a
+Bearer token independently of route middleware, so this returns the
+authenticated user if a valid token is present or `null` otherwise,
+letting one endpoint serve both anonymous and registered callers with
+different limits/visibility.
+
+`AuditController::store()` derives `max_pages` server-side from
+`UsageLimitService::maxPagesFor()` — **the caller cannot request more
+pages than their tier allows**; there is no `max_pages` input field on
+the request at all. Enforces `UsageLimitService::canCreateAudit()`
+(429 if exceeded) and `UrlSecurityValidator::assertSafe()` (422 if
+unsafe) before creating any DB rows.
+
+`php artisan audit:crawl {url} --pages=N --wait` still exists as a
+CLI convenience for local testing (its `--pages` option is real there,
+since it bypasses `AuditController` entirely) — it's just no longer the
+only way to trigger an audit.
 
 ## 9. Authentication and authorization rules
 
-Sanctum installed (`php artisan install:api` scaffolding, `User` has
-`HasApiTokens`), bearer-token model chosen over cookie/SPA-stateful auth
-because frontend and backend may not share a parent domain. **No login/
-register/token-issuance endpoints exist yet** — that's Phase 6. No
-authorization policies exist yet (nothing to authorize against).
+Sanctum bearer tokens (`AuthController@register/login/logout/me`).
+Registration creates the user, subscribes them to whichever `Plan` has
+`is_default = true` (skips silently if none exists — seed one via
+`PlanSeeder`), and issues a token. No email verification, no password
+reset — not built, not required by the spec's Phase 6 description, and
+would need a decided email-sending setup this project doesn't have yet.
+
+Authorization for report access lives in `ReportAccessResolver` (§20),
+not route middleware — `hasFullAccess(Audit $audit, ?User $viewer)`
+takes the *specific* viewer, not just "is this audit owned by someone."
+An earlier version of this class only checked whether the audit had
+*any* owner, which would have let any authenticated viewer see another
+user's full report by guessing/knowing the audit ID — caught and fixed
+before any real caller used it (see §26 for the equivalent bug that
+*did* ship and get fixed, in `CalculateScoreJob`; this one was a design
+review catch, not a shipped defect).
+
+**Known gap**: audit IDs are plain auto-increment integers with no
+ownership check on the `show`/`report` routes beyond the *report's
+content* being filtered — the status endpoint (`GET /api/audits/{id}`)
+reveals a target URL's crawl progress to anyone who knows or guesses the
+ID. Low severity (no sensitive data beyond "someone is auditing this
+URL"), but worth hardening (UUID references, or an ownership check) in
+Phase 9.
 
 ## 10. Crawler architecture
 
@@ -331,11 +374,27 @@ layer assesses value-proposition clarity and page focus.
 
 ## 19. Usage limits
 
-**Not built yet.** No `plans` table, no enforcement of the anonymous
-(5 pages / 1 audit) or free (25 pages / 1 per day) limits described in
-§2 — `Audit.max_pages` is currently just whatever the caller passes
-(the CLI command's `--pages` option, unclamped). This is a known gap to
-close in Phase 6 (User System).
+`App\Services\User\UsageLimitService` enforces the spec's free_audit
+limits, sourced from two different places by design:
+
+- **Registered users**: `daily_audit_limit` and `max_pages` come from
+  the user's `Plan` (via their `Subscription`) — DB-configurable, never
+  hardcoded per tier. `canCreateAudit()` counts today's `usage_logs`
+  rows for that user against the plan's daily limit. A user with no
+  subscription cannot create audits at all (`canCreateAudit()` returns
+  `false`) — registration always creates one against the default plan,
+  so this only bites a user created outside that flow (e.g. directly in
+  a script/seeder).
+- **Anonymous (no account)**: `config/audit_limits.php`
+  (`anonymous_max_pages`, `anonymous_audit_limit`) — there's no user row
+  to attach a plan to, so this is one global config value, still
+  env-configurable, just not per-account. The limit is checked by IP
+  address and is a **lifetime** limit (per spec: "1 audit"), not daily —
+  `canCreateAudit(null, $ip)` checks whether that IP has *ever* created
+  an audit, not just today.
+
+`AuditController::store()` is the only caller of `maxPagesFor()` and
+`canCreateAudit()` — page limits are never client-supplied (§8).
 
 ## 20. Report visibility rules
 
@@ -360,13 +419,23 @@ Full view: everything — all issues at every severity with `priority`,
 all recommendations, per-page findings (`pages`), and per-category raw
 AI analysis text (`ai_analysis`, sourced from `ai_analyses.response`).
 
-`App\Services\Report\ReportAccessResolver::hasFullAccess()` decides who
-gets which view — **interim rule** (no `plans`/`subscriptions` tables
-exist yet): any audit tied to a registered user (`audit.user_id !==
-null`) gets full access. This does not yet distinguish a free registered
-user from a paid one per the spec's actual tiers; Phase 6 replaces this
-one method's logic once plans exist — nothing else needs to change,
-since `ReportVisibilityFilter` only ever sees the resulting boolean.
+`App\Services\Report\ReportAccessResolver::hasFullAccess(Audit $audit, ?User $viewer)`
+decides who gets which view, and takes the *specific requesting viewer*
+as of Phase 6 — not just "does this audit have some owner." Rules:
+- An anonymous audit (`audit.user_id === null`) grants full access to
+  **no one**, including its own (anonymous) creator — there's no
+  session/cookie mechanism to let an anonymous visitor "claim" their own
+  audit later, so it stays partial-view forever unless/until a real
+  claiming flow exists.
+- A registered audit grants full access **only to its own owner**
+  (`audit.user_id === $viewer->id`) — a different authenticated user
+  who knows/guesses the audit ID gets the partial view, same as
+  anonymous.
+- **Interim rule**: being the owner is sufficient regardless of plan —
+  this doesn't yet check whether the owner's plan actually includes full
+  reports as a feature. Tightening this to check `$viewer->plan()`
+  features is a one-method change, isolated from
+  `ReportVisibilityFilter` and its callers by design.
 
 ## 21. Admin dashboard functionality
 
@@ -425,7 +494,7 @@ the backend re-validates everything.
 
 ## 25. Current development status
 
-Phases 1-5 complete and committed. See §26/27 for what's outstanding.
+Phases 1-6 complete and committed. See §26/27 for what's outstanding.
 
 | Phase | Days | Status |
 |---|---|---|
@@ -434,7 +503,7 @@ Phases 1-5 complete and committed. See §26/27 for what's outstanding.
 | 3. Core Auditors (performance/accessibility/SEO) | 13-21 | ✅ done |
 | 4. AI Auditors (ecommerce/landing_page/conversion/aio + providers) | 22-31 | ✅ done |
 | 5. Report System | 32-36 | ✅ done |
-| 6. User System (auth endpoints, subscriptions, plans) | 37-40 | ⬜ not started |
+| 6. User System (auth endpoints, subscriptions, plans) | 37-40 | ✅ done |
 | 7. Admin and CMS | 41-46 | ⬜ not started |
 | 8. PDF and Scheduling | 47-50 | ⬜ not started |
 | 9. Testing and Security | 51-58 | ⬜ not started (ongoing testing exists per-phase; a dedicated hardening pass has not happened) |
@@ -442,8 +511,8 @@ Phases 1-5 complete and committed. See §26/27 for what's outstanding.
 
 ## 26. Known bugs
 
-None currently open. Two were found and fixed during development (kept
-here for history, not because they're still present):
+None currently open. Three were found and fixed during development
+(kept here for history, not because they're still present):
 - `CalculateScoreJob` used `pluck('score', 'category')` where `category`
   is enum-cast — using an enum object as an array key throws "Illegal
   offset type". Fixed with `mapWithKeys` to pull `->value` explicitly.
@@ -452,6 +521,31 @@ here for history, not because they're still present):
   the user-supplied seed URL (`https://x`, no trailing slash), so the
   homepage got crawled twice. Fixed by normalizing both sides before
   comparing in `CrawlOrchestrator`. (Phase 2)
+- `AuditController::store()` returned `$audit->status->value` right
+  after dispatching `CrawlWebsiteJob` — correct with the real async
+  Redis queue (still Pending at that point), but with a synchronous
+  driver (tests) `dispatch()` runs the job inline first, and the
+  in-memory `$audit` object's status was never refreshed, so the
+  response's correctness silently depended on which queue driver was
+  configured. Fixed to return the literal known value
+  (`AuditStatus::Pending->value`) instead of reading back
+  possibly-stale state. (Phase 6)
+
+**Testing-only gotcha, not a bug** (documented so it isn't rediscovered
+and mistaken for one): within a single test method, Sanctum's
+`RequestGuard` memoizes its resolved user for the guard instance's
+lifetime, and PHPUnit test methods share one app container across
+multiple simulated HTTP calls — so a *second* simulated request in the
+same test can appear to stay authenticated as whichever user the *first*
+request resolved, even after that user's token was deleted, or even when
+a *different* token is sent. A real server never does this (every actual
+HTTP request is a fresh PHP process with no shared state). Two places
+this bit test-writing in Phase 6: verifying logout (fixed by asserting
+`$user->tokens()->count() === 0` directly against the DB instead of a
+second simulated request) and verifying cross-user report isolation
+(fixed by calling `$this->app['auth']->forgetGuards()` between the two
+authenticated calls). If a future test needs to simulate two different
+authenticated actors in one method, use one of these two patterns.
 
 ## 27. Known limitations
 
@@ -464,10 +558,16 @@ here for history, not because they're still present):
   actual model responses. Provider request/response *parsing* is unit-
   tested via `Http::fake()`, but no real Claude/OpenAI/Gemini call has
   been made from this codebase yet.
-- **No usage/plan limits enforced** — `Audit.max_pages` is unclamped
-  input right now.
-- **No public API endpoints** — everything is exercised via the
-  `audit:crawl` artisan command.
+- **Anonymous usage tracking is IP-based only.** Shared IPs (offices,
+  NAT, mobile carriers) will hit false "already used your free audit"
+  positives; a signed cookie or browser fingerprint would be more
+  accurate but adds complexity not obviously worth it before real
+  traffic patterns are known.
+- **No email verification, no password reset.** Registration issues a
+  token immediately; there's no email-sending infrastructure decided
+  yet to build either on top of.
+- **Audit IDs are plain auto-increment integers** with no ownership
+  check on `GET /api/audits/{id}` (status endpoint) — see §9's gap note.
 - Broken-internal-link detection (SEO module) only catches links to pages
   already in the same audit's crawled set — it does not fetch untouched
   link targets just to check them.
@@ -479,14 +579,12 @@ here for history, not because they're still present):
 
 ## 28. Pending tasks
 
-In spec order, next up is **Phase 6: User System** (auth endpoints,
-subscriptions, plans, usage enforcement) — this is also where
-`ReportAccessResolver::hasFullAccess()`'s interim `user_id !== null` rule
-gets replaced with real plan-tier logic (see §20). After that: Phase 7
-(admin/CMS), Phase 8 (PDF export — Phase 5 built the report *data*;
-Phase 8 renders it to PDF, to avoid overlap per the original phase-split
-decision), Phase 9 (security/testing hardening pass), Phase 10
-(production deploy).
+In spec order, next up is **Phase 7: Admin and CMS**. After that:
+Phase 8 (PDF export — Phase 5 built the report *data*; Phase 8 renders
+it to PDF, to avoid overlap per the original phase-split decision),
+Phase 9 (security/testing hardening pass — the audit-ID-enumeration and
+IP-based-anonymous-tracking items from §27 are natural candidates),
+Phase 10 (production deploy).
 
 ## 29. Important technical decisions
 
@@ -523,13 +621,33 @@ decision), Phase 9 (security/testing hardening pass), Phase 10
   of the *same* report without regenerating it — visibility depends on
   who's asking, not on anything fixed when the report was built.
 - **Who counts as "full access" is isolated in one class**
-  (`ReportAccessResolver`) specifically so its interim rule (registered
-  user = full access, since no plans/subscriptions exist yet) can be
-  swapped for real plan-tier logic in Phase 6 without touching
-  `ReportVisibilityFilter` or anything that calls it.
+  (`ReportAccessResolver`) — as of Phase 6 it takes the specific viewer
+  and checks actual ownership, not just "does this audit have some
+  owner." The remaining interim simplification (owner = full access
+  regardless of plan features) is isolated the same way, so tightening
+  it later touches one method, not `ReportVisibilityFilter` or its
+  callers.
 - **No `report_sections` table** — a single `reports.content` JSON blob
   covers everything Phase 5 needs; only worth splitting out if PDF
   pagination (Phase 8) turns out to need per-section storage.
+- **"Optional" Sanctum auth via `$request->user('sanctum')` on routes
+  with no `auth:sanctum` middleware**, not two separate route sets (one
+  guarded, one not) — Sanctum's guard resolves a Bearer token
+  independently of route middleware, so this lets `POST /api/audits`
+  and the report/status endpoints serve anonymous and registered callers
+  from the same controller with different limits/visibility.
+- **Registered-user limits live on a DB-configurable `plans` table;
+  anonymous limits live in `config/audit_limits.php`** — not the same
+  mechanism, because anonymous visitors have no account row to attach a
+  plan to. Both are equally "not hardcoded," just at different scopes.
+- **`AuditController::store()` derives `max_pages` server-side only** —
+  no client input can request more pages than the resolved tier allows.
+  The CLI command's `--pages` option is a deliberately separate, more
+  permissive path for local testing, not a precedent the API follows.
+- **One subscription per user, no history** (`subscriptions.user_id` is
+  unique) — matches "complex billing" being an explicit MVP exclusion;
+  upgrading/downgrading updates the existing row. Add subscription
+  history only if a real feature needs it, not preemptively.
 
 ## 30. Testing architecture
 
@@ -542,7 +660,10 @@ providers, robots.txt/sitemap) mocked via `Http::fake()` — no test hits a
 real third-party API. The Node/Playwright crawler subprocess
 (`PlaywrightCrawlerClient`) is mocked in the one Feature test that drives
 the full pipeline (`CrawlAndAnalyzePipelineTest`) — no test launches a
-real browser. 118 PHP tests currently, all passing.
+real browser. `tests/Feature/Api/` covers the real HTTP endpoints
+(`AuthTest`, `AuditApiTest`) — the first tests in this project to
+exercise actual routes/middleware/controllers rather than services
+directly. 161 PHP tests currently, all passing.
 
 Crawler: `crawler/lib/*.test.mjs`, run via `npm test` (Node's built-in
 `node --test`, no added dependency). Covers the SSRF logic
@@ -551,7 +672,7 @@ defense-in-depth layer described in §24, tested independently of the PHP
 side since the two can't share code across the language boundary. 40
 Node tests currently, all passing.
 
-**158 tests total** (118 PHP + 40 Node). See `tests/TEST_CASES.md` at the
+**201 tests total** (161 PHP + 40 Node). See `tests/TEST_CASES.md` at the
 repo root for the full registry mapped to test-requirement categories,
 coverage status, and any remaining gaps.
 
