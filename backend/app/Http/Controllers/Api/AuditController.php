@@ -73,8 +73,19 @@ class AuditController extends Controller
         return ApiResponse::success(['audit_id' => $audit->id, 'status' => AuditStatus::Pending->value], status: 202);
     }
 
-    public function show(Audit $audit): JsonResponse
+    public function show(Request $request, Audit $audit): JsonResponse
     {
+        // A registered audit's progress is visible only to its own owner
+        // (or anonymously, matching the flow that creates it) — not to a
+        // different logged-in user who happens to know/guess the ID.
+        // Anonymous audits have no ownership concept to enforce (see
+        // ReportAccessResolver) and stay visible to anyone who knows the
+        // ID; that gap is accepted (§28), this closes the narrower one
+        // where a *different account* could probe another user's audits.
+        if ($audit->user_id !== null && $request->user('sanctum')?->id !== $audit->user_id) {
+            return ApiResponse::error('Audit not found.', 404);
+        }
+
         return ApiResponse::success([
             'audit_id' => $audit->id,
             'status' => $audit->status->value,

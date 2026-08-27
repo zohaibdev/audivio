@@ -19,8 +19,12 @@ use App\Http\Controllers\Api\CmsController;
 use App\Http\Controllers\Api\LeadController;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+// throttle:5,1 (5/min/IP) — previously unthrottled, a real brute-force/
+// signup-spam gap closed in Phase 9's security pass.
+Route::middleware('throttle:5,1')->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
+});
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
@@ -48,7 +52,11 @@ Route::middleware('throttle:10,1')->group(function () {
 });
 
 // Public — lead capture CTAs and CMS content for the (future) frontend.
-Route::post('/leads', [LeadController::class, 'store']);
+// Leads are throttled like audit creation (Phase 9 — LeadController's
+// old comment claimed a "shared api throttle" that didn't actually
+// exist; this route was unthrottled until now). CMS reads are cheap,
+// public, and read-only, so left unthrottled like any static content.
+Route::post('/leads', [LeadController::class, 'store'])->middleware('throttle:10,1');
 Route::get('/cms/{slug}', [CmsController::class, 'show']);
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {

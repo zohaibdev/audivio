@@ -247,13 +247,16 @@ before any real caller used it (see §27 for the equivalent bug that
 *did* ship and get fixed, in `CalculateScoreJob`; this one was a design
 review catch, not a shipped defect).
 
-**Known gap**: audit IDs are plain auto-increment integers with no
-ownership check on the `show`/`report` routes beyond the *report's
-content* being filtered — the status endpoint (`GET /api/audits/{id}`)
-reveals a target URL's crawl progress to anyone who knows or guesses the
-ID. Low severity (no sensitive data beyond "someone is auditing this
-URL"), but worth hardening (UUID references, or an ownership check) in
-Phase 9.
+**Partially closed in Phase 9**: audit IDs are still plain auto-increment
+integers (no UUID migration — too invasive for the actual risk level),
+but `AuditController::show()` now enforces the same ownership rule as
+report access: a **registered** audit's status is visible only to its
+own owner (or anonymously, matching the flow that creates it) — a
+*different* logged-in user gets a 404, not the real status. This closes
+the realistic risk (one account probing another account's audits) while
+leaving the accepted gap for anonymous audits alone, since those have no
+ownership concept at all to check (§20) — anyone who guesses an
+anonymous audit's ID can still see its status, same as before.
 
 **Admin authorization** (Phase 7): a single `is_admin` boolean on
 `users`, checked by the `EnsureUserIsAdmin` middleware (aliased as
@@ -641,9 +644,44 @@ anywhere:
 Frontend validation, if/when built, must never be the only validation —
 the backend re-validates everything.
 
+**Rate limiting** (Phase 9 hardening pass — `/register`, `/login`, and
+`/leads` were previously unthrottled entirely; `LeadController` even had
+a stale comment claiming a "shared api throttle" that didn't exist):
+- `throttle:5,1` on `POST /api/register` and `POST /api/login` — tighter
+  than the audit/lead endpoints since these are the actual brute-force/
+  spam surface (credential guessing, signup flooding).
+- `throttle:10,1` on `POST /api/audits`, `GET /api/audits/{audit}` (+
+  `/report`, `/report/pdf`), and `POST /api/leads` — matches the
+  pre-existing audit-endpoint rate.
+- `GET /api/cms/{slug}` stays unthrottled — public, read-only, cheap; no
+  meaningful DoS surface to rate-limit differently from any other static
+  content read.
+
+**Password policy** (`AppServiceProvider::boot()`, via
+`Password::defaults()`): minimum 8 characters, at least one letter and
+one number. Laravel's own unconfigured default is *only* "at least 8
+characters" — no complexity requirement at all — which this closes for
+the one place `Password::defaults()` is used (`RegisterRequest`).
+
+**Baseline security headers** (`X-Content-Type-Options: nosniff`,
+`X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`)
+on every response, added via a `RequestHandled` event listener in
+`AppServiceProvider::boot()` — **deliberately not a terminable
+middleware**. A middleware's post-`$next()` code only runs on the
+success path: an exception thrown deeper in the pipeline (e.g. Sanctum's
+`AuthenticationException` on a 401) unwinds straight to the Kernel's
+exception handler, skipping every middleware's after-code entirely — so
+a middleware-based version of this would silently miss headers on every
+401/403/422/429/404 response, exactly the responses where a header like
+`X-Frame-Options` matters most. `RequestHandled` fires after the
+response is finalized either way (success or exception-rendered), so
+it's the one hook that actually covers both. Caught by writing the test
+for it (`AuthTest::test_exception_rendered_api_responses_also_include_security_headers`)
+before trusting the first (middleware) implementation.
+
 ## 26. Current development status
 
-Phases 1-8 complete and committed. See §27/28 for what's outstanding.
+Phases 1-9 complete and committed. See §27/28 for what's outstanding.
 
 | Phase | Days | Status |
 |---|---|---|
@@ -655,7 +693,7 @@ Phases 1-8 complete and committed. See §27/28 for what's outstanding.
 | 6. User System (auth endpoints, subscriptions, plans) | 37-40 | ✅ done |
 | 7. Admin and CMS | 41-46 | ✅ done |
 | 8. PDF and Scheduling | 47-50 | ✅ done |
-| 9. Testing and Security | 51-58 | ⬜ not started (ongoing testing exists per-phase; a dedicated hardening pass has not happened) |
+| 9. Testing and Security | 51-58 | ✅ done — see §25 for the security hardening (rate limits, password policy, security headers, audit-ID ownership check) and §31 for the testing-gap closures |
 | 10. Production | 59-60 | ⬜ not started |
 
 ## 27. Known bugs
@@ -696,6 +734,17 @@ None currently open. Three were found and fixed during development
   timestamp. Worth remembering: always check migration run order when
   `make:migration` generates multiple files in the same command batch,
   not just when adding one at a time. (Phase 7)
+- A first implementation of the Phase 9 security headers used a
+  terminable middleware (code after `$next($request)`). That code never
+  runs for a response rendered from an exception thrown deeper in the
+  pipeline (Sanctum's `AuthenticationException` on a 401, validation's
+  422, throttle's 429, etc.) — the exception unwinds straight to the
+  Kernel's handler, skipping every middleware's after-code. Caught
+  before shipping by writing the exception-path test first (see §25);
+  replaced with a `RequestHandled` event listener, which fires after the
+  response is finalized either way. Not a shipped defect, but worth
+  remembering: **a middleware's post-`$next()` code is a success-path
+  hook, not a guaranteed one.** (Phase 9)
 
 **Testing-only gotcha #2, not a bug** (found writing the PDF-export
 anonymous-viewer test, Phase 8): `$this->withHeader('Authorization', ...)`
@@ -745,8 +794,17 @@ authenticated actors in one method, use one of these two patterns.
 - **No email verification, no password reset.** Registration issues a
   token immediately; there's no email-sending infrastructure decided
   yet to build either on top of.
-- **Audit IDs are plain auto-increment integers** with no ownership
-  check on `GET /api/audits/{id}` (status endpoint) — see §9's gap note.
+- **Audit IDs are plain auto-increment integers.** The ownership gap on
+  `GET /api/audits/{id}` is closed for registered audits (§9, Phase 9);
+  anonymous audits remain visible to anyone who guesses the ID, which is
+  accepted since there's no session/cookie mechanism to check ownership
+  against for them at all.
+- **Sanctum tokens never expire** (`config/sanctum.php`'s `expiration`
+  is `null`). Not changed in the Phase 9 hardening pass — picking a
+  concrete duration is a product decision (how often should a user have
+  to re-authenticate?) this project hasn't made, and there's no
+  refresh-token or re-auth UX built on the frontend to handle an
+  expired token gracefully yet. Revisit once that UX exists.
 - Broken-internal-link detection (SEO module) only catches links to pages
   already in the same audit's crawled set — it does not fetch untouched
   link targets just to check them.
@@ -754,7 +812,7 @@ authenticated actors in one method, use one of these two patterns.
   `RunAuditModuleJob`'s "have all modules finished yet" check both use a
   simple existence query with no locking. Fine for the current single-
   worker local setup; worth revisiting once Horizon/multi-worker queue
-  processing is in play (production, Phase 9+).
+  processing is in play (production, Phase 10+).
 - **No "promote user to admin" endpoint** — deliberate (§9), but means
   the very first admin has to be created via `tinker` or a direct DB
   write. Fine for a single-operator MVP; would need a real bootstrapping
@@ -768,12 +826,14 @@ authenticated actors in one method, use one of these two patterns.
 
 ## 29. Pending tasks
 
-In spec order, next up is **Phase 9: Testing and Security** — a
-dedicated hardening pass on top of the per-phase testing that already
-exists. The audit-ID-enumeration and IP-based-anonymous-tracking items
-from §28 are natural candidates, along with a "promote to admin"
-bootstrapping story if this needs to move beyond single-operator. After
-that: Phase 10 (production deploy).
+In spec order, next up is **Phase 10: Production** — the last phase.
+Phase 9's hardening pass closed the audit-ID-enumeration gap and the
+unthrottled-auth-endpoints gap; the remaining §28 items
+(IP-based-anonymous-tracking, no "promote to admin" endpoint, no email
+verification/password reset, Sanctum tokens never expiring) were
+deliberately left as accepted limitations or deferred product decisions
+rather than being fixed speculatively — revisit only if real usage
+shows they're actually load-bearing problems, not preemptively.
 
 ## 30. Important technical decisions
 
@@ -894,6 +954,33 @@ that: Phase 10 (production deploy).
   `Website` row (no new `Website` created) — the crawl/analysis
   pipeline has no concept of "scheduled vs. manual," and duplicating it
   would be pure risk for no benefit.
+- **Audit-ID enumeration was closed with an ownership check on the
+  existing `show()` controller, not a UUID migration** (§9) — a UUID
+  reference for every audit would touch every FK, every route, and
+  every existing test; the actual risk (a *different account* probing
+  another user's registered audits) is fully addressed by checking
+  `audit.user_id` against the requesting viewer, which is a few lines in
+  one controller. The remaining gap (anonymous audits are enumerable by
+  anyone) is accepted, not fixed, because there's no session mechanism
+  for an anonymous audit to have an "owner" to check against in the
+  first place.
+- **Security headers are added via a `RequestHandled` event listener,
+  not a terminable middleware** — see §25/§27. A middleware's
+  post-`$next()` code is skipped whenever an exception is thrown deeper
+  in the pipeline, which is exactly when most of these responses
+  (401/403/422/429/404) are produced; `RequestHandled` fires after the
+  response is finalized regardless of which path produced it.
+- **Password policy tightened to 8+ characters with letters and
+  numbers**, not left at Laravel's bare "8 characters, nothing else"
+  default — a minimal, defensible baseline that doesn't require a
+  product decision the way a specific token-expiration duration would
+  (see the Sanctum-expiration limitation in §28, deliberately left
+  alone for that reason).
+- **`/register`/`/login` throttled tighter (`throttle:5,1`) than
+  `/audits`/`/leads` (`throttle:10,1`)** — credential-guessing and
+  signup-spam are a more direct abuse vector per request than creating
+  an audit or submitting a lead, both of which are already bounded by
+  usage limits (§19) and a lead-capture form's low incentive to spam.
 
 ## 31. Testing architecture
 
@@ -911,8 +998,18 @@ real browser. `tests/Feature/Api/` covers the real HTTP endpoints
 the first tests in this project to exercise actual routes/middleware/
 controllers rather than services directly. `ReportPdfServiceTest`
 asserts on the actual rendered PDF binary (`%PDF-` header), not just
-that dompdf was called, so a broken Blade view would fail it. 235 PHP
-tests currently, all passing.
+that dompdf was called, so a broken Blade view would fail it.
+`UniqueConstraintsTest` (Phase 9) asserts the DB itself rejects a
+duplicate `audit_scores`/`ai_analyses` insert, not just that application
+code happens to call `updateOrCreate()`. Several Phase 9 tests exist
+specifically to prove a security fix actually works end-to-end rather
+than trusting the implementation: throttle tests fire real requests past
+the configured limit and assert 429, the audit-ID-ownership tests assert
+a different account gets a 404 (not just that `ReportAccessResolver` was
+called), and the injection/XSS-style-input tests assert the string was
+stored verbatim and the table survives intact rather than merely
+asserting "no exception was thrown." 257 PHP tests currently, all
+passing.
 
 Crawler: `crawler/lib/*.test.mjs`, run via `npm test` (Node's built-in
 `node --test`, no added dependency). Covers the SSRF logic
@@ -921,7 +1018,7 @@ defense-in-depth layer described in §25, tested independently of the PHP
 side since the two can't share code across the language boundary. 40
 Node tests currently, all passing.
 
-**275 tests total** (235 PHP + 40 Node). See `tests/TEST_CASES.md` at the
+**297 tests total** (257 PHP + 40 Node). See `tests/TEST_CASES.md` at the
 repo root for the full registry mapped to test-requirement categories,
 coverage status, and any remaining gaps.
 

@@ -268,6 +268,47 @@ class AdminApiTest extends TestCase
         $this->getJson('/api/admin/leads')->assertStatus(401);
     }
 
+    public function test_lead_submission_rejects_an_oversized_message(): void
+    {
+        $this->postJson('/api/leads', [
+            'name' => 'Prospective Customer',
+            'email' => 'prospect@example.com',
+            'source' => 'talk_to_consultant',
+            'message' => str_repeat('a', 5001),
+        ])->assertStatus(422);
+    }
+
+    public function test_lead_submission_safely_stores_injection_and_script_style_strings_without_executing_them(): void
+    {
+        $maliciousMessage = "<script>alert('xss')</script>'; DROP TABLE leads; --";
+
+        $response = $this->postJson('/api/leads', [
+            'name' => 'Prospective Customer',
+            'email' => 'prospect@example.com',
+            'source' => 'talk_to_consultant',
+            'message' => $maliciousMessage,
+        ]);
+
+        $response->assertStatus(201);
+        // Stored verbatim as plain data and the table survives intact —
+        // proof it was bound as a parameter, never interpreted as SQL,
+        // and that this API never attempts to sanitize/execute HTML
+        // server-side (that's a frontend rendering concern, not this
+        // endpoint's).
+        $this->assertDatabaseHas('leads', ['email' => 'prospect@example.com', 'message' => $maliciousMessage]);
+        $this->assertSame(1, Lead::count());
+    }
+
+    public function test_lead_submissions_beyond_the_rate_limit_are_throttled(): void
+    {
+        for ($i = 0; $i < 10; $i++) {
+            $this->postJson('/api/leads', ['name' => 'X', 'email' => "x{$i}@example.com", 'source' => 'talk_to_consultant']);
+        }
+
+        $this->postJson('/api/leads', ['name' => 'X', 'email' => 'last@example.com', 'source' => 'talk_to_consultant'])
+            ->assertStatus(429);
+    }
+
     public function test_admin_can_list_and_filter_leads_by_status(): void
     {
         $token = $this->tokenFor($this->makeAdmin());

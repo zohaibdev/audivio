@@ -16,8 +16,8 @@ class AuthTest extends TestCase
         $response = $this->postJson('/api/register', [
             'name' => 'Ada Lovelace',
             'email' => 'ada@example.com',
-            'password' => 'correct-horse-battery-staple',
-            'password_confirmation' => 'correct-horse-battery-staple',
+            'password' => 'correct-horse-battery-staple1',
+            'password_confirmation' => 'correct-horse-battery-staple1',
         ]);
 
         $response->assertStatus(201)
@@ -35,8 +35,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/register', [
             'name' => 'Ada Lovelace',
             'email' => 'ada@example.com',
-            'password' => 'correct-horse-battery-staple',
-            'password_confirmation' => 'correct-horse-battery-staple',
+            'password' => 'correct-horse-battery-staple1',
+            'password_confirmation' => 'correct-horse-battery-staple1',
         ])->assertStatus(201);
 
         $user = User::where('email', 'ada@example.com')->first();
@@ -51,8 +51,8 @@ class AuthTest extends TestCase
         $this->postJson('/api/register', [
             'name' => 'Ada Lovelace',
             'email' => 'ada@example.com',
-            'password' => 'correct-horse-battery-staple',
-            'password_confirmation' => 'correct-horse-battery-staple',
+            'password' => 'correct-horse-battery-staple1',
+            'password_confirmation' => 'correct-horse-battery-staple1',
         ])->assertStatus(422);
     }
 
@@ -61,18 +61,67 @@ class AuthTest extends TestCase
         $this->postJson('/api/register', [
             'name' => 'Ada Lovelace',
             'email' => 'ada@example.com',
-            'password' => 'correct-horse-battery-staple',
+            'password' => 'correct-horse-battery-staple1',
             'password_confirmation' => 'different',
         ])->assertStatus(422);
     }
 
+    public function test_registration_rejects_a_password_with_no_numbers(): void
+    {
+        $this->postJson('/api/register', [
+            'name' => 'Ada Lovelace',
+            'email' => 'ada@example.com',
+            'password' => 'lettersonly',
+            'password_confirmation' => 'lettersonly',
+        ])->assertStatus(422);
+    }
+
+    public function test_registration_rejects_a_password_under_eight_characters(): void
+    {
+        $this->postJson('/api/register', [
+            'name' => 'Ada Lovelace',
+            'email' => 'ada@example.com',
+            'password' => 'ab1',
+            'password_confirmation' => 'ab1',
+        ])->assertStatus(422);
+    }
+
+    public function test_registration_rejects_an_oversized_name(): void
+    {
+        $this->postJson('/api/register', [
+            'name' => str_repeat('a', 256),
+            'email' => 'ada@example.com',
+            'password' => 'correct-horse-battery-staple1',
+            'password_confirmation' => 'correct-horse-battery-staple1',
+        ])->assertStatus(422);
+
+        $this->assertDatabaseMissing('users', ['email' => 'ada@example.com']);
+    }
+
+    public function test_registration_safely_stores_an_injection_style_name_without_executing_it(): void
+    {
+        $maliciousName = "Robert'); DROP TABLE users; --";
+
+        $this->postJson('/api/register', [
+            'name' => $maliciousName,
+            'email' => 'ada@example.com',
+            'password' => 'correct-horse-battery-staple1',
+            'password_confirmation' => 'correct-horse-battery-staple1',
+        ])->assertStatus(201);
+
+        // The users table must still exist and hold exactly this one row
+        // — proof the string was bound as data, never interpreted as SQL.
+        $this->assertDatabaseHas('users', ['name' => $maliciousName, 'email' => 'ada@example.com']);
+        $this->assertSame(1, User::count());
+    }
+
     public function test_login_with_correct_credentials_returns_a_token(): void
     {
-        User::create(['name' => 'Ada', 'email' => 'ada@example.com', 'password' => 'correct-horse-battery-staple']);
+        User::create(['name' => 'Ada', 'email' => 'ada@example.com', 'password' => 'correct-horse-battery-staple1']);
 
         $response = $this->postJson('/api/login', [
             'email' => 'ada@example.com',
-            'password' => 'correct-horse-battery-staple',
+            'password' => 'correct-horse-battery-staple1',
         ]);
 
         $response->assertStatus(200)->assertJsonStructure(['data' => ['user', 'token']]);
@@ -80,7 +129,7 @@ class AuthTest extends TestCase
 
     public function test_login_with_wrong_password_is_rejected(): void
     {
-        User::create(['name' => 'Ada', 'email' => 'ada@example.com', 'password' => 'correct-horse-battery-staple']);
+        User::create(['name' => 'Ada', 'email' => 'ada@example.com', 'password' => 'correct-horse-battery-staple1']);
 
         $this->postJson('/api/login', [
             'email' => 'ada@example.com',
@@ -129,5 +178,53 @@ class AuthTest extends TestCase
         // reusing one container across simulated requests, not something
         // a real server does (each real HTTP request is a fresh process).
         $this->assertSame(0, $user->tokens()->count());
+    }
+
+    public function test_successful_api_responses_include_baseline_security_headers(): void
+    {
+        $user = User::create(['name' => 'Ada', 'email' => 'ada@example.com', 'password' => 'x']);
+        $token = $user->createToken('api')->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/user');
+
+        $response->assertHeader('X-Content-Type-Options', 'nosniff');
+        $response->assertHeader('X-Frame-Options', 'DENY');
+        $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    }
+
+    public function test_exception_rendered_api_responses_also_include_security_headers(): void
+    {
+        // A middleware's post-$next() code would miss this case — an
+        // AuthenticationException thrown before $next() unwinds straight
+        // to the exception handler. This proves the RequestHandled-event
+        // approach covers it anyway.
+        $response = $this->getJson('/api/user');
+
+        $response->assertStatus(401);
+        $response->assertHeader('X-Content-Type-Options', 'nosniff');
+        $response->assertHeader('X-Frame-Options', 'DENY');
+        $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    }
+
+    public function test_login_attempts_beyond_the_rate_limit_are_throttled(): void
+    {
+        User::create(['name' => 'Ada', 'email' => 'ada@example.com', 'password' => 'correct-horse-battery-staple1']);
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson('/api/login', ['email' => 'ada@example.com', 'password' => 'wrong-password']);
+        }
+
+        $this->postJson('/api/login', ['email' => 'ada@example.com', 'password' => 'wrong-password'])
+            ->assertStatus(429);
+    }
+
+    public function test_registration_attempts_beyond_the_rate_limit_are_throttled(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson('/api/register', ['name' => 'X', 'email' => "x{$i}@example.com", 'password' => 'x', 'password_confirmation' => 'y']);
+        }
+
+        $this->postJson('/api/register', ['name' => 'X', 'email' => 'last@example.com', 'password' => 'x', 'password_confirmation' => 'y'])
+            ->assertStatus(429);
     }
 }

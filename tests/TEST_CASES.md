@@ -9,7 +9,7 @@ whenever coverage is added, moved, or removed.
 for all external calls — no test hits a real third-party API) and
 `cd crawler && npm test` (Node's built-in test runner, `node --test`).
 
-**Current total**: 275 tests (235 PHP + 40 Node), all passing, 0 known failures.
+**Current total**: 297 tests (257 PHP + 40 Node), all passing, 0 known failures.
 
 Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 
@@ -69,7 +69,7 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | AI | Claude: throws on non-2xx status | `ProvidersTest::test_claude_provider_throws_on_error_status` | ✅ |
 | AI | OpenAI: parses response + token usage | `ProvidersTest::test_openai_provider_parses_response_and_usage` | ✅ |
 | AI | Gemini: parses response + token usage, key sent as query param | `ProvidersTest::test_gemini_provider_parses_response_and_usage` | ✅ |
-| AI | OpenAI/Gemini: throws without key / on error status | — | ⬜ gap: only Claude has this pair tested; behavior is identical across providers by construction (shared `AiProviderException` pattern) but not independently verified for the other two |
+| AI | OpenAI/Gemini: throws without key / on error status | `ProvidersTest::test_openai_provider_throws_without_api_key`, `test_openai_provider_throws_on_error_status`, `test_gemini_provider_throws_without_api_key`, `test_gemini_provider_throws_on_error_status` | ✅ |
 | AI | Second identical call hits cache, not the provider | `AiAnalysisServiceTest::test_second_identical_call_hits_cache_not_the_provider` | ✅ |
 | AI | Different context is not a cache hit | `AiAnalysisServiceTest::test_different_context_is_not_a_cache_hit` | ✅ |
 | AI | Provider failure returns null + records an error row | `AiAnalysisServiceTest::test_provider_failure_returns_null_and_logs_an_error_row` | ✅ |
@@ -183,10 +183,12 @@ actual functionality either way.
 | Status codes (200/201/202/401/403/404/409/422/429) | Exercised across `AuthTest`/`AuditApiTest`/`AdminApiTest`/`AuditScheduleApiTest` — every status code the API actually returns has at least one test asserting it, including 403 (non-admin; PDF/schedule plan-feature gates), 404-not-403 for another user's schedule (a deliberate choice not to confirm it exists), and 409 (plan deletion conflict) | ✅ |
 | Response schema | `AuthTest::test_registration_creates_a_user_and_returns_a_token` asserts `assertJsonStructure(['data' => ['user', 'token']])`; `AdminApiTest::test_dashboard_returns_summary_data` asserts the full dashboard shape; the PDF export test asserts `Content-Type: application/pdf` and a `%PDF-` body instead of the usual JSON envelope; other tests assert specific `assertJsonPath()` values | ✅ |
 | Error handling (SSRF rejection, usage-limit rejection, plan-deletion conflict, schedule limit/feature gates) | `AuditApiTest::test_unsafe_url_is_rejected_before_creating_any_records`, usage-limit tests (see Feature tests table), `AdminApiTest::test_admin_cannot_delete_a_plan_with_an_active_subscription`, `AuditScheduleApiTest::test_a_plan_without_the_scheduled_audits_feature_is_rejected`, `test_a_second_website_beyond_the_plans_full_recrawls_limit_is_rejected` | ✅ |
-| Rate limits | `AuditApiTest::test_requests_beyond_the_rate_limit_are_throttled` | ✅ |
-| Security — cross-user data leakage | `AuditApiTest::test_report_endpoint_does_not_grant_full_access_to_a_different_registered_user` | ✅ |
+| Rate limits | `AuditApiTest::test_requests_beyond_the_rate_limit_are_throttled`, `AuthTest::test_login_attempts_beyond_the_rate_limit_are_throttled`, `test_registration_attempts_beyond_the_rate_limit_are_throttled`, `AdminApiTest::test_lead_submissions_beyond_the_rate_limit_are_throttled` (Phase 9 — `/register`/`/login`/`/leads` were previously unthrottled, see CONTEXT.md §25) | ✅ |
+| Security — cross-user data leakage | `AuditApiTest::test_report_endpoint_does_not_grant_full_access_to_a_different_registered_user`, `test_show_hides_a_registered_audit_from_a_different_registered_user`, `test_show_hides_a_registered_audit_from_an_anonymous_viewer` (Phase 9 — closed the audit-ID-enumeration gap for registered audits, CONTEXT.md §9) | ✅ |
 | Pagination | `AdminApiTest::test_users_listing_is_paginated_and_includes_subscription` and every other admin listing test asserts the paginator shape (`current_page`/`total`/`data`) | ✅ |
-| Duplicate/malicious input beyond SSRF | — | ⬜ gap: no test sends e.g. oversized payloads, unexpected types, or injection-style strings to the audit/auth/admin endpoints — Laravel's validation layer handles most of this by construction, but it isn't explicitly exercised |
+| Duplicate/malicious input beyond SSRF | `AuditApiTest::test_oversized_url_is_rejected_with_a_validation_error`, `test_non_string_url_is_rejected_with_a_validation_error`, `AuthTest::test_registration_rejects_an_oversized_name`, `test_registration_safely_stores_an_injection_style_name_without_executing_it`, `AdminApiTest::test_lead_submission_rejects_an_oversized_message`, `test_lead_submission_safely_stores_injection_and_script_style_strings_without_executing_them` (Phase 9 — the injection/XSS-style tests assert the string is stored verbatim and the table survives intact, proving parameter binding rather than just "no error was thrown") | ✅ |
+| Password policy | `AuthTest::test_registration_rejects_a_password_with_no_numbers`, `test_registration_rejects_a_password_under_eight_characters` (Phase 9 — tightened from Laravel's bare 8-characters-only default, CONTEXT.md §25) | ✅ |
+| Security headers | `AuthTest::test_successful_api_responses_include_baseline_security_headers`, `test_exception_rendered_api_responses_also_include_security_headers` (the second one specifically proves the `RequestHandled`-listener approach, not a middleware, since middleware after-code is skipped on the exception path — CONTEXT.md §25/§27) | ✅ |
 | Backward compatibility | — | ⬜ n/a — no prior API version exists to be compatible with |
 
 ## Database tests
@@ -196,7 +198,9 @@ actual functionality either way.
 | Fresh migrations run cleanly | `DatabaseMigrationTest::test_migrate_fresh_runs_cleanly` — asserts exit code 0 and every application table exists afterward | ✅ |
 | Every table is InnoDB with enforced FKs | ✅ verified manually via `information_schema` query in Phase 2 after finding the MyISAM default-engine issue (MySQL-specific — the automated test suite runs against SQLite, so this check isn't portable to it); not automated |
 | Migration rollback (`down()`) — single-step and full reset | `DatabaseMigrationTest::test_rolling_back_the_last_migration_drops_its_table_and_remigrating_restores_it`, `test_rolling_back_every_migration_drops_every_application_table` — actually runs `migrate:rollback` / `migrate:reset` and asserts tables are dropped, then re-migrates and asserts they're back | ✅ |
-| Unique constraints (`audit_scores` per audit+category, `ai_analyses` cache key, `audit_schedules` per user+website) | ✅/⬜ mixed — `audit_scores`/`ai_analyses` exercised indirectly via `updateOrCreate` call sites; `audit_schedules`' `(user_id, website_id)` constraint **is** directly asserted at the API level (`AuditScheduleApiTest::test_a_website_cannot_be_scheduled_twice`, via the controller's friendlier pre-check, not a raw `QueryException`) |
+| Unique constraint: `audit_scores` rejects a duplicate (audit, category) insert | `UniqueConstraintsTest::test_audit_scores_rejects_a_duplicate_category_for_the_same_audit` — asserts a real `QueryException`, not just that application code happens to call `updateOrCreate()` | ✅ |
+| Unique constraint: `ai_analyses` rejects a duplicate cache-key insert | `UniqueConstraintsTest::test_ai_analyses_rejects_a_duplicate_cache_key` | ✅ |
+| Unique constraint: `audit_schedules` per (user_id, website_id) | `AuditScheduleApiTest::test_a_website_cannot_be_scheduled_twice` — asserted at the API level via the controller's friendlier pre-check (422), not a raw `QueryException` | ✅ |
 | Cascade delete: website → audits | `CascadeDeleteTest::test_deleting_a_website_cascades_to_its_audits` | ✅ |
 | Null-on-delete: user → website.user_id (website itself survives) | `CascadeDeleteTest::test_deleting_a_user_nulls_the_websites_user_id_instead_of_deleting_the_website` | ✅ |
 | Cascade delete: audit → crawl_job, audit_pages, audit_issues, audit_scores, ai_analyses, reports | `CascadeDeleteTest::test_deleting_an_audit_cascades_to_its_crawl_job_pages_issues_and_scores` | ✅ |
@@ -339,21 +343,26 @@ added above.
    via `AdminApiTest`. Frontend/E2E for these remains a gap since no
    frontend UI exists yet for admin or lead capture — see CONTEXT.md §26
    for phase status.
-8. `OpenAiProvider`/`GeminiProvider` only have their success-path parsing
-   tested; the missing-key/error-status pair is only verified for
-   `ClaudeProvider`. Low priority — the failure behavior is structurally
-   identical across all three (shared `AiProviderException` pattern), not
-   independently implemented per provider.
-9. No test asserts the DB rejects a duplicate insert against the
+8. ~~`OpenAiProvider`/`GeminiProvider` only have their success-path
+   parsing tested; the missing-key/error-status pair is only verified
+   for `ClaudeProvider`~~ — **closed** (Phase 9): 4 new `ProvidersTest`
+   cases give both providers the same missing-key/error-status pair
+   Claude already had.
+9. ~~No test asserts the DB rejects a duplicate insert against the
    `audit_scores` (per audit+category) or `ai_analyses` (cache key)
-   unique constraints directly — only exercised indirectly via
-   `updateOrCreate` call sites. (The equivalent `cms_sections`
-   `(cms_page_id, section_key)` unique constraint from Phase 7 has the
-   same gap.)
-10. No test sends oversized payloads, unexpected types, or injection-
-    style strings to the audit/auth/admin endpoints beyond what
-    Laravel's validation layer handles by construction (see the API
-    tests table's "Duplicate/malicious input" row).
+   unique constraints directly~~ — **closed** (Phase 9): `UniqueConstraintsTest`
+   (2 tests) asserts a real `QueryException` from each constraint,
+   not just that application code happens to call `updateOrCreate()`.
+   (The equivalent `cms_sections` `(cms_page_id, section_key)` unique
+   constraint from Phase 7 still has this gap — low priority, same
+   reasoning as before: only ever written to via `updateOrCreate`.)
+10. ~~No test sends oversized payloads, unexpected types, or injection-
+    style strings to the audit/auth/admin endpoints~~ — **closed**
+    (Phase 9): 6 new tests across `AuditApiTest`/`AuthTest`/`AdminApiTest`
+    (see the API tests table's "Duplicate/malicious input" row) — the
+    injection/XSS-style-string tests specifically assert the string was
+    stored verbatim and the table survives intact, which is stronger
+    evidence of safety than just "the request didn't error."
 11. ~~PDF export and scheduled/recurring audits (`plans.full_recrawls`,
     `plans.features['scheduled_audits']`/`['pdf_export']`, and the
     `audit_schedules` table) sat unused/unbuilt~~ — **closed** (Phase 8):
@@ -369,3 +378,17 @@ added above.
     Sanctum-guard-memoization one; both are needed together whenever a
     test authenticates and then makes a deliberately-anonymous request
     in the same method.
+12. ~~`/register`, `/login`, and `/leads` were unthrottled; audit IDs had
+    no ownership check at all on the status endpoint; the password
+    policy was Laravel's bare 8-characters-only default; no response
+    carried baseline security headers~~ — **closed** (Phase 9, dedicated
+    security hardening pass): rate-limit tests (3), audit-ID-ownership
+    tests (3), password-policy tests (2), and security-header tests (2)
+    — 10 new tests, plus the 6 malicious-input, 4 AI-provider-failure,
+    and 2 unique-constraint tests already counted in items 8-10 above —
+    22 new PHP tests total this phase (235 → 257). The security-headers
+    test suite caught a real implementation bug before it shipped: a
+    first (middleware-based) version silently missed every
+    exception-rendered response (401/403/422/429/404) because middleware
+    post-`$next()` code doesn't run on that path — see CONTEXT.md §25/§27
+    for the fix (a `RequestHandled` event listener instead).

@@ -113,6 +113,19 @@ class AuditApiTest extends TestCase
         $this->postJson('/api/audits', [])->assertStatus(422);
     }
 
+    public function test_oversized_url_is_rejected_with_a_validation_error(): void
+    {
+        $oversizedUrl = 'https://example.com/'.str_repeat('a', 2100);
+
+        $this->postJson('/api/audits', ['url' => $oversizedUrl])->assertStatus(422);
+        $this->assertDatabaseCount('websites', 0);
+    }
+
+    public function test_non_string_url_is_rejected_with_a_validation_error(): void
+    {
+        $this->postJson('/api/audits', ['url' => ['not', 'a', 'string']])->assertStatus(422);
+    }
+
     public function test_second_audit_from_the_same_anonymous_ip_is_rejected(): void
     {
         $this->postJson('/api/audits', ['url' => 'https://example.com'])->assertStatus(202);
@@ -181,6 +194,55 @@ class AuditApiTest extends TestCase
     public function test_show_for_an_unknown_audit_returns_404(): void
     {
         $this->getJson('/api/audits/999999')->assertStatus(404);
+    }
+
+    public function test_show_is_visible_to_the_owner_of_a_registered_audit(): void
+    {
+        $user = $this->makePlanAndUser(email: 'owner@example.com');
+        $token = $user->createToken('api')->plainTextToken;
+
+        $create = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/audits', ['url' => 'https://example.com']);
+        $auditId = $create->json('data.audit_id');
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/audits/{$auditId}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.audit_id', $auditId);
+    }
+
+    public function test_show_hides_a_registered_audit_from_a_different_registered_user(): void
+    {
+        $owner = $this->makePlanAndUser(email: 'owner@example.com');
+        $ownerToken = $owner->createToken('api')->plainTextToken;
+
+        $create = $this->withHeader('Authorization', "Bearer {$ownerToken}")
+            ->postJson('/api/audits', ['url' => 'https://example.com']);
+        $auditId = $create->json('data.audit_id');
+
+        $someoneElse = $this->makePlanAndUser(email: 'someone-else@example.com');
+        $this->app['auth']->forgetGuards();
+        $otherToken = $someoneElse->createToken('api')->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$otherToken}")
+            ->getJson("/api/audits/{$auditId}")
+            ->assertStatus(404);
+    }
+
+    public function test_show_hides_a_registered_audit_from_an_anonymous_viewer(): void
+    {
+        $user = $this->makePlanAndUser(email: 'owner@example.com');
+        $token = $user->createToken('api')->plainTextToken;
+
+        $create = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/audits', ['url' => 'https://example.com']);
+        $auditId = $create->json('data.audit_id');
+
+        $this->app['auth']->forgetGuards();
+
+        $this->withoutHeader('Authorization')
+            ->getJson("/api/audits/{$auditId}")
+            ->assertStatus(404);
     }
 
     public function test_report_endpoint_returns_the_anonymous_view_for_an_anonymous_viewer(): void

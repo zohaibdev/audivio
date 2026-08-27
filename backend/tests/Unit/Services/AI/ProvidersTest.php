@@ -84,6 +84,25 @@ class ProvidersTest extends TestCase
         Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer test-key'));
     }
 
+    public function test_openai_provider_throws_without_api_key(): void
+    {
+        config(['ai.providers.openai.api_key' => null]);
+
+        $this->expectException(AiProviderException::class);
+
+        (new OpenAiProvider)->analyze('Prompt');
+    }
+
+    public function test_openai_provider_throws_on_error_status(): void
+    {
+        config(['ai.providers.openai.api_key' => 'test-key']);
+        Http::fake(['api.openai.com/*' => Http::response(['error' => 'bad request'], 400)]);
+
+        $this->expectException(AiProviderException::class);
+
+        (new OpenAiProvider)->analyze('Prompt');
+    }
+
     public function test_gemini_provider_parses_response_and_usage(): void
     {
         config(['ai.providers.gemini.api_key' => 'test-key']);
@@ -102,5 +121,24 @@ class ProvidersTest extends TestCase
         $this->assertSame(12, $response->completionTokens);
 
         Http::assertSent(fn ($request) => str_contains((string) $request->url(), 'key=test-key'));
+    }
+
+    public function test_gemini_provider_throws_without_api_key(): void
+    {
+        config(['ai.providers.gemini.api_key' => null]);
+
+        $this->expectException(AiProviderException::class);
+
+        (new GeminiProvider)->analyze('Prompt');
+    }
+
+    public function test_gemini_provider_throws_on_error_status(): void
+    {
+        config(['ai.providers.gemini.api_key' => 'test-key']);
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['error' => 'bad request'], 400)]);
+
+        $this->expectException(AiProviderException::class);
+
+        (new GeminiProvider)->analyze('Prompt');
     }
 }
