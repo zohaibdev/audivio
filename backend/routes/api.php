@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\AdminAiUsageController;
 use App\Http\Controllers\Api\Admin\AdminAuditController;
+use App\Http\Controllers\Api\Admin\AdminAuditScheduleController;
 use App\Http\Controllers\Api\Admin\AdminCmsController;
 use App\Http\Controllers\Api\Admin\AdminCrawlJobController;
 use App\Http\Controllers\Api\Admin\AdminDashboardController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\Api\Admin\AdminUsageController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminWebsiteController;
 use App\Http\Controllers\Api\AuditController;
+use App\Http\Controllers\Api\AuditScheduleController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CmsController;
 use App\Http\Controllers\Api\LeadController;
@@ -23,6 +25,14 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    // Scheduled (recurring) audits — a registered-user, plan-gated feature
+    // (AuditSchedulerService::canCreateSchedule), so unlike audit creation
+    // below there is no anonymous path here.
+    Route::get('/audit-schedules', [AuditScheduleController::class, 'index']);
+    Route::post('/audit-schedules', [AuditScheduleController::class, 'store']);
+    Route::put('/audit-schedules/{auditSchedule}', [AuditScheduleController::class, 'update']);
+    Route::delete('/audit-schedules/{auditSchedule}', [AuditScheduleController::class, 'destroy']);
 });
 
 // Anonymous-friendly: auth is optional here, resolved manually via
@@ -34,6 +44,7 @@ Route::middleware('throttle:10,1')->group(function () {
     Route::post('/audits', [AuditController::class, 'store']);
     Route::get('/audits/{audit}', [AuditController::class, 'show']);
     Route::get('/audits/{audit}/report', [AuditController::class, 'report']);
+    Route::get('/audits/{audit}/report/pdf', [AuditController::class, 'reportPdf']);
 });
 
 // Public — lead capture CTAs and CMS content for the (future) frontend.
@@ -50,6 +61,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::get('/audits/{audit}', [AdminAuditController::class, 'show']);
 
     Route::get('/crawl-jobs', [AdminCrawlJobController::class, 'index']);
+    Route::get('/audit-schedules', [AdminAuditScheduleController::class, 'index']);
 
     Route::get('/failed-jobs', [AdminFailedJobController::class, 'index']);
     Route::delete('/failed-jobs/{id}', [AdminFailedJobController::class, 'destroy']);

@@ -9,7 +9,7 @@ whenever coverage is added, moved, or removed.
 for all external calls — no test hits a real third-party API) and
 `cd crawler && npm test` (Node's built-in test runner, `node --test`).
 
-**Current total**: 240 tests (200 PHP + 40 Node), all passing, 0 known failures.
+**Current total**: 275 tests (235 PHP + 40 Node), all passing, 0 known failures.
 
 Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 
@@ -81,7 +81,7 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Platform detection | Wix (static asset domain, header) | `PlatformDetectorTest::test_detects_wix_from_static_asset_domain`, `test_detects_wix_from_header` | ✅ |
 | Platform detection | Signal priority (Shopify wins over a simultaneous WordPress match) | `PlatformDetectorTest::test_shopify_signal_takes_priority_over_wordpress` | ✅ |
 | Platform detection | Unrecognized generator meta → Custom; no signal at all → Unknown | `PlatformDetectorTest::test_unrecognized_generator_meta_is_custom`, `test_no_signals_at_all_is_unknown`, `test_empty_html_is_unknown` | ✅ |
-| URL normalization | Trailing-slash homepage dedup | — | ⬜ gap: fixed as a real bug (see CONTEXT.md §26) but not regression-tested — a sitemap URL matching the seed URL modulo trailing slash should not be double-created as a `CrawlUrl` |
+| URL normalization | Trailing-slash homepage dedup | — | ⬜ gap: fixed as a real bug (see CONTEXT.md §27) but not regression-tested — a sitemap URL matching the seed URL modulo trailing slash should not be double-created as a `CrawlUrl` |
 | SSRF / URL security | Loopback (IPv4 `127.0.0.1` + IPv6 `::1`), private ranges (10/8, 172.16/12, 192.168/16), cloud metadata (`169.254.169.254`), IPv6 unique-local (`fc00::/7`) | `UrlSecurityValidatorTest::test_loopback_ipv4_is_blocked` and 6 sibling `test_*_is_blocked` methods | ✅ |
 | SSRF / URL security | Public IP literal allowed | `UrlSecurityValidatorTest::test_public_ip_literal_is_allowed` | ✅ |
 | SSRF / URL security | `localhost` / case-insensitive / `*.localhost` subdomain blocked | `UrlSecurityValidatorTest::test_localhost_hostname_is_blocked` + 2 siblings | ✅ |
@@ -120,13 +120,20 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Report visibility | Anonymous view always shows the overview (scores) | `ReportVisibilityFilterTest::test_anonymous_view_always_shows_the_overview` | ✅ |
 | Report access | Anonymous audit grants full access to no one — not even a logged-in viewer, not even its own anonymous creator | `ReportAccessResolverTest::test_anonymous_audit_grants_no_one_full_access_even_a_logged_in_viewer` | ✅ |
 | Report access | Owner viewing their own audit has full access | `ReportAccessResolverTest::test_owner_viewing_their_own_audit_has_full_access` | ✅ |
-| Report access | A different registered user does NOT get full access to someone else's audit (closed an authorization gap — see CONTEXT.md §9/§26) | `ReportAccessResolverTest::test_a_different_registered_user_does_not_get_full_access_to_someone_elses_audit` | ✅ |
+| Report access | A different registered user does NOT get full access to someone else's audit (closed an authorization gap — see CONTEXT.md §9/§27) | `ReportAccessResolverTest::test_a_different_registered_user_does_not_get_full_access_to_someone_elses_audit` | ✅ |
 | Report access | Anonymous viewer of a registered user's audit has no full access | `ReportAccessResolverTest::test_anonymous_viewer_of_a_registered_users_audit_has_no_full_access` | ✅ |
 | Admin dashboard | Users/admins counted separately | `AdminDashboardServiceTest::test_counts_users_and_admins_separately` | ✅ |
 | Admin dashboard | Audits grouped by status | `AdminDashboardServiceTest::test_audits_grouped_by_status` | ✅ |
 | Admin dashboard | Leads grouped by status | `AdminDashboardServiceTest::test_leads_grouped_by_status` | ✅ |
 | Admin dashboard | AI usage separates successful from failed calls, sums tokens | `AdminDashboardServiceTest::test_ai_usage_separates_successful_from_failed_calls_and_sums_tokens` | ✅ |
 | Admin dashboard | Empty database returns zeros, not errors/exceptions | `AdminDashboardServiceTest::test_empty_database_returns_zeros_not_errors` | ✅ |
+| Admin dashboard | Audit schedules counted total vs. active separately | `AdminDashboardServiceTest::test_audit_schedules_counts_total_and_active_separately` | ✅ |
+| Scheduling | `ScheduleFrequency::nextRunFrom` advances by exactly one day/week/month and does not mutate the given instant | `ScheduleFrequencyTest` (4 tests) | ✅ |
+| Scheduling | A user with no plan, or a plan without the `scheduled_audits` feature, cannot create a schedule | `AuditSchedulerServiceTest::test_a_user_with_no_plan_cannot_create_a_schedule`, `test_a_plan_without_the_scheduled_audits_feature_cannot_create_a_schedule` | ✅ |
+| Scheduling | A plan with the feature can create schedules up to its `full_recrawls` limit; inactive schedules don't count against it | `AuditSchedulerServiceTest::test_a_plan_with_the_feature_can_create_a_schedule_up_to_its_full_recrawls_limit`, `test_inactive_schedules_do_not_count_against_the_limit` | ✅ |
+| Scheduling | Creating a schedule sets `next_run_at` per the chosen frequency | `AuditSchedulerServiceTest::test_create_sets_next_run_at_based_on_frequency` | ✅ |
+| Scheduling | `runDue()` dispatches a crawl and advances the schedule for due, active schedules only — ignores not-yet-due and inactive ones | `AuditSchedulerServiceTest::test_run_due_dispatches_a_crawl_and_advances_the_schedule`, `test_run_due_ignores_schedules_not_yet_due`, `test_run_due_ignores_inactive_schedules` | ✅ |
+| PDF export | Renders a valid PDF binary (`%PDF-` signature) for a report with issues/recommendations/AI analysis, and for one with none of those | `ReportPdfServiceTest` (2 tests) | ✅ |
 
 ## Feature tests
 
@@ -134,7 +141,7 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 |---|---|---|
 | Signup | `AuthTest::test_registration_creates_a_user_and_returns_a_token`, `test_registration_subscribes_the_user_to_the_default_plan`, `test_registration_rejects_a_duplicate_email`, `test_registration_rejects_mismatched_password_confirmation` | ✅ |
 | Login | `AuthTest::test_login_with_correct_credentials_returns_a_token`, `test_login_with_wrong_password_is_rejected`, `test_login_with_unknown_email_is_rejected` | ✅ |
-| Logout | `AuthTest::test_logout_revokes_the_current_token` (see CONTEXT.md §26 for the Sanctum-guard testing gotcha this test works around) | ✅ |
+| Logout | `AuthTest::test_logout_revokes_the_current_token` (see CONTEXT.md §27 for the Sanctum-guard testing gotcha this test works around) | ✅ |
 | Authenticated profile fetch / rejection when unauthenticated | `AuthTest::test_authenticated_user_can_fetch_their_own_profile`, `test_unauthenticated_request_to_user_endpoint_is_rejected` | ✅ |
 | Website creation | Implicit in every `AuditApiTest` audit-creation case (a `Website` row is created alongside the `Audit`) — no dedicated test since there's no standalone website-creation endpoint | ✅ (via `AuditApiTest`) |
 | Audit creation (anonymous) | `AuditApiTest::test_anonymous_visitor_can_create_an_audit`, `test_created_audit_has_no_user_id_for_an_anonymous_request`, `test_anonymous_audit_is_capped_at_the_configured_anonymous_page_limit` | ✅ |
@@ -148,7 +155,7 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Audit failure handling | `CrawlAndAnalyzePipelineTest::test_pipeline_marks_audit_failed_when_the_homepage_crawl_fails` — homepage crawl throws, asserts `Audit.status = failed`, `error_message` set, zero pages/scores/**reports** created | ✅ |
 | Report generation | Covered by `CrawlAndAnalyzePipelineTest::test_full_pipeline_produces_a_completed_audit_with_all_category_scores`, which now also asserts `GenerateReportJob` created a `Report` row with correct content | ✅ |
 | Usage limits | See `AuditApiTest`'s usage-limit rows above (API level) and `UsageLimitServiceTest` (Unit level) | ✅ |
-| Recrawl | — | ⬜ not built — no recrawl endpoint/feature exists yet (only `full_recrawls` sits unused on `plans`, reserved for when it's built) |
+| Recrawl (via a recurring schedule, not an on-demand endpoint) | `AuditSchedulerServiceTest::test_run_due_dispatches_a_crawl_and_advances_the_schedule` (Unit level — creates a new `Audit` against the existing `Website` and dispatches `CrawlWebsiteJob`) | ✅ |
 | Lead creation (public) | `AdminApiTest::test_anyone_can_submit_a_lead`, `test_lead_submission_requires_a_valid_source` | ✅ |
 | Lead management (admin) | `AdminApiTest::test_admin_can_list_and_filter_leads_by_status`, `test_admin_can_update_lead_status_and_it_logs_an_activity`, `test_admin_can_add_a_note_to_a_lead`, `test_lead_submission_is_rejected_without_admin_auth_to_list` | ✅ |
 | CMS content (public read) | `AdminApiTest::test_public_can_read_a_cms_page`, `test_public_read_of_unknown_cms_page_returns_404` | ✅ |
@@ -157,6 +164,9 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Admin operations — dashboard/resource listings | `AdminApiTest::test_dashboard_returns_summary_data`, `test_users_listing_is_paginated_and_includes_subscription`, `test_websites_listing_includes_audit_count`, `test_audit_show_includes_scores_and_issues`, `test_crawl_jobs_listing`, `test_usage_listing`, `test_ai_usage_endpoint_returns_aggregates` | ✅ |
 | Admin operations — failed jobs | `AdminApiTest::test_failed_jobs_listing_and_deletion`, `test_deleting_an_unknown_failed_job_returns_404` | ✅ |
 | Admin operations — plan CRUD | `AdminApiTest::test_admin_can_create_a_plan`, `test_setting_a_new_default_plan_unsets_the_previous_default` (only one plan can ever be default), `test_admin_can_update_a_plan`, `test_admin_cannot_delete_a_plan_with_an_active_subscription` (409, not a raw 500), `test_plan_slug_must_be_unique` | ✅ |
+| Admin operations — audit schedules listing | `AdminApiTest::test_audit_schedules_listing` | ✅ |
+| PDF export | `AuditApiTest::test_pdf_export_returns_a_pdf_for_the_owner_on_a_plan_with_the_feature` (200, `Content-Type: application/pdf`, `%PDF-` body), `test_pdf_export_is_rejected_when_the_owners_plan_lacks_the_feature` (403), `test_pdf_export_is_rejected_for_a_non_owner` (403), `test_pdf_export_is_rejected_for_an_anonymous_viewer` (403), `test_pdf_export_returns_404_when_the_report_is_not_ready` | ✅ |
+| Scheduled audits (create/list/update/delete, all ownership- and plan-gated) | `AuditScheduleApiTest` (12 tests: unauthenticated 401, owns-website 201, someone-else's-website 422, missing feature 403, over the `full_recrawls` limit 403, duplicate-website 422, invalid frequency 422, list-scoped-to-self, pause via update, update/delete blocked with 404 — not 403 — for a non-owner, delete) | ✅ |
 
 **The default `Tests\Feature\ExampleTest`** (Laravel scaffold, asserts `/`
 returns 200) still exists and passes — kept as-is; no real reason to
@@ -168,11 +178,11 @@ actual functionality either way.
 | Category | Test | Status |
 |---|---|---|
 | Authentication (register/login/logout/me) | `AuthTest` (10 tests, see Feature tests table above) | ✅ |
-| Authorization (report access scoped to the real viewer; admin gate) | `AuditApiTest`'s report-access tests, `AdminApiTest`'s authorization tests (see Feature tests table above) | ✅ |
-| Validation (missing/invalid input → 422) | `AuthTest::test_registration_rejects_mismatched_password_confirmation`, `AuditApiTest::test_missing_url_is_rejected_with_a_validation_error`, `AdminApiTest::test_plan_slug_must_be_unique`, `test_cms_page_slug_must_be_unique`, `test_lead_submission_requires_a_valid_source` | ✅ |
-| Status codes (200/201/202/401/403/404/409/422/429) | Exercised across `AuthTest`/`AuditApiTest`/`AdminApiTest` — every status code the API actually returns has at least one test asserting it, including 403 (non-admin) and 409 (plan deletion conflict), which only exist because of Phase 7 | ✅ |
-| Response schema | `AuthTest::test_registration_creates_a_user_and_returns_a_token` asserts `assertJsonStructure(['data' => ['user', 'token']])`; `AdminApiTest::test_dashboard_returns_summary_data` asserts the full dashboard shape; other tests assert specific `assertJsonPath()` values | ✅ |
-| Error handling (SSRF rejection, usage-limit rejection, plan-deletion conflict) | `AuditApiTest::test_unsafe_url_is_rejected_before_creating_any_records`, usage-limit tests (see Feature tests table), `AdminApiTest::test_admin_cannot_delete_a_plan_with_an_active_subscription` | ✅ |
+| Authorization (report access scoped to the real viewer; admin gate; schedule/PDF ownership + plan-feature gates) | `AuditApiTest`'s report-access and PDF-export tests, `AdminApiTest`'s authorization tests, `AuditScheduleApiTest`'s ownership/plan-gate tests (see Feature tests table above) | ✅ |
+| Validation (missing/invalid input → 422) | `AuthTest::test_registration_rejects_mismatched_password_confirmation`, `AuditApiTest::test_missing_url_is_rejected_with_a_validation_error`, `AdminApiTest::test_plan_slug_must_be_unique`, `test_cms_page_slug_must_be_unique`, `test_lead_submission_requires_a_valid_source`, `AuditScheduleApiTest::test_invalid_frequency_is_rejected`, `test_a_website_cannot_be_scheduled_twice` | ✅ |
+| Status codes (200/201/202/401/403/404/409/422/429) | Exercised across `AuthTest`/`AuditApiTest`/`AdminApiTest`/`AuditScheduleApiTest` — every status code the API actually returns has at least one test asserting it, including 403 (non-admin; PDF/schedule plan-feature gates), 404-not-403 for another user's schedule (a deliberate choice not to confirm it exists), and 409 (plan deletion conflict) | ✅ |
+| Response schema | `AuthTest::test_registration_creates_a_user_and_returns_a_token` asserts `assertJsonStructure(['data' => ['user', 'token']])`; `AdminApiTest::test_dashboard_returns_summary_data` asserts the full dashboard shape; the PDF export test asserts `Content-Type: application/pdf` and a `%PDF-` body instead of the usual JSON envelope; other tests assert specific `assertJsonPath()` values | ✅ |
+| Error handling (SSRF rejection, usage-limit rejection, plan-deletion conflict, schedule limit/feature gates) | `AuditApiTest::test_unsafe_url_is_rejected_before_creating_any_records`, usage-limit tests (see Feature tests table), `AdminApiTest::test_admin_cannot_delete_a_plan_with_an_active_subscription`, `AuditScheduleApiTest::test_a_plan_without_the_scheduled_audits_feature_is_rejected`, `test_a_second_website_beyond_the_plans_full_recrawls_limit_is_rejected` | ✅ |
 | Rate limits | `AuditApiTest::test_requests_beyond_the_rate_limit_are_throttled` | ✅ |
 | Security — cross-user data leakage | `AuditApiTest::test_report_endpoint_does_not_grant_full_access_to_a_different_registered_user` | ✅ |
 | Pagination | `AdminApiTest::test_users_listing_is_paginated_and_includes_subscription` and every other admin listing test asserts the paginator shape (`current_page`/`total`/`data`) | ✅ |
@@ -186,7 +196,7 @@ actual functionality either way.
 | Fresh migrations run cleanly | `DatabaseMigrationTest::test_migrate_fresh_runs_cleanly` — asserts exit code 0 and every application table exists afterward | ✅ |
 | Every table is InnoDB with enforced FKs | ✅ verified manually via `information_schema` query in Phase 2 after finding the MyISAM default-engine issue (MySQL-specific — the automated test suite runs against SQLite, so this check isn't portable to it); not automated |
 | Migration rollback (`down()`) — single-step and full reset | `DatabaseMigrationTest::test_rolling_back_the_last_migration_drops_its_table_and_remigrating_restores_it`, `test_rolling_back_every_migration_drops_every_application_table` — actually runs `migrate:rollback` / `migrate:reset` and asserts tables are dropped, then re-migrates and asserts they're back | ✅ |
-| Unique constraints (`audit_scores` per audit+category, `ai_analyses` cache key) | ✅ exercised indirectly — `updateOrCreate` calls in `RunAuditModuleJob`/`CalculateScoreJob`/`AiAnalysisService` rely on these and are covered by the Unit tests above, but no test directly asserts the DB rejects a duplicate insert |
+| Unique constraints (`audit_scores` per audit+category, `ai_analyses` cache key, `audit_schedules` per user+website) | ✅/⬜ mixed — `audit_scores`/`ai_analyses` exercised indirectly via `updateOrCreate` call sites; `audit_schedules`' `(user_id, website_id)` constraint **is** directly asserted at the API level (`AuditScheduleApiTest::test_a_website_cannot_be_scheduled_twice`, via the controller's friendlier pre-check, not a raw `QueryException`) |
 | Cascade delete: website → audits | `CascadeDeleteTest::test_deleting_a_website_cascades_to_its_audits` | ✅ |
 | Null-on-delete: user → website.user_id (website itself survives) | `CascadeDeleteTest::test_deleting_a_user_nulls_the_websites_user_id_instead_of_deleting_the_website` | ✅ |
 | Cascade delete: audit → crawl_job, audit_pages, audit_issues, audit_scores, ai_analyses, reports | `CascadeDeleteTest::test_deleting_an_audit_cascades_to_its_crawl_job_pages_issues_and_scores` | ✅ |
@@ -202,6 +212,8 @@ actual functionality either way.
 | Null-on-delete: audit → lead.audit_id (lead itself survives) | `CascadeDeleteTest::test_deleting_an_audit_nulls_the_leads_audit_id_instead_of_deleting_the_lead` | ✅ |
 | Null-on-delete: user → lead_activity.user_id (activity itself survives) | `CascadeDeleteTest::test_deleting_a_user_nulls_the_lead_activities_user_id_instead_of_deleting_the_activity` | ✅ |
 | Cascade delete: cms_page → cms_sections | `CascadeDeleteTest::test_deleting_a_cms_page_cascades_to_its_sections` | ✅ |
+| Cascade delete: user → audit_schedules | `CascadeDeleteTest::test_deleting_a_user_cascades_to_their_audit_schedules` | ✅ |
+| Cascade delete: website → audit_schedules | `CascadeDeleteTest::test_deleting_a_website_cascades_to_its_audit_schedules` | ✅ |
 
 All cascade tests above were confirmed to exercise real DB-level FK
 enforcement, not vacuous passes — `config/database.php`'s sqlite
@@ -211,7 +223,7 @@ before trusting these results.
 ## Frontend tests
 
 None — no frontend code exists beyond the Vite scaffold (see CONTEXT.md
-§22). All categories (components, forms, dashboard, audit progress,
+§23). All categories (components, forms, dashboard, audit progress,
 report, locked content, signup, error/loading states) are gaps pending
 Phase 5/6 frontend work.
 
@@ -276,7 +288,7 @@ added above.
   issuance/verification, and real middleware stack working together —
   `AuditApiTest`/`AuthTest` cover the same logic through Laravel's test
   client, which shares the app container across calls (see the
-  Sanctum-guard note in CONTEXT.md §26) rather than truly separate
+  Sanctum-guard note in CONTEXT.md §27) rather than truly separate
   processes.
 
 ---
@@ -316,7 +328,7 @@ added above.
    (30 tests, Phase 7) exercise the real HTTP endpoints, not just the
    services behind them — authentication, authorization (including a
    cross-user isolation check that caught a real Sanctum-guard testing
-   gotcha, documented in CONTEXT.md §26; and admin-gate 401/403 checks),
+   gotcha, documented in CONTEXT.md §27; and admin-gate 401/403 checks),
    validation, status codes, error handling, rate limiting, and
    pagination.
 7. ~~Everything under Frontend/E2E, and the Feature-level flows
@@ -325,7 +337,7 @@ added above.
    closed** (Phase 7): lead capture and admin (dashboard, resource
    listings, plan CRUD, CMS, lead management) are now built and tested
    via `AdminApiTest`. Frontend/E2E for these remains a gap since no
-   frontend UI exists yet for admin or lead capture — see CONTEXT.md §25
+   frontend UI exists yet for admin or lead capture — see CONTEXT.md §26
    for phase status.
 8. `OpenAiProvider`/`GeminiProvider` only have their success-path parsing
    tested; the missing-key/error-status pair is only verified for
@@ -342,3 +354,18 @@ added above.
     style strings to the audit/auth/admin endpoints beyond what
     Laravel's validation layer handles by construction (see the API
     tests table's "Duplicate/malicious input" row).
+11. ~~PDF export and scheduled/recurring audits (`plans.full_recrawls`,
+    `plans.features['scheduled_audits']`/`['pdf_export']`, and the
+    `audit_schedules` table) sat unused/unbuilt~~ — **closed** (Phase 8):
+    `ReportPdfServiceTest` (2), `AuditApiTest`'s 5 PDF-export tests,
+    `ScheduleFrequencyTest` (4), `AuditSchedulerServiceTest` (8),
+    `AuditScheduleApiTest` (12), plus `AdminApiTest`'s and
+    `AdminDashboardServiceTest`'s new schedule-listing/count tests and
+    `CascadeDeleteTest`'s 2 new `audit_schedules` rows — 35 new tests
+    total this phase. Writing the anonymous-viewer PDF test surfaced a
+    second test-only gotcha (`withHeader()` sets a *persistent* default
+    header on the test client, not a per-request one — see CONTEXT.md
+    §27), distinct from but easy to confuse with the existing
+    Sanctum-guard-memoization one; both are needed together whenever a
+    test authenticates and then makes a deliberately-anonymous request
+    in the same method.

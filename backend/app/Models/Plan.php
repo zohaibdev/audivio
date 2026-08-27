@@ -30,4 +30,9 @@ class Plan extends Model
     {
         return $this->hasMany(Subscription::class);
     }
+
+    public function hasFeature(string $key): bool
+    {
+        return (bool) ($this->features[$key] ?? false);
+    }
 }

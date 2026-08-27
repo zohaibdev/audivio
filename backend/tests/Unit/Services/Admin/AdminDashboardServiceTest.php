@@ -2,8 +2,10 @@
 
 namespace Tests\Unit\Services\Admin;
 
+use App\Enums\ScheduleFrequency;
 use App\Models\AiAnalysis;
 use App\Models\Audit;
+use App\Models\AuditSchedule;
 use App\Models\Lead;
 use App\Models\User;
 use App\Models\Website;
@@ -68,6 +70,20 @@ class AdminDashboardServiceTest extends TestCase
         $this->assertSame(50, $summary['ai_usage']['total_completion_tokens']);
     }
 
+    public function test_audit_schedules_counts_total_and_active_separately(): void
+    {
+        $user = User::create(['name' => 'Test', 'email' => 'test@example.com', 'password' => 'x']);
+        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        AuditSchedule::create(['user_id' => $user->id, 'website_id' => $website->id, 'frequency' => ScheduleFrequency::Weekly, 'is_active' => true, 'next_run_at' => now()->addWeek()]);
+        $website2 = Website::create(['user_id' => $user->id, 'url' => 'https://example.org', 'domain' => 'example.org']);
+        AuditSchedule::create(['user_id' => $user->id, 'website_id' => $website2->id, 'frequency' => ScheduleFrequency::Daily, 'is_active' => false, 'next_run_at' => now()->addDay()]);
+
+        $summary = (new AdminDashboardService)->summary();
+
+        $this->assertSame(2, $summary['audit_schedules']['total']);
+        $this->assertSame(1, $summary['audit_schedules']['active']);
+    }
+
     public function test_empty_database_returns_zeros_not_errors(): void
     {
         $summary = (new AdminDashboardService)->summary();
@@ -77,5 +93,6 @@ class AdminDashboardServiceTest extends TestCase
         $this->assertSame(0, $summary['leads']['total']);
         $this->assertSame(0, $summary['ai_usage']['total_calls']);
         $this->assertSame(0, $summary['failed_jobs']['total']);
+        $this->assertSame(0, $summary['audit_schedules']['total']);
     }
 }

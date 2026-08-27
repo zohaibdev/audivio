@@ -12,10 +12,12 @@ use App\Models\Website;
 use App\Services\Crawler\SsrfValidationException;
 use App\Services\Crawler\UrlSecurityValidator;
 use App\Services\Report\ReportAccessResolver;
+use App\Services\Report\ReportPdfService;
 use App\Services\Report\ReportVisibilityFilter;
 use App\Services\User\UsageLimitService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class AuditController extends Controller
 {
@@ -94,5 +96,32 @@ class AuditController extends Controller
         $content = app(ReportVisibilityFilter::class)->filter($report->content, $hasFullAccess);
 
         return ApiResponse::success($content);
+    }
+
+    public function reportPdf(Request $request, Audit $audit): JsonResponse|Response
+    {
+        $report = $audit->report;
+
+        if ($report === null) {
+            return ApiResponse::error('Report is not ready yet.', 404);
+        }
+
+        $viewer = $request->user('sanctum');
+        $hasFullAccess = app(ReportAccessResolver::class)->hasFullAccess($audit, $viewer);
+
+        if (! $hasFullAccess) {
+            return ApiResponse::error("Sign in as this audit's owner to export a PDF.", 403);
+        }
+
+        if (! $viewer->plan()?->hasFeature('pdf_export')) {
+            return ApiResponse::error('PDF export is not included in your current plan.', 403);
+        }
+
+        $pdf = app(ReportPdfService::class)->render($audit, $report);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="audit-report-'.$audit->id.'.pdf"',
+        ]);
     }
 }

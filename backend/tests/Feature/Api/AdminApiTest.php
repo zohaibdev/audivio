@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Api;
 
+use App\Enums\ScheduleFrequency;
 use App\Models\Audit;
+use App\Models\AuditSchedule;
 use App\Models\CmsPage;
 use App\Models\CrawlJob;
 use App\Models\Lead;
@@ -66,7 +68,7 @@ class AdminApiTest extends TestCase
         $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson('/api/admin/dashboard')
             ->assertStatus(200)
-            ->assertJsonStructure(['data' => ['users', 'websites', 'audits', 'leads', 'ai_usage', 'failed_jobs']]);
+            ->assertJsonStructure(['data' => ['users', 'websites', 'audits', 'leads', 'ai_usage', 'failed_jobs', 'audit_schedules']]);
     }
 
     public function test_users_listing_is_paginated_and_includes_subscription(): void
@@ -112,6 +114,19 @@ class AdminApiTest extends TestCase
 
         $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson('/api/admin/crawl-jobs')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1);
+    }
+
+    public function test_audit_schedules_listing(): void
+    {
+        $token = $this->tokenFor($this->makeAdmin());
+        $user = $this->makeRegularUser();
+        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        AuditSchedule::create(['user_id' => $user->id, 'website_id' => $website->id, 'frequency' => ScheduleFrequency::Weekly, 'next_run_at' => now()->addWeek()]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/admin/audit-schedules')
             ->assertStatus(200)
             ->assertJsonPath('data.total', 1);
     }

@@ -4,6 +4,7 @@ namespace App\Services\Admin;
 
 use App\Models\AiAnalysis;
 use App\Models\Audit;
+use App\Models\AuditSchedule;
 use App\Models\Lead;
 use App\Models\User;
 use App\Models\Website;
@@ -43,6 +44,10 @@ class AdminDashboardService
                 'total_completion_tokens' => (int) AiAnalysis::sum('completion_tokens'),
             ],
             'failed_jobs' => ['total' => DB::table('failed_jobs')->count()],
+            'audit_schedules' => [
+                'total' => AuditSchedule::count(),
+                'active' => AuditSchedule::where('is_active', true)->count(),
+            ],
         ];
     }
 }

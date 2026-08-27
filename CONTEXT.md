@@ -35,7 +35,8 @@ free/anonymous users into paying customers or consulting leads.
     scheduled audits, advanced AI analysis, daily audits.
 - **Lead generation**: CTAs "Talk to a Consultant" / "Request an Audit
   Review" feed a `leads` table, status pipeline `new → contacted →
-  qualified → converted → lost`. **Not built yet.**
+  qualified → converted → lost`. Built in Phase 7 — see §8 for the
+  public capture endpoint and admin lead-management endpoints.
 - **MVP exclusions** (do not build unless explicitly requested): Shopify/
   WordPress/WooCommerce platform integrations, automated fixes, competitor
   analysis, white-label reports, a public API, an agency dashboard, team
@@ -117,12 +118,12 @@ frontend/src/
 
 Only the Vite scaffold page renders currently. No real UI has been built —
 that starts in earnest around Phase 5 (Report System) / Phase 6 (User
-System) per the timeline in §24.
+System) per the timeline in §26.
 
 ## 6. Database architecture
 
 MySQL, **every table explicitly declares `$table->engine = 'InnoDB'`** in
-its migration — see the known-issue note in §16, this is not optional
+its migration — see the known-issue note in §30, this is not optional
 boilerplate. `Builder::defaultStringLength(191)` is set in
 `AppServiceProvider::boot()` for the same underlying reason (old-MySQL
 `utf8mb4` index length limits).
@@ -148,11 +149,12 @@ boilerplate. `Builder::defaultStringLength(191)` is set in
 | `lead_activities` | lead_id, user_id (nullable — an activity can be system-generated, not just an admin's note), note | `belongsTo` lead, user |
 | `cms_pages` | slug (unique), title, meta_description (nullable) | `hasMany` sections (ordered by `sort_order`) |
 | `cms_sections` | cms_page_id, section_key (not an enum — admins add new named sections without a migration), content (json), sort_order; unique `(cms_page_id, section_key)` | `belongsTo` page |
+| `audit_schedules` | user_id, website_id, frequency (enum string: daily/weekly/monthly), is_active (default true), next_run_at, last_run_at (nullable); unique `(user_id, website_id)` — one schedule per website | `belongsTo` user, website |
 
 **Not yet created** (planned, per the original spec's full table list):
 `report_sections` (deferred — a single `reports.content` JSON blob covers
-Phase 5's needs; revisit only if PDF pagination in Phase 8 needs
-per-section storage), `audit_schedules`, `notifications`.
+Phase 5's needs; revisit only if PDF pagination needs per-section
+storage), `notifications`.
 
 ## 8. API endpoints and responsibilities
 
@@ -165,6 +167,7 @@ per-section storage), `audit_schedules`, `notifications`.
 | POST | `/api/audits` | **optional** | Create a website + audit, dispatch the crawl. `throttle:10,1`. |
 | GET | `/api/audits/{audit}` | **optional** | Poll status/progress — no report data |
 | GET | `/api/audits/{audit}/report` | **optional** | Fetch the report, filtered per viewer (§20) |
+| GET | `/api/audits/{audit}/report/pdf` | **optional** | Export the full report as a PDF — requires full access AND the owner's plan to have the `pdf_export` feature (403 otherwise); 404 if no report yet (§22) |
 
 "Optional" auth: the route carries no `auth:sanctum` middleware (which
 would reject an unauthenticated request outright), and the controller
@@ -193,19 +196,29 @@ only way to trigger an audit.
 | POST | `/api/leads` | none | Capture a "Talk to a Consultant" / "Request an Audit Review" CTA submission |
 | GET | `/api/cms/{slug}` | none | Fetch a CMS page + its sections, for the (future) frontend — never hardcode page content |
 
+**Registered user** (`auth:sanctum` only — no admin needed, Phase 8):
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/audit-schedules` | List the current user's own recurring-audit schedules |
+| POST | `/api/audit-schedules` | Create a schedule for one of the user's own websites — 422 if not their website or already scheduled, 403 if their plan lacks `scheduled_audits` or they're at their `full_recrawls` limit (§22) |
+| PUT | `/api/audit-schedules/{auditSchedule}` | Update `frequency` and/or `is_active` (pause/resume) — 404 (not 403) if it isn't the caller's schedule |
+| DELETE | `/api/audit-schedules/{auditSchedule}` | Remove a schedule — same 404-not-403 ownership rule |
+
 **Admin** (`/api/admin/*`, all behind `auth:sanctum` + the `admin`
 middleware alias, which checks `$request->user()->is_admin`):
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/dashboard` | Aggregate counts: users/admins, websites, audits by status, leads by status, AI usage (calls/tokens), failed jobs |
+| GET | `/dashboard` | Aggregate counts: users/admins, websites, audits by status, leads by status, AI usage (calls/tokens), failed jobs, audit schedules (total/active) |
 | GET | `/users` | Paginated user listing, with subscription+plan eager-loaded |
 | GET | `/websites` | Paginated website listing, with audit count |
 | GET | `/audits`, `/audits/{audit}` | Paginated listing / single audit with scores+issues+crawl job |
 | GET | `/crawl-jobs` | Paginated crawl job listing |
-| GET | `/failed-jobs`, DELETE `/failed-jobs/{id}` | List/remove Laravel's own failed-job bookkeeping rows (no retry endpoint yet — see §27) |
+| GET | `/audit-schedules` | Paginated listing of every user's schedules, with user+website eager-loaded — read-only, no admin CRUD since schedules are user-owned (§22) |
+| GET | `/failed-jobs`, DELETE `/failed-jobs/{id}` | List/remove Laravel's own failed-job bookkeeping rows (no retry endpoint yet — see §28) |
 | GET | `/ai-usage` | Aggregates by provider and category, plus the 50 most recent `ai_analyses` rows |
-| GET/POST `/plans`, PUT/DELETE `/plans/{plan}` | Full plan CRUD — **the only place paid tiers get created**, since none are seeded (§25) |
+| GET/POST `/plans`, PUT/DELETE `/plans/{plan}` | Full plan CRUD — **the only place paid tiers get created**, since none are seeded (§28) |
 | GET | `/usage` | Paginated `usage_logs`, filterable by `user_id`/`action` |
 | GET `/leads`, GET `/leads/{lead}`, PUT `/leads/{lead}`, POST `/leads/{lead}/activities` | Lead management — status updates auto-log a `LeadActivity`; manual notes via the activities endpoint |
 | Full CRUD `/cms`, `/cms/{page}`, PUT/DELETE `/cms/{page}/sections/{sectionKey}` | CMS page + section management. Section endpoints are an upsert-by-key — one PUT both creates and edits, so the frontend never needs to know which case it is |
@@ -230,7 +243,7 @@ takes the *specific* viewer, not just "is this audit owned by someone."
 An earlier version of this class only checked whether the audit had
 *any* owner, which would have let any authenticated viewer see another
 user's full report by guessing/knowing the audit ID — caught and fixed
-before any real caller used it (see §26 for the equivalent bug that
+before any real caller used it (see §27 for the equivalent bug that
 *did* ship and get fixed, in `CalculateScoreJob`; this one was a design
 review catch, not a shipped defect).
 
@@ -488,7 +501,7 @@ as of Phase 6 — not just "does this audit have some owner." Rules:
 
 All 11 modules from the spec's `admin.modules` list are built as API
 endpoints (§8) — this is backend-only; there's no admin frontend yet
-(§22), so these are the surface a future admin UI would consume.
+(§23), so these are the surface a future admin UI would consume.
 
 `AdminDashboardService::summary()` is the one piece of real aggregation
 logic, isolated and unit-tested independently of the controller —
@@ -515,14 +528,78 @@ re-dispatches a job, which has more failure modes than a simple CRUD
 pair; add it if a real operational need shows up rather than
 speculatively.
 
-## 22. Frontend functionality
+## 22. PDF export and scheduled audits
+
+**PDF export** (`App\Services\Report\ReportPdfService`, via
+`barryvdh/laravel-dompdf`): renders the report's Blade view
+(`resources/views/reports/pdf.blade.php`) to a PDF binary and streams it
+from `GET /api/audits/{audit}/report/pdf` (§8). Always renders the
+**full** report content — this endpoint is only ever reached after a
+full-access check, so there's no separate "free PDF" concept to build.
+The view is self-contained HTML/CSS (no remote fonts/assets — dompdf
+doesn't fetch them by default and there was no need to enable that).
+
+Gating is two separate checks, not one: `ReportAccessResolver::hasFullAccess()`
+(same check the JSON report endpoint uses — must be the audit's owner)
+**and** `Plan::hasFeature('pdf_export')` (PDF export is a paid-tier
+feature per the spec, distinct from full report access itself — an
+owner's free-tier audit already gets "full access" under the interim
+rule in §20, but that alone doesn't entitle them to a PDF). Missing
+either returns 403; no report yet returns 404, matching the JSON
+endpoint's behavior.
+
+**Scheduled (recurring) audits** (`App\Services\Schedule\AuditSchedulerService`,
+`audit_schedules` table, `App\Enums\ScheduleFrequency`: daily/weekly/
+monthly): a registered-user-only feature (no anonymous path) gated by
+two plan fields that sat unused since Phase 6 (see §7, §30) —
+`Plan::hasFeature('scheduled_audits')` decides whether a user can
+schedule at all, and `plans.full_recrawls` caps how many *active*
+schedules (i.e. distinct websites on a recurring cadence) a user can
+have at once. Both are independently plan-configurable: a plan could
+grant the feature with a low cap, or vice versa (though a plan granting
+the feature with `full_recrawls = 0` would be a self-defeating admin
+configuration, not something the code needs to prevent).
+
+CRUD lives behind `auth:sanctum` at `/api/audit-schedules` (§8):
+creating one validates the website belongs to the requesting user (422
+otherwise), that it isn't already scheduled (422 — DB also enforces this
+via a `(user_id, website_id)` unique constraint, but the controller
+checks first for a friendlier error than a raw constraint violation),
+and both gates above (403). Update/delete check ownership and return
+404 (not 403) for someone else's schedule, to avoid confirming another
+user's schedule even exists.
+
+Execution is a Laravel scheduled task (`bootstrap/app.php`'s
+`withSchedule`), not a queue job directly — `AuditSchedulerService::runDue()`
+runs hourly (recurring audits are day/week/month granularity, so
+per-minute precision isn't needed), finds every `AuditSchedule` with
+`is_active` and `next_run_at <= now()`, and for each: creates a new
+`Audit` against the *existing* `Website` (no new `Website` row, unlike
+the normal `POST /api/audits` flow), dispatches `CrawlWebsiteJob` (the
+same job the manual flow uses — the pipeline doesn't know or care
+whether a crawl was scheduled or requested), logs a `usage_logs` row
+under the `recrawl` action (distinct from `audit_created`, so admin
+usage listings can tell the two apart — the migration's column comment
+already anticipated this action name), and advances `next_run_at` by
+the schedule's frequency. There's no caller IP for a background job, so
+this path doesn't go through `UsageLimitService` at all — being on an
+active schedule is itself the authorization, checked once at creation
+time, not re-checked per run.
+
+Admin gets a read-only listing (`GET /api/admin/audit-schedules`, §8)
+and a dashboard count (`AdminDashboardService::summary()['audit_schedules']`,
+total and active) — consistent with every other resource's admin
+visibility, no CRUD since schedules are user-owned and admins have no
+product reason to create one on a user's behalf.
+
+## 23. Frontend functionality
 
 **Not built yet beyond the Vite scaffold.** `src/api/client.ts` exists
 (axios + bearer interceptor) but no page, component, or route has been
 implemented. The default Vite "Get started" counter page is still what
 renders at `/`.
 
-## 23. Queue/job architecture
+## 24. Queue/job architecture
 
 Redis-backed (`predis` client). **Redis itself is not installed on this
 dev machine** — every end-to-end test so far has used
@@ -539,7 +616,7 @@ Job graph: `CrawlWebsiteJob` → N × `CrawlPageJob` (each can spawn more
 per registered module, order not deterministic) → whichever finishes
 last → `CalculateScoreJob`.
 
-## 24. Security requirements
+## 25. Security requirements
 
 SSRF protection is layered, not single-point, because DNS can rebind
 between a check and the actual connection, and redirects can retarget
@@ -564,9 +641,9 @@ anywhere:
 Frontend validation, if/when built, must never be the only validation —
 the backend re-validates everything.
 
-## 25. Current development status
+## 26. Current development status
 
-Phases 1-7 complete and committed. See §26/27 for what's outstanding.
+Phases 1-8 complete and committed. See §27/28 for what's outstanding.
 
 | Phase | Days | Status |
 |---|---|---|
@@ -577,11 +654,11 @@ Phases 1-7 complete and committed. See §26/27 for what's outstanding.
 | 5. Report System | 32-36 | ✅ done |
 | 6. User System (auth endpoints, subscriptions, plans) | 37-40 | ✅ done |
 | 7. Admin and CMS | 41-46 | ✅ done |
-| 8. PDF and Scheduling | 47-50 | ⬜ not started |
+| 8. PDF and Scheduling | 47-50 | ✅ done |
 | 9. Testing and Security | 51-58 | ⬜ not started (ongoing testing exists per-phase; a dedicated hardening pass has not happened) |
 | 10. Production | 59-60 | ⬜ not started |
 
-## 26. Known bugs
+## 27. Known bugs
 
 None currently open. Three were found and fixed during development
 (kept here for history, not because they're still present):
@@ -620,6 +697,19 @@ None currently open. Three were found and fixed during development
   `make:migration` generates multiple files in the same command batch,
   not just when adding one at a time. (Phase 7)
 
+**Testing-only gotcha #2, not a bug** (found writing the PDF-export
+anonymous-viewer test, Phase 8): `$this->withHeader('Authorization', ...)`
+sets a *default* header on the test client that persists on every
+subsequent request from that test method — it does not scope to a
+single call the way it reads. A test that authenticates once and then
+makes a second, deliberately-anonymous request in the same method will
+still send the first token unless `withoutHeader('Authorization')` (or
+`withoutToken()`) is called first. Combined with the Sanctum-guard-
+memoization gotcha below, a test simulating "authenticated, then truly
+anonymous" in one method needs *both* `$this->app['auth']->forgetGuards()`
+and `withoutHeader('Authorization')` — dropping either one leaves the
+second request resolving as the first request's user.
+
 **Testing-only gotcha, not a bug** (documented so it isn't rediscovered
 and mistaken for one): within a single test method, Sanctum's
 `RequestGuard` memoizes its resolved user for the guard instance's
@@ -636,7 +726,7 @@ second simulated request) and verifying cross-user report isolation
 authenticated calls). If a future test needs to simulate two different
 authenticated actors in one method, use one of these two patterns.
 
-## 27. Known limitations
+## 28. Known limitations
 
 - **Redis is not installed** on this dev machine. All testing uses the
   `database` queue/cache driver as a per-command env override.
@@ -676,18 +766,16 @@ authenticated actors in one method, use one of these two patterns.
   them and "complex billing" is an MVP exclusion (see Phase 6's
   `PlanSeeder` comment).
 
-## 28. Pending tasks
+## 29. Pending tasks
 
-In spec order, next up is **Phase 8: PDF and Scheduling** (Phase 5
-built the report *data*; Phase 8 renders it to PDF, plus recurring/
-scheduled audits — `plans.full_recrawls` and `audit_schedules` sit
-unused until this phase). After that: Phase 9 (security/testing
-hardening pass — the audit-ID-enumeration and
-IP-based-anonymous-tracking items from §27 are natural candidates,
-along with a "promote to admin" bootstrapping story if this needs to
-move beyond single-operator), Phase 10 (production deploy).
+In spec order, next up is **Phase 9: Testing and Security** — a
+dedicated hardening pass on top of the per-phase testing that already
+exists. The audit-ID-enumeration and IP-based-anonymous-tracking items
+from §28 are natural candidates, along with a "promote to admin"
+bootstrapping story if this needs to move beyond single-operator. After
+that: Phase 10 (production deploy).
 
-## 29. Important technical decisions
+## 30. Important technical decisions
 
 - **Separate SPA + API**, not Inertia — chosen so frontend/backend can
   scale and deploy independently (user-approved architecture choice at
@@ -729,8 +817,9 @@ move beyond single-operator), Phase 10 (production deploy).
   it later touches one method, not `ReportVisibilityFilter` or its
   callers.
 - **No `report_sections` table** — a single `reports.content` JSON blob
-  covers everything Phase 5 needs; only worth splitting out if PDF
-  pagination (Phase 8) turns out to need per-section storage.
+  covered everything Phase 5 needed, and PDF export (Phase 8) rendered
+  straight from that same JSON via a Blade view with no need for
+  per-section storage.
 - **"Optional" Sanctum auth via `$request->user('sanctum')` on routes
   with no `auth:sanctum` middleware**, not two separate route sets (one
   guarded, one not) — Sanctum's guard resolves a Bearer token
@@ -769,8 +858,44 @@ move beyond single-operator), Phase 10 (production deploy).
   re-serializes and re-dispatches a job, a meaningfully different
   (and riskier) operation than simple CRUD; add it only if a real
   operational need shows up.
+- **`barryvdh/laravel-dompdf`, not a headless-browser PDF renderer** —
+  the report is simple tabular/text content with no need for JS
+  execution or pixel-perfect CSS; dompdf needs no external binary
+  (unlike wkhtmltopdf/Puppeteer), which matters on this Windows dev box
+  and keeps deployment simple.
+- **PDF export requires the owner's plan to have `pdf_export` as a
+  feature flag, checked separately from `ReportAccessResolver::hasFullAccess()`**
+  — the interim rule that "owner = full report access regardless of
+  plan" (§20) predates PDF export and was never meant to extend to it;
+  the spec calls out PDF export as a distinct paid-tier feature, so it
+  gets its own plan-feature gate rather than riding on the report-access
+  check.
+- **`plans.features` is a keyed map of feature-flag booleans**
+  (`{"pdf_export": false, "scheduled_audits": false, ...}`), not a plain
+  list — `PlanSeeder` already anticipated this shape before either
+  feature was wired up. `Plan::hasFeature(string $key)` is the one place
+  that reads it, so adding a new gated feature later is a one-line
+  addition to a plan's `features` JSON, not a schema change.
+- **`plans.full_recrawls` caps active `audit_schedules` rows, not a
+  separate "manual recrawl" counter** — the field sat unused since
+  Phase 6 with no other caller; reusing it as "how many websites can
+  this user have on a recurring schedule at once" avoided inventing a
+  second, undifferentiated recrawl-counting mechanism the spec never
+  concretely defined.
+- **Scheduled audits run via Laravel's task scheduler (`withSchedule`
+  in `bootstrap/app.php`), calling `AuditSchedulerService::runDue()`
+  hourly** — not a dedicated always-running worker process, since audit
+  recurrence is day/week/month granularity and an hourly reconciliation
+  loop (checking `next_run_at <= now()`) is simple, idempotent, and
+  needs no new infrastructure beyond what `php artisan schedule:run`
+  (already a standard Laravel deployment cron entry) provides.
+- **A scheduled run dispatches the same `CrawlWebsiteJob` the manual
+  `POST /api/audits` flow uses**, against the schedule's existing
+  `Website` row (no new `Website` created) — the crawl/analysis
+  pipeline has no concept of "scheduled vs. manual," and duplicating it
+  would be pure risk for no benefit.
 
-## 30. Testing architecture
+## 31. Testing architecture
 
 Backend: PHPUnit, `backend/tests/Unit/...` and `backend/tests/Feature/...`,
 SQLite in-memory DB for tests (`phpunit.xml`), `RefreshDatabase` trait
@@ -782,18 +907,21 @@ real third-party API. The Node/Playwright crawler subprocess
 (`PlaywrightCrawlerClient`) is mocked in the one Feature test that drives
 the full pipeline (`CrawlAndAnalyzePipelineTest`) — no test launches a
 real browser. `tests/Feature/Api/` covers the real HTTP endpoints
-(`AuthTest`, `AuditApiTest`, `AdminApiTest`) — the first tests in this
-project to exercise actual routes/middleware/controllers rather than
-services directly. 200 PHP tests currently, all passing.
+(`AuthTest`, `AuditApiTest`, `AdminApiTest`, `AuditScheduleApiTest`) —
+the first tests in this project to exercise actual routes/middleware/
+controllers rather than services directly. `ReportPdfServiceTest`
+asserts on the actual rendered PDF binary (`%PDF-` header), not just
+that dompdf was called, so a broken Blade view would fail it. 235 PHP
+tests currently, all passing.
 
 Crawler: `crawler/lib/*.test.mjs`, run via `npm test` (Node's built-in
 `node --test`, no added dependency). Covers the SSRF logic
 (`isPrivateAddress`, `assertHostnameIsPublic`) directly — the same
-defense-in-depth layer described in §24, tested independently of the PHP
+defense-in-depth layer described in §25, tested independently of the PHP
 side since the two can't share code across the language boundary. 40
 Node tests currently, all passing.
 
-**240 tests total** (200 PHP + 40 Node). See `tests/TEST_CASES.md` at the
+**275 tests total** (235 PHP + 40 Node). See `tests/TEST_CASES.md` at the
 repo root for the full registry mapped to test-requirement categories,
 coverage status, and any remaining gaps.
 

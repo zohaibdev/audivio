@@ -32,4 +32,9 @@ class Website extends Model
     {
         return $this->hasMany(Audit::class);
     }
+
+    public function auditSchedules(): HasMany
+    {
+        return $this->hasMany(AuditSchedule::class);
+    }
 }

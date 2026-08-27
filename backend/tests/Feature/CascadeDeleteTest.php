@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ScheduleFrequency;
 use App\Models\AiAnalysis;
 use App\Models\Audit;
 use App\Models\AuditIssue;
 use App\Models\AuditPage;
+use App\Models\AuditSchedule;
 use App\Models\AuditScore;
 use App\Models\CmsPage;
 use App\Models\CmsSection;
@@ -222,5 +224,37 @@ class CascadeDeleteTest extends TestCase
         $page->delete();
 
         $this->assertNull(CmsSection::find($section->id));
+    }
+
+    public function test_deleting_a_user_cascades_to_their_audit_schedules(): void
+    {
+        $user = User::create(['name' => 'Test', 'email' => 'test@example.com', 'password' => 'x']);
+        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $schedule = AuditSchedule::create([
+            'user_id' => $user->id,
+            'website_id' => $website->id,
+            'frequency' => ScheduleFrequency::Weekly,
+            'next_run_at' => now()->addWeek(),
+        ]);
+
+        $user->delete();
+
+        $this->assertNull(AuditSchedule::find($schedule->id));
+    }
+
+    public function test_deleting_a_website_cascades_to_its_audit_schedules(): void
+    {
+        $user = User::create(['name' => 'Test', 'email' => 'test@example.com', 'password' => 'x']);
+        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $schedule = AuditSchedule::create([
+            'user_id' => $user->id,
+            'website_id' => $website->id,
+            'frequency' => ScheduleFrequency::Daily,
+            'next_run_at' => now()->addDay(),
+        ]);
+
+        $website->delete();
+
+        $this->assertNull(AuditSchedule::find($schedule->id));
     }
 }
