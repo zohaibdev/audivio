@@ -9,7 +9,7 @@ whenever coverage is added, moved, or removed.
 for all external calls — no test hits a real third-party API) and
 `cd crawler && npm test` (Node's built-in test runner, `node --test`).
 
-**Current total**: 143 tests (103 PHP + 40 Node), all passing, 0 known failures.
+**Current total**: 158 tests (118 PHP + 40 Node), all passing, 0 known failures.
 
 Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 
@@ -97,8 +97,21 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | SSRF / URL security (Node) | `assertHostnameIsPublic` — localhost, empty hostname, IP-literal loopback/private/cloud-metadata/IPv6-loopback all rejected without a real DNS query; public IP literal allowed; real hostname resolves via actual DNS and is allowed | `crawler/lib/ssrf.test.mjs` — `assertHostnameIsPublic` suite, 8 cases | ✅ |
 | Usage calculation | Plan limit enforcement | — | ⬜ gap: not built yet (no `plans` table — see CONTEXT.md §19) |
 | Report visibility | Anonymous 60% visibility split | — | ⬜ gap: not built yet (see CONTEXT.md §20) |
-| Recommendation logic | — | — | ⬜ gap: recommendations are currently just the `recommendation` string on each issue; no separate recommendation-generation logic exists to test yet |
+| Recommendation logic | Report-level recommendation list: only issues with a `recommendation` included, worst severity first | `ReportBuilderTest::test_recommendations_only_include_issues_with_a_recommendation_worst_first` | ✅ |
 | Severity calculation | Covered indirectly via `ScoreCalculator` and each module's issue tests above | — | ✅ (via above) |
+| Report generation | Overview includes website info, overall score, category scores (overall excluded from the category map) | `ReportBuilderTest::test_overview_includes_website_info_and_scores`, `test_overall_score_is_excluded_from_category_scores` | ✅ |
+| Report generation | Issues serialized with derived priority (critical/high→high, medium→medium, low→low), page URL attached when the issue has one | `ReportBuilderTest::test_issues_are_serialized_with_derived_priority` | ✅ |
+| Report generation | AI analysis section only includes categories with a successful (non-error) response | `ReportBuilderTest::test_ai_analysis_only_includes_successful_responses` | ✅ |
+| Report generation | Per-page findings include per-page issue counts | `ReportBuilderTest::test_page_findings_include_per_page_issue_counts` | ✅ |
+| Report visibility | Full access returns everything unmodified + `is_full_access: true` | `ReportVisibilityFilterTest::test_full_access_returns_everything_unmodified_plus_the_access_flag` | ✅ |
+| Report visibility | Anonymous view only includes major-severity (critical/high) issues | `ReportVisibilityFilterTest::test_anonymous_view_only_includes_major_severity_issues` | ✅ |
+| Report visibility | Anonymous view hides full-only sections (`ai_analysis`, `pages`) | `ReportVisibilityFilterTest::test_anonymous_view_hides_full_only_sections` | ✅ |
+| Report visibility | Anonymous view strips the `priority` field from issues/recommendations | `ReportVisibilityFilterTest::test_anonymous_view_strips_priority_from_issues_and_recommendations` | ✅ |
+| Report visibility | Anonymous view respects configured issue/recommendation limits | `ReportVisibilityFilterTest::test_anonymous_view_respects_configured_limits` | ✅ |
+| Report visibility | Hidden counts reflect ALL hidden issues (not just excess major-severity ones) | `ReportVisibilityFilterTest::test_anonymous_view_reports_hidden_counts` | ✅ |
+| Report visibility | Anonymous view always shows the overview (scores) | `ReportVisibilityFilterTest::test_anonymous_view_always_shows_the_overview` | ✅ |
+| Report access | Anonymous audit (no user_id) has no full access | `ReportAccessResolverTest::test_anonymous_audit_has_no_full_access` | ✅ |
+| Report access | Registered user's audit has full access (interim rule — see CONTEXT.md §20) | `ReportAccessResolverTest::test_registered_users_audit_has_full_access` | ✅ |
 
 ## Feature tests
 
@@ -109,8 +122,8 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Website creation | — | ⬜ not built (no API endpoint yet) |
 | Audit creation | — | ⬜ not built (no API endpoint yet — CLI-only, see below) |
 | Crawler dispatch → audit completion (full pipeline: crawl → 7 modules → overall score) | `CrawlAndAnalyzePipelineTest::test_full_pipeline_produces_a_completed_audit_with_all_category_scores` — real `CrawlOrchestrator`, real SSRF validation, real platform detection, all 7 real audit modules, real scoring math; only `PlaywrightCrawlerClient` (no real browser) and outbound HTTP (no real robots.txt/sitemap fetch) are faked. Dispatches through the actual queue pipeline (`sync` driver in tests runs it inline). Asserts all 8 score rows (7 categories + overall) equal exactly 100 for a page crafted to be flawless against every deterministic rule. | ✅ |
-| Audit failure handling | `CrawlAndAnalyzePipelineTest::test_pipeline_marks_audit_failed_when_the_homepage_crawl_fails` — homepage crawl throws, asserts `Audit.status = failed`, `error_message` set, zero pages/scores created | ✅ |
-| Report generation | — | ⬜ not built (Phase 5) |
+| Audit failure handling | `CrawlAndAnalyzePipelineTest::test_pipeline_marks_audit_failed_when_the_homepage_crawl_fails` — homepage crawl throws, asserts `Audit.status = failed`, `error_message` set, zero pages/scores/**reports** created | ✅ |
+| Report generation | Covered by `CrawlAndAnalyzePipelineTest::test_full_pipeline_produces_a_completed_audit_with_all_category_scores`, which now also asserts `GenerateReportJob` created a `Report` row with correct content | ✅ |
 | Usage limits | — | ⬜ not built (Phase 6) |
 | Recrawl | — | ⬜ not built (Phase 6) |
 | Lead creation | — | ⬜ not built (no `leads` table yet) |
@@ -137,7 +150,7 @@ security) are gaps pending Phase 5/6.
 | Unique constraints (`audit_scores` per audit+category, `ai_analyses` cache key) | ✅ exercised indirectly — `updateOrCreate` calls in `RunAuditModuleJob`/`CalculateScoreJob`/`AiAnalysisService` rely on these and are covered by the Unit tests above, but no test directly asserts the DB rejects a duplicate insert |
 | Cascade delete: website → audits | `CascadeDeleteTest::test_deleting_a_website_cascades_to_its_audits` | ✅ |
 | Null-on-delete: user → website.user_id (website itself survives) | `CascadeDeleteTest::test_deleting_a_user_nulls_the_websites_user_id_instead_of_deleting_the_website` | ✅ |
-| Cascade delete: audit → crawl_job, audit_pages, audit_issues, audit_scores, ai_analyses | `CascadeDeleteTest::test_deleting_an_audit_cascades_to_its_crawl_job_pages_issues_and_scores` | ✅ |
+| Cascade delete: audit → crawl_job, audit_pages, audit_issues, audit_scores, ai_analyses, reports | `CascadeDeleteTest::test_deleting_an_audit_cascades_to_its_crawl_job_pages_issues_and_scores` | ✅ |
 | Cascade delete: crawl_job → crawl_urls | `CascadeDeleteTest::test_deleting_a_crawl_job_cascades_to_its_crawl_urls` | ✅ |
 | Null-on-delete: crawl_url → audit_page.crawl_url_id (page itself survives) | `CascadeDeleteTest::test_deleting_a_crawl_url_nulls_the_audit_pages_crawl_url_id_instead_of_deleting_the_page` | ✅ |
 | Cascade delete: audit_page → its issues (site-wide issues with no audit_page_id survive) | `CascadeDeleteTest::test_deleting_an_audit_page_cascades_to_its_issues` | ✅ |
@@ -192,6 +205,18 @@ added above.
   conversion, aio) and correctly recorded **zero** rows for ecommerce on
   a non-commerce site (Phase 4) — automated equivalent is
   `EcommerceAuditModuleTest::test_non_ecommerce_site_scores_100_with_no_issues`.
+- Full pipeline including report generation against `https://wordpress.org`
+  (Phase 5): 10 issues / 8 recommendations found across 3 crawled pages;
+  full view correctly showed all of them; anonymous view correctly
+  showed 0 issues (none were critical/high severity that run — all
+  medium/low) and 3 of 8 recommendations (capped at
+  `report.anonymous_recommendation_limit`), with `hidden_issue_count: 10`
+  and `hidden_recommendation_count: 5` — both counts checked against the
+  actual full-view numbers, not just "some number came back." Automated
+  equivalent is `CrawlAndAnalyzePipelineTest`'s report assertions plus
+  the full `ReportVisibilityFilterTest` suite, though the manual run
+  remains the only evidence real crawled/AI-analysis data (not
+  hand-crafted fixtures) flows correctly end to end into a report.
 
 ---
 

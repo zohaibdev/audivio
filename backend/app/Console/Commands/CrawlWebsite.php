@@ -5,9 +5,11 @@ namespace App\Console\Commands;
 use App\Enums\AuditStatus;
 use App\Jobs\Crawl\CrawlWebsiteJob;
 use App\Models\Audit;
+use App\Models\Report;
 use App\Models\Website;
 use App\Services\Crawler\SsrfValidationException;
 use App\Services\Crawler\UrlSecurityValidator;
+use App\Services\Report\ReportVisibilityFilter;
 use Illuminate\Console\Command;
 
 class CrawlWebsite extends Command
@@ -69,6 +71,17 @@ class CrawlWebsite extends Command
             return self::FAILURE;
         }
 
+        // GenerateReportJob is dispatched from inside CalculateScoreJob, so
+        // with a real queue driver it can still be pending for a moment
+        // after Audit.status flips to Completed — wait for it too.
+        $report = null;
+        for ($i = 0; $i < 20 && ! $report; $i++) {
+            $report = Report::where('audit_id', $audit->id)->first();
+            if (! $report) {
+                usleep(250_000);
+            }
+        }
+
         $this->info("Audit #{$audit->id} completed. Pages crawled: {$audit->pages_crawled}.");
         $this->table(
             ['Page ID', 'URL', 'HTTP', 'Title'],
@@ -92,6 +105,28 @@ class CrawlWebsite extends Command
                 $i->category->value, $i->severity->value, $i->code, $i->message,
             ])->all(),
         );
+
+        $this->newLine();
+        if (! $report) {
+            $this->warn('No report was generated (GenerateReportJob has not run yet — is a queue worker running?).');
+
+            return self::SUCCESS;
+        }
+
+        $filter = app(ReportVisibilityFilter::class);
+
+        $this->info('Report (anonymous/free view):');
+        $anonymousView = $filter->filter($report->content, hasFullAccess: false);
+        $this->line('  Visible issues: '.count($anonymousView['issues'])." (hidden: {$anonymousView['hidden_issue_count']})");
+        $this->line('  Visible recommendations: '.count($anonymousView['recommendations'])." (hidden: {$anonymousView['hidden_recommendation_count']})");
+
+        $this->newLine();
+        $this->info('Report (full view):');
+        $fullView = $filter->filter($report->content, hasFullAccess: true);
+        $this->line('  Issues: '.count($fullView['issues']));
+        $this->line('  Recommendations: '.count($fullView['recommendations']));
+        $aiCategories = array_keys($fullView['ai_analysis']);
+        $this->line('  AI analysis available for: '.($aiCategories === [] ? '(none)' : implode(', ', $aiCategories)));
 
         return self::SUCCESS;
     }

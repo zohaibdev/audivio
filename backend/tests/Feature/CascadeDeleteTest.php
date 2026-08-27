@@ -9,6 +9,7 @@ use App\Models\AuditPage;
 use App\Models\AuditScore;
 use App\Models\CrawlJob;
 use App\Models\CrawlUrl;
+use App\Models\Report;
 use App\Models\User;
 use App\Models\Website;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -54,6 +55,7 @@ class CascadeDeleteTest extends TestCase
         $issue = AuditIssue::create(['audit_id' => $audit->id, 'audit_page_id' => $page->id, 'category' => 'seo', 'severity' => 'medium', 'code' => 'x', 'message' => 'x']);
         $score = AuditScore::create(['audit_id' => $audit->id, 'category' => 'seo', 'score' => 80]);
         $analysis = AiAnalysis::create(['audit_id' => $audit->id, 'category' => 'seo', 'provider' => 'claude', 'context_hash' => 'abc', 'prompt' => 'x']);
+        $report = Report::create(['audit_id' => $audit->id, 'content' => [], 'generated_at' => now()]);
 
         $audit->delete();
 
@@ -62,6 +64,7 @@ class CascadeDeleteTest extends TestCase
         $this->assertNull(AuditIssue::find($issue->id));
         $this->assertNull(AuditScore::find($score->id));
         $this->assertNull(AiAnalysis::find($analysis->id));
+        $this->assertNull(Report::find($report->id));
     }
 
     public function test_deleting_a_crawl_job_cascades_to_its_crawl_urls(): void

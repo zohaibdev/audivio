@@ -59,4 +59,9 @@ class Audit extends Model
     {
         return $this->hasMany(AuditScore::class);
     }
+
+    public function report(): HasOne
+    {
+        return $this->hasOne(Report::class);
+    }
 }

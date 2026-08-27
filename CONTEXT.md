@@ -140,11 +140,14 @@ boilerplate. `Builder::defaultStringLength(191)` is set in
 | `audit_issues` | audit_id, audit_page_id (nullable), category, severity, code, message, recommendation, meta (json) | `belongsTo` audit, auditPage |
 | `audit_scores` | audit_id, category (unique per audit incl. `overall`), score, breakdown (json) | `belongsTo` audit |
 | `ai_analyses` | audit_id, category, provider, context_hash, context (json), prompt, response, prompt_tokens, completion_tokens, error | `belongsTo` audit; unique `(audit_id, category, context_hash)` — the cache key |
+| `reports` | audit_id (unique), content (json — always the FULL report; visibility is a read-time filter, not stored), generated_at | `belongsTo` audit |
 
 **Not yet created** (planned, per the original spec's full table list):
-`report_sections`, `reports`, `subscriptions`, `plans`, `usage_logs`,
-`leads`, `lead_activities`, `cms_pages`, `cms_sections`,
-`audit_schedules`, `notifications`.
+`report_sections` (deferred — a single `reports.content` JSON blob covers
+Phase 5's needs; revisit only if PDF pagination in Phase 8 needs
+per-section storage), `subscriptions`, `plans`, `usage_logs`, `leads`,
+`lead_activities`, `cms_pages`, `cms_sections`, `audit_schedules`,
+`notifications`.
 
 ## 8. API endpoints and responsibilities
 
@@ -336,9 +339,34 @@ close in Phase 6 (User System).
 
 ## 20. Report visibility rules
 
-**Not built yet.** The "~60% of report visible for anonymous users" rule
-from the spec has no implementation — there is no report-rendering layer
-at all yet (Phase 5).
+`App\Services\Report\ReportVisibilityFilter` applies the free-vs-full
+split **at read time**, never baked into what's generated — a `reports`
+row always stores the full content, so an audit owner who later gets
+full access sees the full version of the *same* report without
+regenerating it. This matters because visibility depends on who's
+looking, not on facts fixed when the report was built.
+
+Free/anonymous view (per spec's field list, not a literal percentage —
+see the note in `config/report.php`): overall score + category scores
+(always fully visible), only "major" issues (critical/high severity),
+capped at `report.anonymous_issue_limit` (default 5), and up to
+`report.anonymous_recommendation_limit` (default 3) recommendations,
+each with its `priority` field stripped. `hidden_issue_count`/
+`hidden_recommendation_count` reflect *all* hidden issues (including
+medium/low, excluded entirely), not just excess major ones — that's the
+more honest "N more issues, sign up to see them" signal.
+
+Full view: everything — all issues at every severity with `priority`,
+all recommendations, per-page findings (`pages`), and per-category raw
+AI analysis text (`ai_analysis`, sourced from `ai_analyses.response`).
+
+`App\Services\Report\ReportAccessResolver::hasFullAccess()` decides who
+gets which view — **interim rule** (no `plans`/`subscriptions` tables
+exist yet): any audit tied to a registered user (`audit.user_id !==
+null`) gets full access. This does not yet distinguish a free registered
+user from a paid one per the spec's actual tiers; Phase 6 replaces this
+one method's logic once plans exist — nothing else needs to change,
+since `ReportVisibilityFilter` only ever sees the resulting boolean.
 
 ## 21. Admin dashboard functionality
 
@@ -397,7 +425,7 @@ the backend re-validates everything.
 
 ## 25. Current development status
 
-Phases 1-4 complete and committed. See §26/27 for what's outstanding.
+Phases 1-5 complete and committed. See §26/27 for what's outstanding.
 
 | Phase | Days | Status |
 |---|---|---|
@@ -405,7 +433,7 @@ Phases 1-4 complete and committed. See §26/27 for what's outstanding.
 | 2. Crawler | 5-12 | ✅ done |
 | 3. Core Auditors (performance/accessibility/SEO) | 13-21 | ✅ done |
 | 4. AI Auditors (ecommerce/landing_page/conversion/aio + providers) | 22-31 | ✅ done |
-| 5. Report System | 32-36 | ⬜ not started |
+| 5. Report System | 32-36 | ✅ done |
 | 6. User System (auth endpoints, subscriptions, plans) | 37-40 | ⬜ not started |
 | 7. Admin and CMS | 41-46 | ⬜ not started |
 | 8. PDF and Scheduling | 47-50 | ⬜ not started |
@@ -451,14 +479,14 @@ here for history, not because they're still present):
 
 ## 28. Pending tasks
 
-In spec order, next up is **Phase 5: Report System** (report generation,
-PDF export, the free/paid visibility split described in §20).
-After that: Phase 6 (auth endpoints, subscriptions, plans, usage
-enforcement), Phase 7 (admin/CMS), Phase 8 (PDF/scheduling — note PDF
-export is also listed under Phase 5's report system in the spec; treat
-Phase 5 as "generate the report data + HTML view," Phase 8 as "produce a
-PDF from it," to avoid overlap), Phase 9 (security/testing hardening
-pass), Phase 10 (production deploy).
+In spec order, next up is **Phase 6: User System** (auth endpoints,
+subscriptions, plans, usage enforcement) — this is also where
+`ReportAccessResolver::hasFullAccess()`'s interim `user_id !== null` rule
+gets replaced with real plan-tier logic (see §20). After that: Phase 7
+(admin/CMS), Phase 8 (PDF export — Phase 5 built the report *data*;
+Phase 8 renders it to PDF, to avoid overlap per the original phase-split
+decision), Phase 9 (security/testing hardening pass), Phase 10
+(production deploy).
 
 ## 29. Important technical decisions
 
@@ -487,6 +515,21 @@ pass), Phase 10 (production deploy).
   is one line there; the crawl-completion handoff and the
   "all-modules-done" check both derive their required-category list from
   it dynamically, so nothing else needs to change per new module.
+- **Report visibility is a read-time filter, never baked into the stored
+  report** — `reports.content` is always the full report;
+  `ReportVisibilityFilter::filter($content, $hasFullAccess)` decides what
+  a given viewer sees. This means an audit owner who later gets full
+  access (or an admin, or any future viewer role) sees the full version
+  of the *same* report without regenerating it — visibility depends on
+  who's asking, not on anything fixed when the report was built.
+- **Who counts as "full access" is isolated in one class**
+  (`ReportAccessResolver`) specifically so its interim rule (registered
+  user = full access, since no plans/subscriptions exist yet) can be
+  swapped for real plan-tier logic in Phase 6 without touching
+  `ReportVisibilityFilter` or anything that calls it.
+- **No `report_sections` table** — a single `reports.content` JSON blob
+  covers everything Phase 5 needs; only worth splitting out if PDF
+  pagination (Phase 8) turns out to need per-section storage.
 
 ## 30. Testing architecture
 
@@ -499,7 +542,7 @@ providers, robots.txt/sitemap) mocked via `Http::fake()` — no test hits a
 real third-party API. The Node/Playwright crawler subprocess
 (`PlaywrightCrawlerClient`) is mocked in the one Feature test that drives
 the full pipeline (`CrawlAndAnalyzePipelineTest`) — no test launches a
-real browser. 103 PHP tests currently, all passing.
+real browser. 118 PHP tests currently, all passing.
 
 Crawler: `crawler/lib/*.test.mjs`, run via `npm test` (Node's built-in
 `node --test`, no added dependency). Covers the SSRF logic
@@ -508,7 +551,7 @@ defense-in-depth layer described in §24, tested independently of the PHP
 side since the two can't share code across the language boundary. 40
 Node tests currently, all passing.
 
-**143 tests total** (103 PHP + 40 Node). See `tests/TEST_CASES.md` at the
+**158 tests total** (118 PHP + 40 Node). See `tests/TEST_CASES.md` at the
 repo root for the full registry mapped to test-requirement categories,
 coverage status, and any remaining gaps.
 

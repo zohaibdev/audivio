@@ -4,6 +4,7 @@ namespace App\Jobs\Audit;
 
 use App\Enums\AuditCategory;
 use App\Enums\AuditStatus;
+use App\Jobs\Report\GenerateReportJob;
 use App\Models\Audit;
 use App\Models\AuditScore;
 use App\Services\Audit\ScoreCalculator;
@@ -35,5 +36,7 @@ class CalculateScoreJob implements ShouldQueue
         );
 
         $this->audit->update(['status' => AuditStatus::Completed, 'completed_at' => now()]);
+
+        GenerateReportJob::dispatch($this->audit);
     }
 }

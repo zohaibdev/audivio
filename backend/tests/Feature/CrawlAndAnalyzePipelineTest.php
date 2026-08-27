@@ -8,6 +8,7 @@ use App\Jobs\Crawl\CrawlWebsiteJob;
 use App\Models\Audit;
 use App\Models\AuditPage;
 use App\Models\AuditScore;
+use App\Models\Report;
 use App\Models\Website;
 use App\Services\Crawler\CrawlerException;
 use App\Services\Crawler\PlaywrightCrawlerClient;
@@ -88,6 +89,11 @@ class CrawlAndAnalyzePipelineTest extends TestCase
         foreach ($scores as $category => $score) {
             $this->assertSame(100, $score->score, "Expected category '{$category}' to score 100, got {$score->score}");
         }
+
+        $report = Report::where('audit_id', $audit->id)->first();
+        $this->assertNotNull($report, 'GenerateReportJob should have created a Report row');
+        $this->assertSame(100, $report->content['overview']['overall_score']);
+        $this->assertSame(0, count($report->content['issues']), 'A flawless page should have zero issues in the report');
     }
 
     public function test_pipeline_marks_audit_failed_when_the_homepage_crawl_fails(): void
@@ -109,5 +115,6 @@ class CrawlAndAnalyzePipelineTest extends TestCase
         $this->assertNotNull($audit->error_message);
         $this->assertSame(0, AuditPage::where('audit_id', $audit->id)->count());
         $this->assertSame(0, AuditScore::where('audit_id', $audit->id)->count());
+        $this->assertSame(0, Report::where('audit_id', $audit->id)->count());
     }
 }

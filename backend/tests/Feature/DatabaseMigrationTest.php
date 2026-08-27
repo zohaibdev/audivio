@@ -27,16 +27,26 @@ class DatabaseMigrationTest extends TestCase
 
     public function test_rolling_back_the_last_migration_drops_its_table_and_remigrating_restores_it(): void
     {
+        // Deliberately doesn't hardcode which table the last migration
+        // creates — that changes every time a migration is added — and
+        // instead compares the full table set before/after, so this stays
+        // valid as the schema grows.
         Artisan::call('migrate:fresh', ['--force' => true]);
-        $this->assertTrue(Schema::hasTable('ai_analyses'));
+        $before = Schema::getTableListing();
 
         $rollbackExitCode = Artisan::call('migrate:rollback', ['--step' => 1, '--force' => true]);
         $this->assertSame(0, $rollbackExitCode);
-        $this->assertFalse(Schema::hasTable('ai_analyses'), 'ai_analyses table should be dropped after rolling back its migration');
+
+        $afterRollback = Schema::getTableListing();
+        $this->assertLessThan(count($before), count($afterRollback), 'Rolling back one migration should drop at least one table');
 
         $migrateExitCode = Artisan::call('migrate', ['--force' => true]);
         $this->assertSame(0, $migrateExitCode);
-        $this->assertTrue(Schema::hasTable('ai_analyses'), 'ai_analyses table should be restored after re-running migrate');
+
+        $afterRemigrate = Schema::getTableListing();
+        sort($before);
+        sort($afterRemigrate);
+        $this->assertSame($before, $afterRemigrate, 'Re-running migrate should restore the exact same set of tables');
     }
 
     public function test_rolling_back_every_migration_drops_every_application_table(): void
@@ -62,7 +72,7 @@ class DatabaseMigrationTest extends TestCase
         return [
             'users', 'websites', 'audits', 'crawl_jobs', 'crawl_urls',
             'audit_pages', 'audit_issues', 'audit_scores', 'ai_analyses',
-            'personal_access_tokens',
+            'reports', 'personal_access_tokens',
         ];
     }
 }
