@@ -491,11 +491,26 @@ pass), Phase 10 (production deploy).
 ## 30. Testing architecture
 
 Backend: PHPUnit, `backend/tests/Unit/...` and `backend/tests/Feature/...`,
-SQLite in-memory DB for tests (`phpunit.xml`), `RefreshDatabase` trait.
-External HTTP (PageSpeed, AI providers) mocked via `Http::fake()` — no
-test hits a real third-party API. 59 tests currently, all passing; see
-`tests/TEST_CASES.md` at the repo root for the full registry mapped to
-test-requirement categories, coverage status, and gaps.
+SQLite in-memory DB for tests (`phpunit.xml`), `RefreshDatabase` trait
+(except `DatabaseMigrationTest`, which manages migration state itself so
+it can test `migrate:rollback`/`migrate:reset` without conflicting with
+RefreshDatabase's transaction wrapping). External HTTP (PageSpeed, AI
+providers, robots.txt/sitemap) mocked via `Http::fake()` — no test hits a
+real third-party API. The Node/Playwright crawler subprocess
+(`PlaywrightCrawlerClient`) is mocked in the one Feature test that drives
+the full pipeline (`CrawlAndAnalyzePipelineTest`) — no test launches a
+real browser. 103 PHP tests currently, all passing.
+
+Crawler: `crawler/lib/*.test.mjs`, run via `npm test` (Node's built-in
+`node --test`, no added dependency). Covers the SSRF logic
+(`isPrivateAddress`, `assertHostnameIsPublic`) directly — the same
+defense-in-depth layer described in §24, tested independently of the PHP
+side since the two can't share code across the language boundary. 40
+Node tests currently, all passing.
+
+**143 tests total** (103 PHP + 40 Node). See `tests/TEST_CASES.md` at the
+repo root for the full registry mapped to test-requirement categories,
+coverage status, and any remaining gaps.
 
 Frontend: no test setup exists yet (no components exist yet to test).
 

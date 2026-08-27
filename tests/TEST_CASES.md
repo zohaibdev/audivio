@@ -6,9 +6,10 @@ complete on visual inspection or manual testing alone. Update this file
 whenever coverage is added, moved, or removed.
 
 **Run**: `cd backend && php artisan test` (SQLite in-memory DB, `Http::fake()`
-for all external calls — no test hits a real third-party API).
+for all external calls — no test hits a real third-party API) and
+`cd crawler && npm test` (Node's built-in test runner, `node --test`).
 
-**Current total**: 59 tests, all passing, 0 known failures.
+**Current total**: 143 tests (103 PHP + 40 Node), all passing, 0 known failures.
 
 Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 
@@ -40,9 +41,22 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Audit rules — AIO | Well-structured page scores 100 | `AioAuditModuleTest::test_well_structured_page_scores_100` | ✅ |
 | Audit rules — AIO | No structured data anywhere flagged | `AioAuditModuleTest::test_no_structured_data_anywhere_is_flagged` | ✅ |
 | Audit rules — AIO | Page with no headings flagged high | `AioAuditModuleTest::test_page_with_no_headings_is_flagged_high` | ✅ |
-| Audit rules — Landing Page | Deterministic no-CTA / no-heading checks | — | ⬜ gap: module exists (`LandingPageAuditModule`), no dedicated test yet |
-| Audit rules — Conversion | Form-friction deterministic check | — | ⬜ gap: module exists (`ConversionAuditModule`), no dedicated test yet |
-| Audit rules — Performance | Load time / page weight / image dimension checks | — | ⬜ gap: module exists (`PerformanceAuditModule`), no dedicated test yet (exercised only via end-to-end manual runs, see below) |
+| Audit rules — Landing Page | Page with CTA + heading scores 100 | `LandingPageAuditModuleTest::test_page_with_cta_and_heading_scores_100` | ✅ |
+| Audit rules — Landing Page | No CTA anywhere flagged high | `LandingPageAuditModuleTest::test_no_cta_anywhere_is_flagged_high` | ✅ |
+| Audit rules — Landing Page | Page with no headings flagged medium | `LandingPageAuditModuleTest::test_page_with_no_headings_is_flagged_medium` | ✅ |
+| Audit rules — Landing Page | CTA count summed across all pages (one page's CTA saves the site-wide check) | `LandingPageAuditModuleTest::test_cta_count_is_summed_across_all_pages` | ✅ |
+| Audit rules — Conversion | No forms scores 100 | `ConversionAuditModuleTest::test_page_with_no_forms_scores_100` | ✅ |
+| Audit rules — Conversion | Form at the friction threshold (6 required fields) not flagged | `ConversionAuditModuleTest::test_form_at_the_friction_threshold_is_not_flagged` | ✅ |
+| Audit rules — Conversion | Form over the friction threshold (7 required fields) flagged medium | `ConversionAuditModuleTest::test_form_over_the_friction_threshold_is_flagged` | ✅ |
+| Audit rules — Conversion | Only required fields count toward friction (optional fields don't) | `ConversionAuditModuleTest::test_only_required_fields_count_toward_friction` | ✅ |
+| Audit rules — Performance | Fast lightweight page scores 100 | `PerformanceAuditModuleTest::test_fast_lightweight_page_scores_100` | ✅ |
+| Audit rules — Performance | Slow load time flagged | `PerformanceAuditModuleTest::test_slow_load_time_flagged` | ✅ |
+| Audit rules — Performance | Oversized page weight flagged | `PerformanceAuditModuleTest::test_oversized_page_weight_flagged` | ✅ |
+| Audit rules — Performance | Images missing dimensions flagged, count aggregated | `PerformanceAuditModuleTest::test_images_missing_dimensions_flagged` | ✅ |
+| Audit rules — Performance | PSI score <50 → critical, <90 → medium, ≥90 → not flagged | `PerformanceAuditModuleTest::test_low_pagespeed_score_is_critical` + 2 siblings | ✅ |
+| Audit rules — Performance | Poor LCP (>2500ms) → high | `PerformanceAuditModuleTest::test_poor_lcp_is_flagged_high` | ✅ |
+| Audit rules — Performance | Poor CLS (>0.1) → medium | `PerformanceAuditModuleTest::test_poor_cls_is_flagged_medium` | ✅ |
+| Audit rules — Performance | PSI only called for the configured page count (mocked `PageSpeedService`, `->once()` expectation) | `PerformanceAuditModuleTest::test_pagespeed_only_called_for_configured_page_count` | ✅ |
 | AI | Parses plain JSON array response | `AiIssueParserTest::test_parses_plain_json_array` | ✅ |
 | AI | Strips a markdown code fence | `AiIssueParserTest::test_strips_markdown_code_fence` | ✅ |
 | AI | Invalid severity falls back to medium | `AiIssueParserTest::test_invalid_severity_falls_back_to_medium` | ✅ |
@@ -60,7 +74,13 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | AI | Different context is not a cache hit | `AiAnalysisServiceTest::test_different_context_is_not_a_cache_hit` | ✅ |
 | AI | Provider failure returns null + records an error row | `AiAnalysisServiceTest::test_provider_failure_returns_null_and_logs_an_error_row` | ✅ |
 | AI | Caching disabled calls the provider every time | `AiAnalysisServiceTest::test_caching_disabled_calls_provider_every_time` | ✅ |
-| Platform detection | Shopify/WordPress/WooCommerce/Webflow/Wix/Custom/Unknown signature matching | — | ⬜ gap: `PlatformDetector` has no dedicated unit test; only exercised via end-to-end manual crawl runs (wordpress.org correctly detected as `wordpress`) |
+| Platform detection | Shopify (CDN reference, header, case-insensitive header) | `PlatformDetectorTest::test_detects_shopify_from_cdn_reference` + 2 siblings | ✅ |
+| Platform detection | WordPress (wp-content, generator meta) | `PlatformDetectorTest::test_detects_wordpress_from_wp_content` + 1 sibling | ✅ |
+| Platform detection | WooCommerce (WordPress + commerce markers) vs plain WordPress | `PlatformDetectorTest::test_detects_woocommerce_as_wordpress_plus_woocommerce_markers`, `test_wordpress_without_woocommerce_markers_is_plain_wordpress` | ✅ |
+| Platform detection | Webflow (data-wf-site attribute) | `PlatformDetectorTest::test_detects_webflow_from_data_attribute` | ✅ |
+| Platform detection | Wix (static asset domain, header) | `PlatformDetectorTest::test_detects_wix_from_static_asset_domain`, `test_detects_wix_from_header` | ✅ |
+| Platform detection | Signal priority (Shopify wins over a simultaneous WordPress match) | `PlatformDetectorTest::test_shopify_signal_takes_priority_over_wordpress` | ✅ |
+| Platform detection | Unrecognized generator meta → Custom; no signal at all → Unknown | `PlatformDetectorTest::test_unrecognized_generator_meta_is_custom`, `test_no_signals_at_all_is_unknown`, `test_empty_html_is_unknown` | ✅ |
 | URL normalization | Trailing-slash homepage dedup | — | ⬜ gap: fixed as a real bug (see CONTEXT.md §26) but not regression-tested — a sitemap URL matching the seed URL modulo trailing slash should not be double-created as a `CrawlUrl` |
 | SSRF / URL security | Loopback (IPv4 `127.0.0.1` + IPv6 `::1`), private ranges (10/8, 172.16/12, 192.168/16), cloud metadata (`169.254.169.254`), IPv6 unique-local (`fc00::/7`) | `UrlSecurityValidatorTest::test_loopback_ipv4_is_blocked` and 6 sibling `test_*_is_blocked` methods | ✅ |
 | SSRF / URL security | Public IP literal allowed | `UrlSecurityValidatorTest::test_public_ip_literal_is_allowed` | ✅ |
@@ -71,7 +91,10 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | SSRF / URL security | Oversized query string blocked | `UrlSecurityValidatorTest::test_oversized_query_string_is_blocked` | ✅ |
 | SSRF / URL security | Malformed URL blocked | `UrlSecurityValidatorTest::test_malformed_url_is_blocked` | ✅ |
 | SSRF / URL security | Real public hostname resolves via DNS and is allowed (sanity check against the actual DNS-resolution code path) | `UrlSecurityValidatorTest::test_real_public_hostname_resolves_and_is_allowed` | ✅ |
-| SSRF / URL security | Redirect-hop re-validation (PHP: caller responsibility per-hop; Node: `crawl.mjs` `page.route()` re-check) | — | ⬜ gap: the Node-side redirect re-validation was manually verified in Phase 2 (localhost/127.0.0.1/192.168.1.1/169.254.169.254 all correctly rejected via `node crawl.mjs`), but there's no Node test runner in this repo yet, so it isn't automated |
+| SSRF / URL security (Node) | `isPrivateAddress` — every IPv4 blocked range (0.0.0.0/8, 10/8, 100.64/10, 127/8, 169.254/16 incl. cloud metadata, 172.16/12, TEST-NET 1-3, 198.18/15, multicast, broadcast) + boundary cases just outside each range | `crawler/lib/ssrf.test.mjs` — `isPrivateAddress (IPv4)` suite, 23 cases | ✅ |
+| SSRF / URL security (Node) | `isPrivateAddress` — IPv6 loopback/unspecified/unique-local/link-local + IPv4-mapped addresses (both blocked and allowed cases) | `crawler/lib/ssrf.test.mjs` — `isPrivateAddress (IPv6)` suite, 9 cases | ✅ |
+| SSRF / URL security (Node) | Malformed address treated as private (fail closed) | `crawler/lib/ssrf.test.mjs::treats a malformed address as private` | ✅ |
+| SSRF / URL security (Node) | `assertHostnameIsPublic` — localhost, empty hostname, IP-literal loopback/private/cloud-metadata/IPv6-loopback all rejected without a real DNS query; public IP literal allowed; real hostname resolves via actual DNS and is allowed | `crawler/lib/ssrf.test.mjs` — `assertHostnameIsPublic` suite, 8 cases | ✅ |
 | Usage calculation | Plan limit enforcement | — | ⬜ gap: not built yet (no `plans` table — see CONTEXT.md §19) |
 | Report visibility | Anonymous 60% visibility split | — | ⬜ gap: not built yet (see CONTEXT.md §20) |
 | Recommendation logic | — | — | ⬜ gap: recommendations are currently just the `recommendation` string on each issue; no separate recommendation-generation logic exists to test yet |
@@ -85,8 +108,8 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Login | — | ⬜ not built (Phase 6) |
 | Website creation | — | ⬜ not built (no API endpoint yet) |
 | Audit creation | — | ⬜ not built (no API endpoint yet — CLI-only, see below) |
-| Crawler dispatch | Exercised end-to-end manually via `php artisan audit:crawl` against example.com and wordpress.org during Phase 2-4 development; **not an automated test** | ⬜ gap: no `CrawlOrchestrator`/job-level Feature test exists — coverage today is manual runs recorded in CONTEXT.md, not a repeatable assertion-based test |
-| Audit completion (full pipeline: crawl → 7 modules → overall score) | Same as above — manually verified end-to-end, scores hand-checked against expected math | ⬜ gap: same, no automated Feature test |
+| Crawler dispatch → audit completion (full pipeline: crawl → 7 modules → overall score) | `CrawlAndAnalyzePipelineTest::test_full_pipeline_produces_a_completed_audit_with_all_category_scores` — real `CrawlOrchestrator`, real SSRF validation, real platform detection, all 7 real audit modules, real scoring math; only `PlaywrightCrawlerClient` (no real browser) and outbound HTTP (no real robots.txt/sitemap fetch) are faked. Dispatches through the actual queue pipeline (`sync` driver in tests runs it inline). Asserts all 8 score rows (7 categories + overall) equal exactly 100 for a page crafted to be flawless against every deterministic rule. | ✅ |
+| Audit failure handling | `CrawlAndAnalyzePipelineTest::test_pipeline_marks_audit_failed_when_the_homepage_crawl_fails` — homepage crawl throws, asserts `Audit.status = failed`, `error_message` set, zero pages/scores created | ✅ |
 | Report generation | — | ⬜ not built (Phase 5) |
 | Usage limits | — | ⬜ not built (Phase 6) |
 | Recrawl | — | ⬜ not built (Phase 6) |
@@ -108,11 +131,22 @@ security) are gaps pending Phase 5/6.
 
 | Check | Status |
 |---|---|
-| Fresh migrations run cleanly | ✅ verified manually every phase (`php artisan migrate:fresh`), not an automated test |
-| Every table is InnoDB with enforced FKs | ✅ verified manually via `information_schema` query in Phase 2 after finding the MyISAM default-engine issue; not an automated test |
-| Migration rollback (`down()`) | ⬜ gap: `down()` methods exist on every migration but have never been executed/verified |
+| Fresh migrations run cleanly | `DatabaseMigrationTest::test_migrate_fresh_runs_cleanly` — asserts exit code 0 and every application table exists afterward | ✅ |
+| Every table is InnoDB with enforced FKs | ✅ verified manually via `information_schema` query in Phase 2 after finding the MyISAM default-engine issue (MySQL-specific — the automated test suite runs against SQLite, so this check isn't portable to it); not automated |
+| Migration rollback (`down()`) — single-step and full reset | `DatabaseMigrationTest::test_rolling_back_the_last_migration_drops_its_table_and_remigrating_restores_it`, `test_rolling_back_every_migration_drops_every_application_table` — actually runs `migrate:rollback` / `migrate:reset` and asserts tables are dropped, then re-migrates and asserts they're back | ✅ |
 | Unique constraints (`audit_scores` per audit+category, `ai_analyses` cache key) | ✅ exercised indirectly — `updateOrCreate` calls in `RunAuditModuleJob`/`CalculateScoreJob`/`AiAnalysisService` rely on these and are covered by the Unit tests above, but no test directly asserts the DB rejects a duplicate insert |
-| Cascade delete behavior | ⬜ gap: FKs declare `cascadeOnDelete()`/`nullOnDelete()` but no test deletes a parent row and asserts children are removed/nulled |
+| Cascade delete: website → audits | `CascadeDeleteTest::test_deleting_a_website_cascades_to_its_audits` | ✅ |
+| Null-on-delete: user → website.user_id (website itself survives) | `CascadeDeleteTest::test_deleting_a_user_nulls_the_websites_user_id_instead_of_deleting_the_website` | ✅ |
+| Cascade delete: audit → crawl_job, audit_pages, audit_issues, audit_scores, ai_analyses | `CascadeDeleteTest::test_deleting_an_audit_cascades_to_its_crawl_job_pages_issues_and_scores` | ✅ |
+| Cascade delete: crawl_job → crawl_urls | `CascadeDeleteTest::test_deleting_a_crawl_job_cascades_to_its_crawl_urls` | ✅ |
+| Null-on-delete: crawl_url → audit_page.crawl_url_id (page itself survives) | `CascadeDeleteTest::test_deleting_a_crawl_url_nulls_the_audit_pages_crawl_url_id_instead_of_deleting_the_page` | ✅ |
+| Cascade delete: audit_page → its issues (site-wide issues with no audit_page_id survive) | `CascadeDeleteTest::test_deleting_an_audit_page_cascades_to_its_issues` | ✅ |
+| No orphaned rows: crawl_urls after deleting the owning audit (transitively, via crawl_job) | `CascadeDeleteTest::test_no_orphaned_crawl_urls_remain_after_deleting_the_owning_audit` | ✅ |
+
+All cascade tests above were confirmed to exercise real DB-level FK
+enforcement, not vacuous passes — `config/database.php`'s sqlite
+connection sets `foreign_key_constraints => true` by default, checked
+before trusting these results.
 
 ## Frontend tests
 
@@ -131,44 +165,73 @@ consultant lead submitted) are gaps pending later phases.
 ## Manual/exploratory verification (not automated — recorded for traceability)
 
 These were actually run and their results checked by hand during
-development; they are not repeatable `php artisan test` assertions and
-should be converted to automated tests before Phase 9 (Testing and
-Security hardening):
+development; they remain useful historical records but are no longer the
+*only* coverage for what they exercised — see the automated equivalents
+added above.
 
-- SSRF blocking: `localhost`, `127.0.0.1`, `192.168.1.1`, `169.254.169.254`
-  (cloud metadata), `ftp://`, port `8080` — all correctly rejected at
-  both the PHP (`UrlSecurityValidator`) and Node (`crawler/lib/ssrf.mjs`)
-  layers (Phase 2).
+- SSRF blocking against a real running crawler CLI (Phase 2) —
+  superseded as automated regression coverage by
+  `UrlSecurityValidatorTest` (PHP layer) and `crawler/lib/ssrf.test.mjs`
+  (Node layer), but the original manual run against a live process is
+  still useful evidence the two layers behave the same when wired
+  together for real.
 - Full crawl→7-module pipeline against `https://example.com` and
   `https://wordpress.org` — page limits respected, no duplicate pages,
   sitemap-index discovery worked (459 URLs found on wordpress.org),
   platform correctly detected as `wordpress`, weighted overall scores
-  matched hand-computed expected values (Phases 2-4).
+  matched hand-computed expected values (Phases 2-4). Superseded as
+  automated regression coverage by `CrawlAndAnalyzePipelineTest`, though
+  the manual run is still the only evidence the *real* Playwright/axe-core
+  subprocess and a real multi-page sitemap-discovery crawl behave
+  correctly — the automated test fakes the crawler subprocess.
 - `robots.txt`/`sitemap.xml` fetch failing with a 403 from Guzzle's
-  default User-Agent, fixed by sending an explicit UA (Phase 2).
+  default User-Agent, fixed by sending an explicit UA (Phase 2) — this
+  was a one-off environment finding, not an ongoing behavior to
+  regression-test.
 - `ai_analyses` correctly recorded 3 failure rows (landing_page,
   conversion, aio) and correctly recorded **zero** rows for ecommerce on
-  a non-commerce site — confirming the "skip the AI call entirely, not
-  just its result" optimization (Phase 4).
+  a non-commerce site (Phase 4) — automated equivalent is
+  `EcommerceAuditModuleTest::test_non_ecommerce_site_scores_100_with_no_issues`.
 
 ---
 
-## Known gaps summary (prioritized for Phase 9, or sooner if touching that area)
+## Known gaps summary
 
-1. ~~`UrlSecurityValidator` has zero automated tests despite being the
-   most security-critical code in the repo~~ — **closed**: 19 tests added
-   (`UrlSecurityValidatorTest`) covering IP-range blocking, localhost
-   variants, scheme/port/credential/query-length validation, and a real-
-   DNS sanity check. `crawler/lib/ssrf.mjs` (the Node-side redirect
-   re-validation) remains manually-verified only — no Node test runner
-   exists in this repo yet.
-2. No automated Feature/integration test drives the full crawl→analysis
-   pipeline — only manual CLI runs. A test using `Http::fake()` for
-   PageSpeed/AI and a stub for the Node subprocess (or a real headless
-   crawl against a local fixture page) would close this.
-3. `PlatformDetector`, `PerformanceAuditModule`, `LandingPageAuditModule`,
-   `ConversionAuditModule` have modules but no dedicated unit tests yet.
-4. Migration rollback and cascade-delete behavior are unverified.
-5. Everything under Feature/API/Frontend/E2E is a gap because the
-   corresponding features don't exist yet — not a testing shortfall,
-   just not built (see CONTEXT.md §25 for phase status).
+1. ~~`UrlSecurityValidator` has zero automated tests~~ — **closed**: 19
+   PHP tests (`UrlSecurityValidatorTest`).
+2. ~~`crawler/lib/ssrf.mjs` has zero automated tests, no Node test runner
+   exists~~ — **closed**: added `node --test` (Node's built-in runner,
+   no new dependency) and 40 tests in `crawler/lib/ssrf.test.mjs`
+   covering `isPrivateAddress` and `assertHostnameIsPublic` directly.
+3. ~~No automated Feature/integration test drives the full
+   crawl→analysis pipeline~~ — **closed**:
+   `CrawlAndAnalyzePipelineTest` (2 tests) drives the real pipeline
+   (`CrawlOrchestrator`, SSRF validation, platform detection, all 7 real
+   audit modules, real scoring) with only the crawler subprocess and
+   outbound HTTP faked, exploiting the `sync` queue driver in tests to
+   run the whole job cascade inline.
+4. ~~`PlatformDetector`, `PerformanceAuditModule`,
+   `LandingPageAuditModule`, `ConversionAuditModule` had no dedicated
+   unit tests~~ — **closed**: 32 new tests across
+   `PlatformDetectorTest` (14), `PerformanceAuditModuleTest` (10),
+   `LandingPageAuditModuleTest` (4), `ConversionAuditModuleTest` (4).
+5. ~~Migration rollback and cascade-delete behavior were unverified~~ —
+   **closed**: `DatabaseMigrationTest` (3 tests: fresh migrate, single-
+   step rollback + re-migrate, full reset) and `CascadeDeleteTest` (7
+   tests covering every declared `cascadeOnDelete()`/`nullOnDelete()`
+   relationship in the schema), confirmed to exercise real FK
+   enforcement (not vacuous passes) by checking SQLite's
+   `foreign_key_constraints` connection setting first.
+6. Everything under Feature/API/Frontend/E2E beyond the crawl/analyze
+   pipeline is a gap because the corresponding features don't exist yet
+   (signup, login, report generation, admin, CMS, etc.) — not a testing
+   shortfall, just not built. See CONTEXT.md §25 for phase status.
+7. `OpenAiProvider`/`GeminiProvider` only have their success-path parsing
+   tested; the missing-key/error-status pair is only verified for
+   `ClaudeProvider`. Low priority — the failure behavior is structurally
+   identical across all three (shared `AiProviderException` pattern), not
+   independently implemented per provider.
+8. No test asserts the DB rejects a duplicate insert against the
+   `audit_scores` (per audit+category) or `ai_analyses` (cache key)
+   unique constraints directly — only exercised indirectly via
+   `updateOrCreate` call sites.

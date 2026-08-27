@@ -6,7 +6,8 @@
   "type": "module",
   "main": "crawl.mjs",
   "scripts": {
-    "postinstall": "playwright install chromium"
+    "postinstall": "playwright install chromium",
+    "test": "node --test lib/*.test.mjs"
   },
   "dependencies": {
     "axe-core": "^4.10.0",
