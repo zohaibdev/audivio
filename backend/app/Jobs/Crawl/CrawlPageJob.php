@@ -2,10 +2,10 @@
 
 namespace App\Jobs\Crawl;
 
-use App\Enums\AuditStatus;
 use App\Enums\CrawlJobStatus;
 use App\Enums\CrawlUrlStatus;
 use App\Models\CrawlUrl;
+use App\Services\Audit\AuditModuleRegistry;
 use App\Services\Crawler\CrawlOrchestrator;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -56,6 +56,6 @@ class CrawlPageJob implements ShouldQueue
         }
 
         $crawlJob->update(['status' => CrawlJobStatus::Completed, 'completed_at' => now()]);
-        $audit->update(['status' => AuditStatus::Completed, 'completed_at' => now()]);
+        AuditModuleRegistry::dispatchAnalysis($audit);
     }
 }

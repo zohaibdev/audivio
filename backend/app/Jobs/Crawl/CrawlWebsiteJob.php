@@ -5,6 +5,7 @@ namespace App\Jobs\Crawl;
 use App\Enums\AuditStatus;
 use App\Enums\CrawlJobStatus;
 use App\Models\Audit;
+use App\Services\Audit\AuditModuleRegistry;
 use App\Services\Crawler\CrawlOrchestrator;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -61,7 +62,7 @@ class CrawlWebsiteJob implements ShouldQueue
 
         if ($pendingUrls->isEmpty()) {
             $crawlJob->update(['status' => CrawlJobStatus::Completed, 'completed_at' => now()]);
-            $this->audit->update(['status' => AuditStatus::Completed, 'completed_at' => now()]);
+            AuditModuleRegistry::dispatchAnalysis($this->audit);
         }
     }
 }

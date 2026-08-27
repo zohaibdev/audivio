@@ -218,6 +218,7 @@ class CrawlOrchestrator
             'forms' => $data->forms,
             'structured_data' => $data->structuredData,
             'cta_elements' => $data->ctaElements,
+            'accessibility_violations' => $data->accessibilityViolations,
             'screenshot_path' => $data->screenshotPath ? $this->toPublicPath($data->screenshotPath) : null,
             'html_size_bytes' => $data->htmlSizeBytes,
             'load_time_ms' => $data->loadTimeMs,

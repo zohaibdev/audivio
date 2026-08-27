@@ -77,6 +77,22 @@ class CrawlWebsite extends Command
             ])->all(),
         );
 
+        $this->newLine();
+        $this->info('Scores:');
+        $this->table(
+            ['Category', 'Score'],
+            $audit->scores()->get(['category', 'score'])->map(fn ($s) => [$s->category->value, $s->score])->all(),
+        );
+
+        $this->newLine();
+        $this->info('Issues:');
+        $this->table(
+            ['Category', 'Severity', 'Code', 'Message'],
+            $audit->issues()->get(['category', 'severity', 'code', 'message'])->map(fn ($i) => [
+                $i->category->value, $i->severity->value, $i->code, $i->message,
+            ])->all(),
+        );
+
         return self::SUCCESS;
     }
 }

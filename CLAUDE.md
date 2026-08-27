@@ -163,10 +163,65 @@ Work phase by phase — do not build the whole app at once.
   defaults — portable to any deployment target regardless of its MySQL
   config.
 
-Not built yet (do not build ahead of schedule): any audit *analysis*
-(performance/accessibility/SEO/etc. scoring), AI provider implementations,
-report generation, PDF export, subscriptions/plans, admin, CMS, scheduling,
-the public "create audit" API endpoint.
+### Phase 3 (Core Auditors) — done
+
+- **Schema**: `audit_issues` (findings, category+severity+code+message+
+  recommendation+meta), `audit_scores` (one row per category + one
+  `overall` row, with a `breakdown` json for transparency), plus
+  `audit_pages.accessibility_violations` / `.performance_metrics` columns.
+- **`App\Contracts\AuditModule`**: each category is an independent class
+  (`category(): AuditCategory`, `run(Audit): AuditModuleResult`) that only
+  reads already-crawled `AuditPage` data — modules never depend on each
+  other. `App\Services\Audit\AuditModuleRegistry` is the single list of
+  which modules run after a crawl; Phase 4's ecommerce/landing_page/
+  conversion/aio modules just get added there, nothing else changes.
+- **Scoring** (`config/audit_scoring.php`, `ScoreCalculator`): every module
+  starts its category at 100 and deducts configured points per issue
+  severity (critical/high/medium/low), worst-first, optionally capped at
+  N deductions so a long tail of minor findings on a large site can't
+  bottom a score out at 0. The overall score is a weighted average
+  (`category_weights`) **renormalized over only the categories that have
+  actually run** — an audit mid-way through Phase 4 rollout still gets a
+  fair overall score instead of being diluted by categories that don't
+  exist yet.
+- **Accessibility**: axe-core runs *inside the same Playwright page load*
+  in `crawler/crawl.mjs` (`page.addScriptTag` + `axe.run()`) rather than a
+  second browser pass. `AccessibilityAuditModule` aggregates violations
+  **by rule across all pages, not per-page-per-violation** — the same
+  site-wide contrast issue on every page is one `AuditIssue`, not one per
+  page, so score damage scales with distinct problems, not page count.
+- **Performance**: `PageSpeedService` calls Google PSI, but only against
+  `audit_scoring.performance.pagespeed_pages` pages (homepage by default)
+  — it's a slow (10-30s), rate-limited external call, never run per
+  crawled page. Combined with custom heuristics already available from
+  the crawl (load time, HTML size, images missing explicit dimensions).
+  Degrades gracefully (module still scores, just without PSI-derived
+  issues) when `PAGESPEED_API_KEY` isn't set.
+- **SEO**: fully deterministic against crawled data — title/meta-
+  description presence and length, canonical presence, H1 count, images
+  missing alt (aggregated per page), redirect chain length, duplicate
+  titles across pages (site-wide, once), and broken internal links
+  (best-effort: only flagged when the link target is itself a page we
+  crawled and know returned 4xx/5xx — we don't fetch untouched targets
+  just to check).
+- **Pipeline wiring**: `CrawlPageJob`/`CrawlWebsiteJob` transition the
+  audit to `analyzing` and dispatch one `RunAuditModuleJob` per registered
+  module once crawling finishes; each one persists its issues/score, and
+  whichever finishes last (order isn't deterministic) dispatches
+  `CalculateScoreJob`, which computes the overall score and marks the
+  audit `completed`.
+- **Tests**: `tests/Unit/Services/Audit/` — `SeoAuditModuleTest`,
+  `AccessibilityAuditModuleTest`, `ScoreCalculatorTest` (17 tests total)
+  covering the deterministic rules and the shared scoring math.
+- **Bug fixed during testing**: `CalculateScoreJob` used
+  `pluck('score', 'category')` where `category` is enum-cast — using an
+  enum object as an array key throws "Illegal offset type". Fixed with
+  `mapWithKeys` to pull `->value` explicitly.
+
+Not built yet (do not build ahead of schedule): the AI-driven modules
+(ecommerce, landing_page, conversion, aio) or any AI provider
+implementation, report generation, PDF export, subscriptions/plans,
+admin, CMS, scheduling, the public "create audit" API endpoint.
 
 ## MVP exclusions (do not build unless explicitly requested)
 

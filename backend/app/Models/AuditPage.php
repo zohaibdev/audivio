@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AuditPage extends Model
 {
@@ -22,6 +23,8 @@ class AuditPage extends Model
         'forms',
         'structured_data',
         'cta_elements',
+        'accessibility_violations',
+        'performance_metrics',
         'screenshot_path',
         'html_size_bytes',
         'load_time_ms',
@@ -39,6 +42,8 @@ class AuditPage extends Model
             'forms' => 'array',
             'structured_data' => 'array',
             'cta_elements' => 'array',
+            'accessibility_violations' => 'array',
+            'performance_metrics' => 'array',
             'raw_data' => 'array',
             'crawled_at' => 'datetime',
         ];
@@ -52,5 +57,10 @@ class AuditPage extends Model
     public function crawlUrl(): BelongsTo
     {
         return $this->belongsTo(CrawlUrl::class);
+    }
+
+    public function issues(): HasMany
+    {
+        return $this->hasMany(AuditIssue::class);
     }
 }

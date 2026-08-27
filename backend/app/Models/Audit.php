@@ -49,4 +49,14 @@ class Audit extends Model
     {
         return $this->hasMany(AuditPage::class);
     }
+
+    public function issues(): HasMany
+    {
+        return $this->hasMany(AuditIssue::class);
+    }
+
+    public function scores(): HasMany
+    {
+        return $this->hasMany(AuditScore::class);
+    }
 }

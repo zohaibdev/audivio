@@ -22,6 +22,7 @@ final readonly class CrawledPageData
         public int $htmlSizeBytes,
         public array $headers = [],
         public string $htmlSample = '',
+        public ?array $accessibilityViolations = null,
     ) {
     }
 
@@ -45,6 +46,7 @@ final readonly class CrawledPageData
             htmlSizeBytes: $data['htmlSizeBytes'] ?? 0,
             headers: $data['headers'] ?? [],
             htmlSample: $data['htmlSample'] ?? '',
+            accessibilityViolations: $data['accessibilityViolations'] ?? null,
         );
     }
 }

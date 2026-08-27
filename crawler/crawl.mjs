@@ -1,7 +1,11 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
 import { assertHostnameIsPublic, SsrfError } from './lib/ssrf.mjs';
 import { extractPageData } from './lib/extract.mjs';
+
+const require = createRequire(import.meta.url);
+const axeCorePath = require.resolve('axe-core/axe.min.js');
 
 class CrawlFailure extends Error {}
 
@@ -88,6 +92,25 @@ async function run() {
 
     const extracted = await page.evaluate(extractPageData);
 
+    let accessibilityViolations = [];
+    try {
+      await page.addScriptTag({ path: axeCorePath });
+      const axeResults = await page.evaluate(() => window.axe.run());
+      accessibilityViolations = axeResults.violations.map((v) => ({
+        id: v.id,
+        impact: v.impact,
+        description: v.description,
+        help: v.help,
+        helpUrl: v.helpUrl,
+        nodeCount: v.nodes.length,
+        targets: v.nodes.slice(0, 5).map((n) => n.target),
+      }));
+    } catch (error) {
+      // Accessibility scan failing shouldn't fail the whole page crawl —
+      // it's an enhancement on top of the base extraction, not required.
+      accessibilityViolations = null;
+    }
+
     if (screenshotPath) {
       await page.screenshot({ path: screenshotPath, fullPage: false });
     }
@@ -99,6 +122,7 @@ async function run() {
       redirectChain,
       loadTimeMs,
       screenshotPath,
+      accessibilityViolations,
       ...extracted,
     };
   } finally {
