@@ -218,10 +218,71 @@ Work phase by phase — do not build the whole app at once.
   enum object as an array key throws "Illegal offset type". Fixed with
   `mapWithKeys` to pull `->value` explicitly.
 
-Not built yet (do not build ahead of schedule): the AI-driven modules
-(ecommerce, landing_page, conversion, aio) or any AI provider
-implementation, report generation, PDF export, subscriptions/plans,
-admin, CMS, scheduling, the public "create audit" API endpoint.
+### Phase 4 (AI Auditors) — done
+
+- **Concrete `AiProvider` implementations**: `ClaudeProvider` (Anthropic
+  Messages API), `OpenAiProvider` (Chat Completions), `GeminiProvider`
+  (Generative Language API, key as query param — that's Google's actual
+  API contract, not a shortcut). `AiProviderFactory` resolves whichever is
+  configured as `AI_DEFAULT_PROVIDER` (`config/ai.php`). All three throw
+  `AiProviderException` on a missing key or non-2xx response; nothing
+  crashes the caller.
+- **`AiAnalysisService`**: the single entry point every AI-driven module
+  calls. Hashes `(category, prompt, context)` and checks the `ai_analyses`
+  table before calling a provider — a second identical call never spends
+  tokens (verified: `Http::assertSentCount(1)` across two calls with
+  identical input). A provider failure logs to the `ai` channel, records
+  an error row (so failures are visible without re-triggering the same
+  failing call), and returns `null` — callers fall back to
+  deterministic-only results, the same pattern `PageSpeedService`
+  established in Phase 3.
+- **`AiIssueParser`**: shared, defensive parser for the JSON-array response
+  shape every module's prompt asks for (`[{severity, code, message,
+  recommendation}]`) — strips a markdown fence if present, falls back to
+  `medium` severity on garbage input, and returns `[]` (never throws) on
+  unparseable output.
+- **`PageContextSummarizer`**: builds the *only* thing sent to an AI
+  provider — title/headings/CTA text/form field types/structured-data
+  types/image counts per page, capped at `audit_scoring.ai_context_pages`
+  (default 5) pages per audit. Raw HTML never leaves the crawler.
+- **Ecommerce**: skips the AI call entirely (not just its result) when a
+  site shows no commerce signals (no Product schema, no purchase CTA, not
+  on Shopify) — verified in testing that a non-ecommerce audit produces
+  zero `ai_analyses` rows for that category, not just an ignored one.
+  Otherwise flags missing Product schema / missing purchase CTA
+  deterministically, then layers the AI's CRO-style findings on top.
+- **Landing Page**: deterministic "no CTA anywhere" / "no heading at all"
+  checks, then AI value-proposition/focus assessment.
+- **Conversion**: deterministic form-friction check (too many required
+  fields, `MAX_REQUIRED_FIELDS_BEFORE_FRICTION = 6`), then AI CRO findings.
+- **AIO**: deterministic "no structured data anywhere" / "page with no
+  heading structure" checks. The prompt has an explicit, hard constraint —
+  it must not state or imply the score predicts/guarantees ranking or
+  citation in ChatGPT, Google AI Overviews, Gemini, Perplexity, or any
+  other AI search product; it may only describe structural clarity for
+  machine parsing. This is enforced at the prompt level, not just in UI
+  copy, so it holds regardless of which surface renders the result later.
+- **Schema**: `ai_analyses` (audit_id, category, provider, context_hash,
+  context, prompt, response, token counts, error) with a unique
+  `(audit_id, category, context_hash)` cache key.
+- **`AuditModuleRegistry`** now lists all 7 modules — nothing else needed
+  to change in the crawl→analyze handoff; `RunAuditModuleJob`'s
+  "dispatch `CalculateScoreJob` once every module is done" check already
+  derived its required-categories list from the registry itself, so it
+  picked up the new modules automatically.
+- **Tests**: `tests/Unit/Services/AI/` (issue parser, all 3 providers via
+  `Http::fake()`, `AiAnalysisService` caching/error/cache-disabled
+  behavior) + `EcommerceAuditModuleTest`/`AioAuditModuleTest` covering the
+  deterministic-only fallback path — 23 new tests, 40 total, all passing
+  with no API keys configured (this dev environment has none set).
+- Tested end-to-end against `example.com` with all 7 modules live: scores
+  and weighted overall matched hand-computed expected values; AI calls
+  correctly attempted, logged, and gracefully skipped without failing the
+  audit.
+
+Not built yet (do not build ahead of schedule): report generation, PDF
+export, subscriptions/plans, admin, CMS, scheduling, the public "create
+audit" API endpoint.
 
 ## MVP exclusions (do not build unless explicitly requested)
 

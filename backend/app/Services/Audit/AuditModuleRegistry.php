@@ -9,8 +9,7 @@ use App\Models\Audit;
 
 /**
  * Single source of truth for which AuditModule classes run after a crawl
- * completes. Phase 4 (AI auditors — ecommerce, landing_page, conversion,
- * aio) adds entries here rather than touching the crawl jobs.
+ * completes.
  */
 class AuditModuleRegistry
 {
@@ -23,6 +22,10 @@ class AuditModuleRegistry
             SeoAuditModule::class,
             AccessibilityAuditModule::class,
             PerformanceAuditModule::class,
+            EcommerceAuditModule::class,
+            LandingPageAuditModule::class,
+            ConversionAuditModule::class,
+            AioAuditModule::class,
         ];
     }
 

@@ -81,4 +81,13 @@ return [
         'meta_description_min_length' => 50,
         'meta_description_max_length' => 160,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | AI-driven modules (ecommerce, landing_page, conversion, aio)
+    |--------------------------------------------------------------------------
+    | Each AI call sends a pre-extracted summary of at most this many pages
+    | (never raw HTML) to control both token cost and prompt size.
+    */
+    'ai_context_pages' => (int) env('AUDIT_AI_CONTEXT_PAGES', 5),
 ];
