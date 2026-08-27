@@ -23,7 +23,7 @@ class AuthController extends Controller
             'password' => $request->string('password'),
         ]);
 
-        $defaultPlan = Plan::where('is_default', true)->first();
+        $defaultPlan = Plan::where('is_default', true)->where('is_active', true)->first();
 
         if ($defaultPlan !== null) {
             Subscription::create([

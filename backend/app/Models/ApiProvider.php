@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A configurable external service (AI provider or audit utility like
@@ -51,6 +52,26 @@ class ApiProvider extends Model
         return 'slug';
     }
 
+    public function aiModels(): HasMany
+    {
+        return $this->hasMany(AiModel::class);
+    }
+
+    /**
+     * The catalog row for whichever model this provider is currently
+     * actively calling ($this->model), if it's been registered. Null for
+     * a provider with no registered models yet (e.g. a freshly added one,
+     * or PageSpeed, which isn't a plan-selectable AI model at all).
+     */
+    public function activeAiModel(): ?AiModel
+    {
+        if ($this->model === null) {
+            return null;
+        }
+
+        return $this->aiModels()->where('model_id', $this->model)->first();
+    }
+
     public function getMaskedKeyAttribute(): ?string
     {
         if (! $this->isConfigured()) {
@@ -88,12 +109,17 @@ class ApiProvider extends Model
 
     /**
      * Null when no per-token cost rate is configured for this provider —
-     * callers must not invent a number the admin hasn't supplied.
+     * callers must not invent a number the admin hasn't supplied. Prefers
+     * the active AiModel's per-model rate (different models under the same
+     * provider have different pricing) and falls back to the provider-wide
+     * `config` rate for providers with no registered model catalog yet.
      */
     public function estimateCost(?int $promptTokens, ?int $completionTokens): ?float
     {
-        $inputRate = $this->getConfigValue('cost_per_1k_input_tokens');
-        $outputRate = $this->getConfigValue('cost_per_1k_output_tokens');
+        $activeModel = $this->activeAiModel();
+
+        $inputRate = $activeModel?->input_cost_per_1k_tokens ?? $this->getConfigValue('cost_per_1k_input_tokens');
+        $outputRate = $activeModel?->output_cost_per_1k_tokens ?? $this->getConfigValue('cost_per_1k_output_tokens');
 
         if ($inputRate === null && $outputRate === null) {
             return null;

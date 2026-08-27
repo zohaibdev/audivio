@@ -3,10 +3,12 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\ScheduleFrequency;
+use App\Models\ApiProvider;
 use App\Models\Audit;
 use App\Models\AuditSchedule;
 use App\Models\CmsPage;
 use App\Models\CrawlJob;
+use App\Models\Feature;
 use App\Models\Lead;
 use App\Models\Plan;
 use App\Models\User;
@@ -217,6 +219,141 @@ class AdminApiTest extends TestCase
         $this->withHeader('Authorization', "Bearer {$token}")->postJson('/api/admin/plans', [
             'name' => 'Free Again', 'slug' => 'free', 'price_cents' => 0, 'max_pages' => 25, 'daily_audit_limit' => 1,
         ])->assertStatus(422);
+    }
+
+    // --- Plan audit-feature and AI-model access management (TC-PLAN-003..009, TC-AI-*) ---
+
+    private function seedFeatures(): void
+    {
+        foreach (['performance', 'accessibility', 'cro', 'seo', 'aio', 'ecommerce', 'product_auditor'] as $key) {
+            Feature::create(['key' => $key, 'name' => ucfirst($key), 'is_enabled' => true]);
+        }
+    }
+
+    public function test_admin_can_enable_and_disable_individual_audit_features_for_a_plan(): void
+    {
+        $token = $this->tokenFor($this->makeAdmin());
+        $this->seedFeatures();
+        $plan = Plan::create(['name' => 'Pro', 'slug' => 'pro', 'max_pages' => 100, 'daily_audit_limit' => 10]);
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")->putJson("/api/admin/plans/{$plan->id}/features", [
+            'features' => [
+                ['key' => 'performance', 'is_enabled' => true],
+                ['key' => 'accessibility', 'is_enabled' => true],
+                ['key' => 'cro', 'is_enabled' => true],
+                ['key' => 'seo', 'is_enabled' => true],
+                ['key' => 'aio', 'is_enabled' => true],
+                ['key' => 'ecommerce', 'is_enabled' => true],
+                ['key' => 'product_auditor', 'is_enabled' => false],
+            ],
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertTrue($plan->fresh()->hasAuditFeature('cro'));
+        $this->assertFalse($plan->fresh()->hasAuditFeature('product_auditor'));
+
+        // The endpoint syncs the whole submitted set (whatever the admin
+        // UI's checkbox grid currently shows), not a per-feature PATCH —
+        // resending with only 'cro' therefore also clears every feature
+        // left out of this second call, including the 'performance' this
+        // plan was granted a moment ago.
+        $this->withHeader('Authorization', "Bearer {$token}")->putJson("/api/admin/plans/{$plan->id}/features", [
+            'features' => [['key' => 'cro', 'is_enabled' => false]],
+        ])->assertStatus(200);
+
+        $this->assertFalse($plan->fresh()->hasAuditFeature('cro'));
+        $this->assertFalse($plan->fresh()->hasAuditFeature('performance'));
+    }
+
+    public function test_a_feature_disabled_globally_is_unavailable_even_if_the_plan_enables_it(): void
+    {
+        $this->seedFeatures();
+        $plan = Plan::create(['name' => 'Pro', 'slug' => 'pro', 'max_pages' => 100, 'daily_audit_limit' => 10, 'is_default' => true, 'is_active' => true]);
+        $plan->auditFeatures()->attach(Feature::where('key', 'aio')->first()->id, ['is_enabled' => true]);
+
+        $this->assertTrue($plan->hasAuditFeature('aio'));
+
+        Feature::where('key', 'aio')->update(['is_enabled' => false]);
+
+        $this->assertFalse($plan->fresh()->hasAuditFeature('aio'));
+    }
+
+    public function test_admin_can_globally_disable_a_feature(): void
+    {
+        $token = $this->tokenFor($this->makeAdmin());
+        $this->seedFeatures();
+        $feature = Feature::where('key', 'seo')->first();
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/admin/features/{$feature->id}/status", ['is_enabled' => false])
+            ->assertStatus(200)
+            ->assertJsonPath('data.is_enabled', false);
+
+        $this->assertFalse($feature->fresh()->is_enabled);
+    }
+
+    public function test_non_admin_cannot_modify_plan_features_or_global_feature_status(): void
+    {
+        $token = $this->tokenFor($this->makeRegularUser());
+        $this->seedFeatures();
+        $plan = Plan::create(['name' => 'Pro', 'slug' => 'pro', 'max_pages' => 100, 'daily_audit_limit' => 10]);
+        $feature = Feature::first();
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/admin/plans/{$plan->id}/features", ['features' => [['key' => 'seo', 'is_enabled' => true]]])
+            ->assertStatus(403);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/admin/features/{$feature->id}/status", ['is_enabled' => false])
+            ->assertStatus(403);
+    }
+
+    public function test_admin_can_assign_and_remove_ai_models_from_a_plan(): void
+    {
+        $token = $this->tokenFor($this->makeAdmin());
+        $plan = Plan::create(['name' => 'Pro', 'slug' => 'pro', 'max_pages' => 100, 'daily_audit_limit' => 10]);
+        $claude = ApiProvider::create(['slug' => 'claude', 'name' => 'Claude', 'provider_type' => 'ai', 'model' => 'claude-sonnet-5']);
+        $openai = ApiProvider::create(['slug' => 'openai', 'name' => 'OpenAI', 'provider_type' => 'ai', 'model' => 'gpt-5']);
+        $claudeModel = $claude->aiModels()->create(['model_id' => 'claude-sonnet-5', 'display_name' => 'Claude Sonnet 5']);
+        $openaiModel = $openai->aiModels()->create(['model_id' => 'gpt-5', 'display_name' => 'GPT-5']);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/admin/plans/{$plan->id}/ai-models", ['ai_model_ids' => [$claudeModel->id, $openaiModel->id]])
+            ->assertStatus(200);
+
+        $this->assertTrue($plan->fresh()->isModelAllowed($claudeModel));
+        $this->assertTrue($plan->fresh()->isModelAllowed($openaiModel));
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/admin/plans/{$plan->id}/ai-models", ['ai_model_ids' => [$claudeModel->id]])
+            ->assertStatus(200);
+
+        $this->assertTrue($plan->fresh()->isModelAllowed($claudeModel));
+        $this->assertFalse($plan->fresh()->isModelAllowed($openaiModel));
+    }
+
+    public function test_non_admin_cannot_assign_ai_models_to_a_plan(): void
+    {
+        $token = $this->tokenFor($this->makeRegularUser());
+        $plan = Plan::create(['name' => 'Pro', 'slug' => 'pro', 'max_pages' => 100, 'daily_audit_limit' => 10]);
+        $provider = ApiProvider::create(['slug' => 'claude', 'name' => 'Claude', 'provider_type' => 'ai']);
+        $model = $provider->aiModels()->create(['model_id' => 'claude-sonnet-5', 'display_name' => 'Claude Sonnet 5']);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/admin/plans/{$plan->id}/ai-models", ['ai_model_ids' => [$model->id]])
+            ->assertStatus(403);
+    }
+
+    public function test_duplicate_plan_ai_model_assignment_via_repeated_ids_is_rejected(): void
+    {
+        $token = $this->tokenFor($this->makeAdmin());
+        $plan = Plan::create(['name' => 'Pro', 'slug' => 'pro', 'max_pages' => 100, 'daily_audit_limit' => 10]);
+        $provider = ApiProvider::create(['slug' => 'claude', 'name' => 'Claude', 'provider_type' => 'ai']);
+        $model = $provider->aiModels()->create(['model_id' => 'claude-sonnet-5', 'display_name' => 'Claude Sonnet 5']);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/admin/plans/{$plan->id}/ai-models", ['ai_model_ids' => [$model->id, $model->id]])
+            ->assertStatus(422);
     }
 
     // --- Usage ---

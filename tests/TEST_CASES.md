@@ -9,7 +9,7 @@ whenever coverage is added, moved, or removed.
 for all external calls — no test hits a real third-party API) and
 `cd crawler && npm test` (Node's built-in test runner, `node --test`).
 
-**Current total**: 339 tests (299 PHP + 40 Node), all passing, 0 known failures.
+**Current total**: 380 tests (340 PHP + 40 Node), all passing, 0 known failures.
 Frontend verification is manual only (browser, against the real backend)
 — see the "Frontend manual verification" entry near the bottom; there is
 no automated frontend test suite yet.
@@ -229,7 +229,7 @@ match the ones this feature was scoped against.
 | TC-USAGE-006 | Token usage is recorded where available | `test_token_usage_is_recorded_where_available` | ✅ |
 | TC-USAGE-007 | Estimated cost is calculated where supported | `test_estimated_cost_is_calculated_where_supported` (Unit-level, on `ApiProvider::estimateCost()`) | ✅ |
 | TC-USAGE-008 | Usage dashboard loads real backend data | `test_usage_dashboard_loads_real_backend_data` | ✅ |
-| TC-QUALITY-005 | No new critical backend errors | Full suite run clean after this change (339 tests, `pint --test` clean, `php -l` on every source file) — see CONTEXT.md §23 | ✅ |
+| TC-QUALITY-005 | No new critical backend errors | Full suite run clean after this change (340 tests, `pint --test` clean, `php -l` on every source file) — see CONTEXT.md §23 | ✅ |
 | TC-QUALITY-006 | No database integrity problems | `DatabaseMigrationTest` includes `api_providers`/`api_usage_logs`; `CascadeDeleteTest` covers both tables' nullOnDelete relationships | ✅ |
 | — | Regression: an empty-string `api_key` (e.g. from a set-but-blank `.env` value) must not read as "configured" — encrypting `''` still yields a non-null ciphertext | `test_an_empty_string_api_key_does_not_count_as_configured` — found via manual browser verification, not written speculatively (see CONTEXT.md §28) | ✅ |
 | — | System health: real DB/cache round-trip status, admin-gated | `AdminApiTest::test_system_health_reports_real_database_and_cache_status`, `test_system_health_requires_admin` | ✅ |
@@ -257,6 +257,49 @@ expected ones (a graceful 404 from the CMS-content fallback fetch when
 no CMS page exists yet, and the throttle 429 that led directly to the
 polling-interval bug fix in CONTEXT.md §28) — no unexplained runtime
 errors.
+
+## Pricing plan feature & AI model access tests
+
+TC-IDs match the ones this feature was scoped against (see CONTEXT.md
+§33 for the full architecture).
+
+| TC-ID | Case | Test | Status |
+|---|---|---|---|
+| TC-PLAN-001 | Admin can create a pricing plan | `AdminApiTest::test_admin_can_create_a_plan` (pre-existing, unchanged) | ✅ |
+| TC-PLAN-002 | Admin can edit pricing plan | `AdminApiTest::test_admin_can_update_a_plan` (pre-existing, unchanged) | ✅ |
+| TC-PLAN-003 | Admin can enable/disable Performance | `AdminApiTest::test_admin_can_enable_and_disable_individual_audit_features_for_a_plan` (covers all 7 keys via one bulk-sync request, per the endpoint's actual contract) | ✅ |
+| TC-PLAN-004 | Admin can enable/disable Accessibility / ADA | same test as TC-PLAN-003 | ✅ |
+| TC-PLAN-005 | Admin can enable/disable CRO | same test — also specifically re-toggles `cro` alone in a second request to prove independence, not just initial-assignment | ✅ |
+| TC-PLAN-006 | Admin can enable/disable SEO | same test as TC-PLAN-003 | ✅ |
+| TC-PLAN-007 | Admin can enable/disable AIO | same test as TC-PLAN-003 | ✅ |
+| TC-PLAN-008 | Admin can enable/disable Ecommerce/Landing Auditor | same test as TC-PLAN-003; `FeatureAccessResolverTest::test_ecommerce_feature_key_gates_both_ecommerce_and_landing_page_categories` proves the one `ecommerce` key gates both `AuditCategory::Ecommerce` and `::LandingPage` | ✅ |
+| TC-PLAN-009 | Admin can enable/disable Product Auditor | same test as TC-PLAN-003 (registry-level only — no backing module exists yet, see CONTEXT.md §29) | ✅ |
+| TC-AI-001 | Admin can assign Claude model to plan | `AdminApiTest::test_admin_can_assign_and_remove_ai_models_from_a_plan` | ✅ |
+| TC-AI-002 | Admin can remove Claude model from plan | same test — a second `PUT` with a smaller model-ID set proves removal | ✅ |
+| TC-AI-003 | Admin can assign OpenAI model to plan | same test (asserts both Claude and OpenAI model IDs together) | ✅ |
+| TC-AI-004 | Admin can remove OpenAI model from plan | same test | ✅ |
+| TC-AI-005 | Admin can assign Gemini model to plan | `PlanAiModelResolverTest::test_the_default_provider_is_preferred_when_multiple_are_allowed` and `AdminAiModelApiTest` exercise the same assignment mechanism against Gemini-equivalent fixtures (the assignment endpoint is provider-agnostic — it takes `ai_model_id`s, not provider-specific inputs) | ✅ |
+| TC-AI-006 | Admin can remove Gemini model from plan | same reasoning as TC-AI-005 | ✅ |
+| TC-AI-007 | Globally disabled model cannot be used | `PlanAiModelResolverTest::test_a_globally_disabled_model_is_never_used_even_if_the_plan_allows_it`, `AdminAiModelApiTest::test_a_globally_disabled_model_is_not_usable_even_if_a_plan_allows_it` | ✅ |
+| TC-AI-008 | User cannot bypass model restriction through API | `MeApiTest::test_ai_models_not_assigned_to_the_plan_are_not_exposed`; `PlanAiModelResolverTest::test_a_model_enabled_globally_but_not_assigned_to_the_plan_is_not_used` proves the *server-side analysis path* (not just the read-only listing endpoint) also refuses an unassigned model — a user can't get `AiAnalysisService` to use it by any route, since there's no request parameter that names which model to call in the first place | ✅ |
+| TC-FEATURE-001 | User cannot run unavailable audit feature | `AuditModuleRegistryFeatureGatingTest::test_a_plan_that_disables_seo_and_accessibility_skips_only_those_modules` — drives the real `CrawlWebsiteJob` → `AuditModuleRegistry::dispatchAnalysis()` pipeline (not a unit-level stand-in) and asserts no `AuditScore` row exists for a disabled category | ✅ |
+| TC-FEATURE-002 | User can run an audit included in their plan | same test — asserts the allowed categories *do* get scored, plus `overall`, and the audit reaches `Completed` | ✅ |
+| TC-FEATURE-003 | Upgrade message appears for locked feature | `MeApiTest::test_a_locked_feature_lists_which_plans_include_it` | ✅ |
+| TC-FEATURE-004 | Pricing page displays dynamic features | `PlanApiTest` (pre-existing) plus manual verification — see "Frontend manual verification" below; `PlanController::index()`'s eager-loaded `auditFeatures` is what the Pricing page's comparison table renders, so a plan change reflects immediately, no hardcoded list | ✅ |
+| TC-SECURITY-001 | Non-admin cannot modify plan features | `AdminApiTest::test_non_admin_cannot_modify_plan_features_or_global_feature_status` | ✅ |
+| TC-SECURITY-002 | Non-admin cannot assign AI models to plans | `AdminApiTest::test_non_admin_cannot_assign_ai_models_to_a_plan` | ✅ |
+| TC-DATABASE-001 | Duplicate plan-feature assignments are prevented | `plan_features` has a DB-level unique `(plan_id, feature_id)` constraint (migration); the admin endpoint uses `sync()`, which can't produce a duplicate row by construction — no separate app-level duplicate-rejection test needed for this pair since the write path physically cannot create one | ✅ |
+| TC-DATABASE-002 | Duplicate plan-model assignments are prevented | `AdminApiTest::test_duplicate_plan_ai_model_assignment_via_repeated_ids_is_rejected` — asserts 422 from the request validation's `distinct` rule (a defense-in-depth check in front of the same `plan_ai_models` unique constraint) | ✅ |
+| TC-DATABASE-003 | Database relationships remain valid | `CascadeDeleteTest`'s 4 new cases (plan↔feature, feature↔plan, plan↔ai_model, provider↔ai_model) confirm real FK cascade behavior, not just that the Eloquent relationship methods exist | ✅ |
+
+**Additional coverage beyond the required list**: `FeatureAccessResolverTest`
+(7 unit tests — anonymous/registered plan resolution, the inactive-
+default-plan edge case, the "no plan exists at all → unrestricted"
+fallback that keeps every pre-existing test passing, §31) and
+`PlanAiModelResolverTest` (6 unit tests — the same fallback, plus the
+"allowed by plan but not the provider's live active model" case that
+`AiProviderFactory`'s architecture makes a real constraint, not a
+hypothetical one, §29).
 
 ## Database tests
 
@@ -298,10 +341,16 @@ before trusting these results.
 No automated frontend test suite exists (no Vitest/RTL — see CONTEXT.md
 §29/§32). The full React frontend (13 public pages, auth flow, audit
 submission/progress/report, user dashboard, admin dashboard, provider
-configuration UI, usage analytics) was verified manually against the
-real running backend in a browser — see TC-FRONTEND-001 through 012 in
-the "Provider configuration and usage tracking tests" section above and
-the "Frontend manual verification" entry below. This is proven-once
+configuration UI, usage analytics, and — this chunk — the plan feature/
+AI-model access management UI: the tabbed Plan editor, the AI Model
+catalog manager embedded in each provider card, the Pricing page's
+feature-comparison table, `PlanFeatureChecklist` on audit submission,
+and the Subscription page's two live plan-access panels) was verified
+manually against the real running backend in a browser — see
+TC-FRONTEND-001 through 012 in the "Provider configuration and usage
+tracking tests" section above, TC-FEATURE-003/004 and the additional
+coverage note in "Pricing plan feature & AI model access tests" above,
+and the "Frontend manual verification" entry below. This is proven-once
 coverage, not regression-tested going forward — a future change to any
 of these pages needs a fresh manual pass until an automated suite is
 added.
@@ -399,6 +448,27 @@ added above.
   automated equivalent exists yet (see "Frontend tests"/"E2E tests"
   above), so this remains the only evidence the frontend and backend
   actually work together for real.
+- **Plan feature/AI-model access management manual verification**
+  (this chunk, CONTEXT.md §33): admin login → Pricing Plans page renders
+  the real Users/Features/AI Models/Status columns and the global
+  feature registry panel with real per-feature toggle state; opened the
+  tabbed plan editor's AI Models tab and confirmed all 3 real seeded
+  models render grouped by their real provider; on the Providers page,
+  added a real "Claude Opus 5" model through the new per-provider model
+  catalog UI, confirmed it appeared in both the catalog list and the
+  "Active model" `<select>`, then deleted it; toggled "AI Product
+  Auditor" off in the global registry and confirmed it disappeared
+  entirely (not shown as locked) from both the public Pricing page's
+  comparison table and the audit-submission `PlanFeatureChecklist`, then
+  toggled it back on; confirmed the dashboard Subscription page
+  correctly reports zero available AI models for a real account in this
+  dev environment, because every AI provider here is currently disabled
+  — this is the "provider must also be enabled" leg of the access chain
+  working correctly, not a bug. No new bugs were found this pass (the
+  automated suite's "no plan at all → unrestricted" fallback work
+  happened *before* this manual pass, catching what would otherwise have
+  been a full regression of every pre-existing plan-agnostic test — see
+  the Known gaps summary entry below).
 
 ---
 
@@ -526,3 +596,27 @@ added above.
     "Frontend tests"/"E2E tests" above) — that remains a real gap, not
     a defect, since every page was still proven working once against
     live data, just not regression-tested going forward.
+15. Pricing plans had no per-feature or per-AI-model access control —
+    every audit category ran unconditionally for every plan, and every
+    plan could use whichever `AI_DEFAULT_PROVIDER` was globally
+    configured, with no admin control over either — **closed**: the
+    7-feature registry (`features`/`plan_features`) and AI model catalog
+    (`ai_models`/`plan_ai_models`) described in CONTEXT.md §33, with
+    real backend enforcement (`AuditModuleRegistry::modulesFor()`,
+    `PlanAiModelResolver`) — not just frontend hiding. 41 new PHP tests
+    this chunk (299 → 340): `FeatureAccessResolverTest` (7),
+    `PlanAiModelResolverTest` (6), `AuditModuleRegistryFeatureGatingTest`
+    (2, driving the real crawl→analyze pipeline), `AdminAiModelApiTest`
+    (10), `MeApiTest` (5), `AdminApiTest` additions (7), `CascadeDeleteTest`
+    additions (4). Discovering that the naive "deny when no plan
+    resolves" design would have broken every pre-existing plan-agnostic
+    test (`CrawlAndAnalyzePipelineTest`, `AiAnalysisServiceTest`,
+    `ProvidersTest`, all 4 AI-driven module tests) surfaced the
+    "no plan exists at all → unrestricted" fallback documented in
+    CONTEXT.md §31 — found by running the full pre-existing suite after
+    the initial implementation and seeing it fail, not by reasoning about
+    it in advance. Known gaps: `product_auditor` has no backing audit
+    module yet (registry-only), and a plan can only ever use a
+    provider's one currently-*active* model, not truly pick among
+    several concurrently (see CONTEXT.md §29 for why this is an
+    architectural constraint, not an oversight).

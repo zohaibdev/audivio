@@ -196,7 +196,11 @@ boilerplate. `Builder::defaultStringLength(191)` is set in
 | `audit_scores` | audit_id, category (unique per audit incl. `overall`), score, breakdown (json) | `belongsTo` audit |
 | `ai_analyses` | audit_id, category, provider, context_hash, context (json), prompt, response, prompt_tokens, completion_tokens, error | `belongsTo` audit; unique `(audit_id, category, context_hash)` — the cache key |
 | `reports` | audit_id (unique), content (json — always the FULL report; visibility is a read-time filter, not stored), generated_at | `belongsTo` audit |
-| `plans` | name, slug (unique), price_cents, max_pages, daily_audit_limit, full_recrawls, is_default, features (json) | `hasMany` subscriptions |
+| `plans` | name, slug (unique), price_cents, max_pages, daily_audit_limit, full_recrawls, is_default, is_active, features (json — unrelated pdf_export/scheduled_audits/audit_history perks, see §33) | `hasMany` subscriptions; `belongsToMany` features (via `plan_features`), aiModels (via `plan_ai_models`) |
+| `features` | key (unique: performance/accessibility/cro/seo/aio/ecommerce/product_auditor), name, description, is_enabled | `belongsToMany` plans (via `plan_features`) — the audit-category registry, §33; not admin-creatable, seeded once |
+| `plan_features` | plan_id, feature_id, is_enabled; unique `(plan_id, feature_id)` | `belongsTo` plan, feature — per-plan override of a feature |
+| `ai_models` | api_provider_id, model_id, display_name, description, is_enabled, input/output_cost_per_1k_tokens, context_window, capabilities (json); unique `(api_provider_id, model_id)` | `belongsTo` apiProvider; `belongsToMany` plans (via `plan_ai_models`) — catalog of individually addressable models per provider (§33), distinct from `api_providers.model` |
+| `plan_ai_models` | plan_id, ai_model_id; unique `(plan_id, ai_model_id)` | `belongsTo` plan, aiModel |
 | `subscriptions` | user_id (unique — one active plan per user, no history), plan_id, status, started_at, ends_at | `belongsTo` user, plan |
 | `usage_logs` | user_id (nullable — anonymous tracked by IP instead), ip_address, action, website_id (nullable), audit_id (nullable) | `belongsTo` user, website, audit |
 | `leads` | audit_id (nullable), name, email, phone (nullable), website_url (nullable), message (nullable), source, status | `belongsTo` audit; `hasMany` activities |
@@ -204,7 +208,7 @@ boilerplate. `Builder::defaultStringLength(191)` is set in
 | `cms_pages` | slug (unique), title, meta_description (nullable) | `hasMany` sections (ordered by `sort_order`) |
 | `cms_sections` | cms_page_id, section_key (not an enum — admins add new named sections without a migration), content (json), sort_order; unique `(cms_page_id, section_key)` | `belongsTo` page |
 | `audit_schedules` | user_id, website_id, frequency (enum string: daily/weekly/monthly), is_active (default true), next_run_at, last_run_at (nullable); unique `(user_id, website_id)` — one schedule per website | `belongsTo` user, website |
-| `api_providers` | slug (unique: claude/openai/gemini/pagespeed), name, provider_type (ai/audit), is_enabled, api_key (text, `encrypted` cast — never serialized, see `$hidden`), model (nullable), config (json — max_tokens, temperature, request_timeout, daily/monthly limits, mobile/desktop toggles, cost-per-1k-token rates), last_success_at, last_failure_at, last_error | none (referenced by slug string, not FK, from `api_usage_logs`) |
+| `api_providers` | slug (unique: claude/openai/gemini/pagespeed), name, provider_type (ai/audit), is_enabled, api_key (text, `encrypted` cast — never serialized, see `$hidden`), model (nullable — the one model this provider is *currently actively calling*; see `ai_models` for the full catalog), config (json — max_tokens, temperature, request_timeout, daily/monthly limits, mobile/desktop toggles, cost-per-1k-token rates), last_success_at, last_failure_at, last_error | `hasMany` aiModels; otherwise referenced by slug string, not FK, from `api_usage_logs` |
 | `api_usage_logs` | provider (string, not FK'd — see §23), service, request_type (nullable), user_id (nullable), audit_id (nullable), model (nullable), success, http_status (nullable), response_time_ms (nullable), prompt_tokens/completion_tokens/total_tokens (nullable), estimated_cost (nullable), error_category (nullable) | `belongsTo` user, audit (both nullOnDelete) |
 
 **Not yet created** (planned, per the original spec's full table list):
@@ -222,7 +226,9 @@ storage), `notifications`.
 | GET | `/api/user` | required | Current authenticated user, with `subscription.plan` eager-loaded |
 | GET | `/api/websites` | required | The caller's own websites, paginated, each with `audits_count` and `latestAudit.scores` — distinct from `/admin/websites` below, which lists every user's |
 | GET | `/api/audits` | required | The caller's own audit history, paginated, with `website`+`scores` — distinct from `/admin/audits` below |
-| GET | `/api/plans` | none | Every plan, ordered by price — the pricing page's data source, so paid tiers appear automatically once an admin creates them via `/admin/plans` |
+| GET | `/api/plans` | none | Every *active* plan, ordered by price, with `auditFeatures` eager-loaded (filtered to globally+per-plan enabled) — the pricing page's data source, so paid tiers and their feature set appear automatically once an admin creates/configures them via `/admin/plans` |
+| GET | `/api/me/features` | **optional** | The caller's (or, anonymously, the default plan's) resolved access to every globally-enabled feature, plus which *other* active plans include a locked one — §33 |
+| GET | `/api/me/ai-models` | **optional** | The caller's (or default plan's) currently-usable AI models (no cost fields — that's admin-only data) — §33. No `/api/me/plan`: `/api/user` already eager-loads `subscription.plan` (below), so this isn't duplicated |
 | POST | `/api/audits` | **optional** | Create a website + audit, dispatch the crawl. `throttle:10,1`. |
 | GET | `/api/audits/{audit}` | **optional** | Poll status/progress — no report data |
 | GET | `/api/audits/{audit}/report` | **optional** | Fetch the report, filtered per viewer (§20) |
@@ -277,7 +283,11 @@ middleware alias, which checks `$request->user()->is_admin`):
 | GET | `/audit-schedules` | Paginated listing of every user's schedules, with user+website eager-loaded — read-only, no admin CRUD since schedules are user-owned (§22) |
 | GET | `/failed-jobs`, DELETE `/failed-jobs/{id}` | List/remove Laravel's own failed-job bookkeeping rows (no retry endpoint yet — see §29) |
 | GET | `/ai-usage` | Aggregates by provider and category, plus the 50 most recent `ai_analyses` rows |
-| GET/POST `/plans`, PUT/DELETE `/plans/{plan}` | Full plan CRUD — **the only place paid tiers get created**, since none are seeded (§29) |
+| GET/POST `/plans`, PUT/DELETE `/plans/{plan}` | Full plan CRUD — **the only place paid tiers get created**, since none are seeded (§29). `index` eager-loads `subscriptions_count`, `auditFeatures`, `allowedAiModels.apiProvider` for the admin plan table/editor |
+| PUT `/plans/{plan}/features` | Bulk-sync (`sync()`, not per-key patch) which of the 7 registry features are enabled for this plan — §33 |
+| PUT `/plans/{plan}/ai-models` | Bulk-replace which `ai_models` rows this plan allows — §33 |
+| GET `/features`, PATCH `/features/{feature}/status` | The 7-row audit-feature registry — list, and *global* enable/disable only (not admin-creatable; §33) |
+| GET/POST `/ai/models`, PUT/DELETE `/ai/models/{aiModel}` | AI model catalog CRUD, optionally filtered `?provider=slug` — §33. Delete is blocked (409) while any plan still allows the model |
 | GET | `/usage` | Paginated `usage_logs`, filterable by `user_id`/`action` |
 | GET `/leads`, GET `/leads/{lead}`, PUT `/leads/{lead}`, POST `/leads/{lead}/activities` | Lead management — status updates auto-log a `LeadActivity`; manual notes via the activities endpoint |
 | Full CRUD `/cms`, `/cms/{page}`, PUT/DELETE `/cms/{page}/sections/{sectionKey}` | CMS page + section management. Section endpoints are an upsert-by-key — one PUT both creates and edits, so the frontend never needs to know which case it is |
@@ -368,17 +378,21 @@ backed by a limiter registered in `AppServiceProvider` from
 `run(Audit): AuditModuleResult`. Each of the 7 categories is an
 independent class that only reads already-crawled `AuditPage` data;
 modules never depend on each other's output. `AuditModuleRegistry::modules()`
-is the single list of which classes run after a crawl — adding a module
-means adding one line there, nothing else in the crawl→analyze handoff
-changes.
+is the single list of which classes exist — adding a module means adding
+one line there, nothing else in the crawl→analyze handoff changes.
 
 **Pipeline**: `CrawlPageJob`/`CrawlWebsiteJob` detect crawl completion →
-`AuditModuleRegistry::dispatchAnalysis()` sets `Audit.status = analyzing`
-and dispatches one `RunAuditModuleJob` per registered module → each
-persists its `AuditIssue`/`AuditScore` rows → whichever finishes last
-(order is not deterministic — modules run independently) dispatches
-`CalculateScoreJob` → computes the weighted overall score, sets
-`Audit.status = completed`.
+`AuditModuleRegistry::dispatchAnalysis()` sets `Audit.status = analyzing`,
+computes `modulesFor($audit)` (§33 — the subset of `modules()` the
+audit's plan actually allows) and dispatches one `RunAuditModuleJob` per
+*allowed* module (or dispatches `CalculateScoreJob` directly if the plan
+allows none) → each persists its `AuditIssue`/`AuditScore` rows →
+whichever finishes last (order is not deterministic — modules run
+independently) checks `modulesFor($audit)` again (not the full
+`modules()` list — an audit whose plan disables a category would
+otherwise wait forever for a score that will never arrive) and dispatches
+`CalculateScoreJob` once every *allowed* category has a score →
+computes the weighted overall score, sets `Audit.status = completed`.
 
 **Scoring** (`ScoreCalculator`, `config/audit_scoring.php`): each module
 starts its category at 100, deducts `severity_points[severity]` per issue
@@ -397,15 +411,23 @@ Messages API), `OpenAiProvider` (Chat Completions), `GeminiProvider`
 (Generative Language API — API key as a URL query param, which is
 Google's actual API contract for this endpoint, not a shortcut).
 `AiProviderFactory::make()` resolves whichever `AI_DEFAULT_PROVIDER`
-names. All three throw `AiProviderException` on a missing key or non-2xx
-response — never crash the caller.
+names, or a specific slug when passed one. All three throw
+`AiProviderException` on a missing key or non-2xx response — never crash
+the caller.
 
 **`AiAnalysisService`** is the single entry point every AI-driven module
 calls: hashes `(category, prompt, context)`, checks the `ai_analyses`
 table before calling a provider (a second identical call never spends
-tokens — verified via `Http::assertSentCount(1)` in tests), logs provider
-failures to the `ai` channel and records an error row, then returns
-`null` on failure — callers fall back to deterministic-only results.
+tokens — verified via `Http::assertSentCount(1)` in tests), resolves
+*which* provider via `PlanAiModelResolver` (§33 — the audit owner's plan,
+not always `AI_DEFAULT_PROVIDER`), logs provider failures to the `ai`
+channel and records an error row, then returns `null` on failure —
+callers fall back to deterministic-only results. A `null` from
+`PlanAiModelResolver` (no plan-allowed model is usable) short-circuits
+before a provider is even chosen, and deliberately writes no
+`api_usage_logs` row — there's no provider to attribute one to (unlike
+the pre-existing `exceedsConfiguredLimits()` check just below it, which
+already has a specific provider in hand).
 
 **`AiIssueParser`** is the shared, defensive parser every AI module uses
 for the JSON-array response shape its prompt requests
@@ -565,8 +587,10 @@ as of Phase 6 — not just "does this audit have some owner." Rules:
 ## 21. Admin dashboard functionality
 
 All 11 modules from the spec's `admin.modules` list are built as API
-endpoints (§8) — this is backend-only; there's no admin frontend yet
-(§24), so these are the surface a future admin UI would consume.
+endpoints (§8) and consumed by the real admin frontend described in §24
+(this section predates that frontend and originally described a
+backend-only surface — kept for the aggregation/CRUD design notes below,
+which are still accurate).
 
 `AdminDashboardService::summary()` is the one piece of real aggregation
 logic, isolated and unit-tested independently of the controller —
@@ -742,7 +766,9 @@ block is `api_usage_logs`-based, today-scoped).
 explainer, free-vs-paid explainer, consultant CTA, CMS-driven hero
 text with a hardcoded fallback when no CMS row exists yet), Services,
 How It Works, Pricing (real data from `GET /api/plans`, §8 — not
-hardcoded tiers), FAQ, Contact (feeds `POST /api/leads`).
+hardcoded tiers; includes a feature-comparison table built from the
+union of each returned plan's `audit_features`, §33), FAQ, Contact
+(feeds `POST /api/leads`).
 
 **Auth**: Login, Signup (client-side mirrors the backend's password
 policy as a hint, real validation still happens server-side), Forgot
@@ -764,6 +790,12 @@ It polls `GET /api/audits/{id}` every 7s (deliberately under the
 §28 this fixes) until `completed`/`failed`, then fetches the report,
 retrying a few times if `GenerateReportJob` hasn't finished yet. A 429
 during polling triggers a longer backoff rather than a hard error.
+Before submitting, `SubmitAuditPage` shows `PlanFeatureChecklist`
+(`GET /api/me/features`, §33): which audit types will run automatically
+under the current plan (✓ Included) versus which are locked (🔒 with an
+"Upgrade to X" link) — informational only, since audit creation has no
+per-request module-selection input; the backend derives which modules
+actually run from the plan automatically (`AuditModuleRegistry::modulesFor()`).
 `ReportView` renders the full spec'd section list (overview scores,
 critical/high issues, other issues gated by `is_full_access`,
 recommendations, AI analysis, page-level findings) plus a PDF-download
@@ -780,22 +812,32 @@ dataset, not three; clicking a row goes straight to its report),
 Scheduled Audits (full CRUD against the existing `/api/audit-schedules`
 from §22), Usage (today's count vs. the plan's daily limit, computed
 client-side from the audits list — there's no dedicated "my usage
-today" endpoint), Profile and Subscription (**both read-only** — no
-profile-update or self-service plan-change endpoint exists; showing an
-editable form would either do nothing or call an endpoint that isn't
-there, so neither pretends to).
+today" endpoint), Profile (**read-only** — no profile-update endpoint
+exists) and Subscription (plan summary is read-only — no self-service
+plan-change endpoint — but now also renders two live, non-static
+panels: "Audit types on your plan" and "AI models available to you"
+from `/api/me/features`/`/api/me/ai-models`, §33, each with an upgrade
+link for anything locked).
 
 **Admin dashboard** (`RequireAdmin`): Dashboard (every card and chart
 from `AdminDashboardService::summary()`, §21/§23, including the new
 `provider_usage_today` block), Users, Websites, Audits, Leads (status
 management + notes, full CRUD against the Phase 7 endpoints), AI & API
 Providers (§23's centerpiece — masked-key display, configure, enable/
-disable, real test-connection with a live provider request), API Usage
-(**serves both "API Usage" and "Logs"** — filterable/paginated
+disable, real test-connection with a live provider request, plus a
+per-provider `AiModelManager` sub-panel — §33 — for the model catalog
+CRUD, and the "Active model" field is a `<select>` sourced from that
+catalog rather than free text once at least one model is registered),
+API Usage (**serves both "API Usage" and "Logs"** — filterable/paginated
 `api_usage_logs` table plus the summary/daily/by-provider charts),
 AI Usage (the separate `ai_analyses`-based view, §23), Plans (**serves
-both "Plans" and "Usage Limits"** — one CRUD form already has every
-limit field), CMS (page + section management, including the free-text
+both "Plans" and "Usage Limits"**, plus §33's feature/AI-model access
+management — a table with Users/Features/AI Models/Status columns and
+Edit/Duplicate/Enable/Disable/Delete actions; "Edit" opens a tabbed
+editor — General, Pricing, Audit Features, AI Models, Report Access,
+Usage Limits, Status — covering every field across both systems, plus a
+"Global feature registry" panel above the table for the 7 features'
+system-wide on/off switch), CMS (page + section management, including the free-text
 section-key upsert from §7), Settings (a hub linking to the other
 config pages rather than a fourth place to configure the same things),
 System Health (real DB/cache round-trip checks via a new
@@ -1090,6 +1132,30 @@ authenticated actors in one method, use one of these two patterns.
   (10-30s, per §14) — the admin UI has no separate longer timeout or
   "this may take a while" messaging for that one provider's test
   button specifically.
+- **`product_auditor` (the 7th feature, "AI Product Auditor") has no
+  backing `AuditModule`** — it's registered in the feature registry
+  (§33) so admins can toggle its future per-plan availability now, per
+  the product spec's explicit requirement, but enabling/disabling it
+  currently has zero effect on audit execution since no module exists
+  to gate. Building the actual product-page AI auditor is out of scope
+  for a plan/feature-*governance* task — it's a new audit engine, not an
+  access-control change.
+- **A plan can only ever "allow" a provider's one currently-active
+  model, not truly pick among several concurrently** — every provider
+  class (`ClaudeProvider`/etc.) always calls whatever
+  `ApiProvider::$model` is configured, with no per-request model
+  parameter (§12/§33). `PlanAiModelResolver` therefore treats a plan's
+  allowed-model row as usable only when its `model_id` matches the
+  provider's live `$model`; a plan permitted to use "Claude Opus" while
+  the provider is actively configured for "Claude Sonnet" simply has no
+  usable Claude model right now, not a silent substitution. Real
+  per-request model selection would need every provider class refactored
+  to accept a model override — a deeper AI-infrastructure change than
+  this task's access-control scope.
+- **No per-user website-count cap** — the pricing spec's example limits
+  included one, but the schema has no such column and nothing enforces
+  it; admins were told this in the Plan editor's Usage Limits tab rather
+  than having a fabricated field added for it (see §33's scope note).
 
 ## 30. Pending tasks
 
@@ -1102,11 +1168,13 @@ rather than being fixed speculatively — revisit only if real usage
 shows they're actually load-bearing problems, not preemptively.
 
 **Out-of-spec-order work, now done**: the DB-backed AI/API provider
-configuration and usage-tracking system (§23) and the full frontend
+configuration and usage-tracking system (§23), the full frontend
 (public site, user dashboard, audit flow, admin dashboard,
-provider-config UI, usage analytics — see §5/§24) were requested
+provider-config UI, usage analytics — see §5/§24), and the plan-based
+audit-feature/AI-model access-control system (§33) were requested
 directly, ahead of Phase 10, since the original 10-phase plan never
-allocated a phase to the frontend at all.
+allocated a phase to the frontend, or to plan-level feature/model
+governance, at all.
 
 **Next up in spec order: Phase 10: Production** — the last phase.
 Candidates for that pass, not yet started: no automated frontend test
@@ -1310,6 +1378,75 @@ worker/Horizon setup (this dev box can't run either — no `pcntl`/
   `<a href>`** (§24) — the endpoint requires the Sanctum bearer token,
   which a plain link has no way to attach; a blob fetch keeps the
   existing bearer-token interceptor in the request path.
+- **A new `features` + `plan_features` pivot, not a reuse of the
+  existing `plans.features` JSON column** (§33) — the JSON column already
+  has an established, different meaning (pdf_export/scheduled_audits/
+  audit_history boolean perks) and, being per-plan-only, can't represent
+  a *global* enable/disable independent of any one plan, which the spec
+  explicitly required ("if a feature is disabled globally, it must
+  become unavailable to every plan"). Renaming or overloading the
+  existing column would have broken every existing caller of
+  `Plan::hasFeature()`/`Plan::$features` for no benefit; a same-named-but-
+  different relationship (`auditFeatures()`) was judged less confusing
+  than colliding two concepts under one column.
+- **Category-to-feature-key mapping is a small static array in
+  `FeatureAccessResolver`, not a DB column on `features`** (§33) — which
+  `AuditCategory` values a feature key gates is application logic fixed
+  by real code (which `AuditModule` classes exist), not admin-editable
+  data; a DB column would imply an admin could remap it to something with
+  no backing module.
+- **`features` rows are seeded once and not admin-creatable** (§33,
+  mirrors the existing `api_providers` design in §23) — each of the 7
+  keys corresponds to a real `AuditCategory`/module (or, for
+  `product_auditor`, a deliberately reserved future one); an
+  admin-invented feature key would have no audit logic to gate, the same
+  reasoning that keeps provider slugs fixed to the 4 this app actually
+  knows how to call.
+- **`ai_models` is a new catalog table, not new columns on
+  `api_providers`** (§33) — a provider can expose many models with
+  independent cost/context-window/capability data (Claude Haiku vs.
+  Opus pricing, for instance), which a single-row-per-provider table
+  can't represent; `api_providers.model` keeps its existing meaning
+  (the one model that provider is *currently* actively calling).
+- **`PlanAiModelResolver` requires an allowed model's `model_id` to
+  match its provider's live `$model`, rather than trusting "the plan
+  allows it" alone** (§33/§29) — no provider class supports being told
+  which model to call per-request, so "allowed by the plan" is only
+  actually true right now for whichever model a provider happens to be
+  actively configured for. This is a real architectural constraint, not
+  an oversight, and is documented as a known limitation (§29) rather
+  than silently pretending full multi-model selection works.
+- **Feature/AI-model "no plan exists at all" resolves to unrestricted,
+  not denied** (§33) — a fresh/test DB with no `PlanSeeder`/`FeatureSeeder`
+  run (or, for `PlanAiModelResolver`, no plan at all) falls back to the
+  pre-existing "every module runs, `AI_DEFAULT_PROVIDER` is used"
+  behavior rather than blocking every audit module outright. Without this,
+  every pre-existing test and CLI flow that never bothered to set up a
+  Plan fixture (because it never mattered before this feature existed)
+  would have started failing/skipping AI analysis — verified by running
+  the full pre-existing suite unmodified after adding the gate and
+  confirming all 299 prior tests still passed before any new tests were
+  written.
+- **A plan's audit-feature toggles gate which `RunAuditModuleJob`s get
+  dispatched, not a new field on the `POST /api/audits` request** (§33)
+  — the product spec's "audit_selection" UI example reads as informational
+  (what will run), not a per-submission opt-out of otherwise-allowed
+  modules; adding a module-selection input to audit creation would be a
+  larger, separately-scoped change to an existing, well-tested contract
+  for a capability nothing in `definition_of_done` actually required.
+- **No new `audits_per_month`/website-count-limit columns** (§29) — the
+  product spec's example plan limits included them, but the feature/
+  AI-model access-control task's own `definition_of_done` never
+  mentioned them; inventing new enforced limit dimensions outside what
+  was actually asked for risked scope creep unrelated to the task's
+  actual goal (feature/model *access*, not new usage-limit types).
+- **A plan gets an `is_active` boolean distinct from `is_default`**
+  (§33) — the spec explicitly named a "Status" column and Enable/Disable
+  actions in the admin plan table, which `is_default` (single-plan,
+  "which plan new signups join") can't express; `is_active = false`
+  hides a plan from `/api/plans` and blocks new default-plan selection
+  while preserving it (and its subscribers' history) rather than
+  requiring deletion.
 
 ## 32. Testing architecture
 
@@ -1345,7 +1482,17 @@ decoded JSON path), and real daily/date-range aggregation queries. Two
 small self-service endpoints (`GET /api/websites`, `GET /api/audits`)
 and one public one (`GET /api/plans`) were added directly for the
 frontend to consume, each with real ownership-scoping tests
-(`AuditApiTest`). 299 PHP tests currently, all passing.
+(`AuditApiTest`). The plan-feature/AI-model access system (§33) drove
+41 more: `FeatureAccessResolverTest`/`PlanAiModelResolverTest` (unit,
+covering the "no plan exists at all → unrestricted" fallback that keeps
+every pre-existing plan-agnostic test passing unmodified), a dedicated
+`AuditModuleRegistryFeatureGatingTest` that reuses
+`CrawlAndAnalyzePipelineTest`'s proven "flawless page" fixture to prove
+a plan's feature toggles actually change which modules run for a real
+audit (not just what the API reports), `AdminAiModelApiTest`, `MeApiTest`,
+new `AdminApiTest`/`CascadeDeleteTest` cases, and the empty-string-key-
+style regression discipline extended to `plan_ai_models` duplicate-
+assignment rejection. 340 PHP tests currently, all passing.
 
 Crawler: `crawler/lib/*.test.mjs`, run via `npm test` (Node's built-in
 `node --test`, no added dependency). Covers the SSRF logic
@@ -1354,7 +1501,7 @@ defense-in-depth layer described in §26, tested independently of the PHP
 side since the two can't share code across the language boundary. 40
 Node tests currently, all passing.
 
-**339 tests total** (299 PHP + 40 Node). See `tests/TEST_CASES.md` at the
+**380 tests total** (340 PHP + 40 Node). See `tests/TEST_CASES.md` at the
 repo root for the full registry mapped to test-requirement categories,
 coverage status, and any remaining gaps.
 
@@ -1379,6 +1526,149 @@ E2E: none exist yet — no Cypress/Playwright browser-automation suite
 is wired into this repo's test commands. The manual verification pass
 above exercised the equivalent flows by hand, once, in this session;
 it is not regression-tested and will not catch a future break.
+
+**§33's manual verification** (this chunk): admin login → Pricing Plans
+page (global feature registry panel + plan table with real Users/
+Features/AI Models/Status columns) → opening the tabbed plan editor and
+confirming the AI Models tab lists all 3 seeded models grouped by real
+provider → the Providers page's new per-provider "Model catalog" panel →
+adding a real "Claude Opus 5" model through the UI, confirming it
+appeared in both the catalog list and the "Active model" dropdown, then
+deleting it → toggling "AI Product Auditor" off in the global registry
+and confirming it disappeared entirely from both the public Pricing
+page's comparison table and `SubmitAuditPage`'s `PlanFeatureChecklist`
+(not shown as locked — genuinely absent, since a globally-disabled
+feature isn't advertised anywhere), then toggling it back on → the
+dashboard Subscription page correctly reporting zero available AI
+models for a real account, because in this dev environment every AI
+provider is currently disabled (proving the "provider must also be
+enabled" leg of the access-check chain, not a bug — see the Providers
+page's own status badges).
+
+## 33. Plan-based audit-feature and AI-model access control
+
+Extends the existing pricing-plan system (§7/§19/§21/§24, previously
+just page/audit-count limits and unrelated boolean perks in
+`plans.features`) so an admin can independently enable/disable each of 7
+audit types per plan, and independently choose which AI models a plan's
+users may have audits analyzed with — enforced server-side, not just
+hidden in the frontend, per the product spec's explicit requirement.
+
+**The 7-feature registry** (`features` table, `App\Models\Feature`,
+seeded once by `FeatureSeeder`, not admin-creatable — same reasoning as
+`api_providers`' fixed 4 slugs, §23): `performance`, `accessibility`,
+`cro`, `seo`, `aio`, `ecommerce` (covers *both* `AuditCategory::Ecommerce`
+and `::LandingPage` — the spec names this one feature "AI Ecommerce /
+Landing Auditor," combining what are two separate audit modules
+internally), and `product_auditor` (reserved — no backing module exists
+yet, §29). Each has a global `is_enabled` (admin toggle in the Plans
+page's "Global feature registry" panel) *and* a per-plan `plan_features`
+pivot `is_enabled` (the Plan editor's "Audit Features" tab) — **both**
+must be true for a feature to actually be usable; disabling a feature
+globally removes it from every plan immediately regardless of any
+individual plan's own setting, per the spec's explicit rule.
+
+**`App\Services\Plan\FeatureAccessResolver`** is the single place that
+answers "is this category/feature allowed for this user (or anonymous
+visitor, resolved to the active default plan)":
+`categoryAllowed(?User, AuditCategory)`, `featureAllowed(?User, string)`,
+`allowedCategories(?User)`. A static `CATEGORY_FEATURE_MAP` const (not a
+DB column, §31) maps each `AuditCategory` to its feature key.
+**Deliberate fallback**: if no plan exists in the system at all
+(`planFor()` returns `null` — no `PlanSeeder`/`FeatureSeeder` ever run,
+or a registered user with no active subscription, which
+`UsageLimitService::canCreateAudit()` already blocks at audit creation,
+making that sub-case unreachable in practice), every feature resolves as
+*allowed* rather than denied — see §31's rationale; this is what kept
+every pre-existing plan-agnostic test passing unmodified.
+
+**Audit execution enforcement**: `AuditModuleRegistry::modulesFor(Audit)`
+filters `modules()` down to only the categories the audit's owner's plan
+(or the default plan, for an anonymous audit) allows, via
+`FeatureAccessResolver`. `dispatchAnalysis()` uses this filtered list
+when deciding which `RunAuditModuleJob`s to dispatch — and dispatches
+`CalculateScoreJob` directly if the filtered list is empty (every
+feature disabled for this plan), since no module job would otherwise
+ever run to trigger it. `RunAuditModuleJob::dispatchScoreCalculationIfReady()`
+was changed to check `modulesFor($this->audit)` (this specific audit's
+allowed set) rather than the full static `modules()` list — using the
+unfiltered list here would leave an audit stuck in `Analyzing` forever
+whenever its plan disables any category, since the "all done" check
+would wait for a score row that will never be written. There is
+deliberately **no per-request module-selection input** on
+`POST /api/audits` (§31) — which modules run is fully determined by the
+plan automatically.
+
+**AI model access** (`ai_models` table, `App\Models\AiModel` — a catalog
+of individually addressable models per provider: model ID, display
+name, description, enable/disable, input/output cost per 1k tokens,
+context window, capabilities, distinct from `api_providers.model`, the
+one model a provider is *currently actively calling*). Plans reference a
+subset via `plan_ai_models` (`Plan::allowedAiModels()`,
+`Plan::isModelAllowed()`). **`App\Services\AI\PlanAiModelResolver`**
+picks which provider `AiAnalysisService::analyze()` actually calls for a
+given audit: loads the audit's plan's allowed models, filters to ones
+that are enabled *and* whose owning provider is enabled+configured *and*
+— critically — whose `model_id` matches that provider's live `$model`
+(§29/§31: no provider class supports being told which model to call
+per-request, so a plan-allowed model that isn't also the provider's
+current active one has nothing to actually call), then prefers whichever
+matches `config('ai.default')`, falling back to any other allowed+usable
+one. Returns `null` (AI analysis skipped for that audit, exactly like
+the pre-existing "provider not configured" graceful-degradation path — no
+`api_usage_logs` row is written, since no provider was ever chosen to
+attribute one to) when nothing qualifies. Same "no plan exists at all"
+fallback as `FeatureAccessResolver`: falls back to
+`AiProviderFactory::make()` (the pre-existing `AI_DEFAULT_PROVIDER`
+behavior) rather than blocking AI outright.
+
+**Admin API** (§8): `PUT /admin/plans/{plan}/features` (bulk `sync()`
+of the whole per-plan feature-enable set — not a per-key PATCH, so the
+admin UI's checkbox grid submits atomically), `PUT
+/admin/plans/{plan}/ai-models` (bulk-replace the allowed-model-ID list),
+`GET /admin/features` + `PATCH /admin/features/{feature}/status`
+(global enable/disable only), full CRUD on `GET/POST /admin/ai/models`,
+`PUT/DELETE /admin/ai/models/{aiModel}` (delete is blocked with 409
+while any plan still allows the model — historical `api_usage_logs` rows
+store the model as a plain string, §23, so they're never at risk from a
+catalog deletion; the 409 is a UX safety net, not a data-integrity
+requirement). `AdminPlanController::index/store/update` now eager-load
+`subscriptions_count`, `auditFeatures`, `allowedAiModels.apiProvider` for
+the admin table/editor.
+
+**Self-service API**: `GET /api/me/features` (optional auth, §8) returns
+every *globally*-enabled feature with `enabled: bool` for the caller's
+plan and, when locked, `plans_with_access` (which other active plans
+include it, for the upgrade CTA) — a globally-disabled feature is
+omitted entirely, not shown as locked, since it isn't actually available
+on any plan right now. `GET /api/me/ai-models` returns the caller's
+currently-usable models with no cost fields (admin-only data). No
+`/api/me/plan` — `/api/user` already eager-loads `subscription.plan`
+(§8), so reusing it avoided a duplicate endpoint per the spec's own
+"reuse existing endpoints" instruction.
+
+**Frontend**: the public Pricing page (§24) renders a feature-comparison
+table from the union of every returned plan's `audit_features`;
+`SubmitAuditPage` shows `PlanFeatureChecklist` (✓ Included / 🔒 Upgrade
+to X) before the URL form; `DashboardSubscriptionPage` gained two live
+panels ("Audit types on your plan," "AI models available to you"); the
+admin Plans page became a table (Plan/Price/Users/Features/AI Models/
+Daily Limit/Status/Actions) plus a tabbed editor (General, Pricing,
+Audit Features, AI Models, Report Access, Usage Limits, Status) and a
+"Global feature registry" toggle panel; `ProviderCard` gained an
+embedded `AiModelManager` sub-panel (per-provider model catalog CRUD)
+and its free-text "Model" field became a `<select>` sourced from that
+catalog once at least one model is registered for that provider — per
+the spec's "load dynamically from the registry, don't hardcode a model
+list" instruction.
+
+**Scope deliberately not covered here** (§29/§31): no new
+`audits_per_month`/website-count-limit columns (not in this task's
+`definition_of_done`, unlike the feature/model system); no backing audit
+module for `product_auditor` (a new audit engine is separate scope from
+plan/feature *governance*); no true concurrent multi-model dispatch per
+provider (an AI-infrastructure change beyond this task, see §29's
+architectural-constraint note).
 
 ---
 

@@ -1,9 +1,11 @@
 import { apiClient, unwrap } from './client';
 import type {
   AdminDashboardSummary,
+  AiModel,
   ApiProviderSummary,
   ApiUsageLogEntry,
   CmsPage,
+  Feature,
   Lead,
   Paginated,
   Plan,
@@ -85,6 +87,54 @@ export function updatePlan(id: number, payload: Partial<Plan>) {
 
 export function deletePlan(id: number) {
   return unwrap<null>(apiClient.delete(`/admin/plans/${id}`));
+}
+
+export function updatePlanFeatures(planId: number, features: { key: string; is_enabled: boolean }[]) {
+  return unwrap<Plan>(apiClient.put(`/admin/plans/${planId}/features`, { features }));
+}
+
+export function updatePlanAiModels(planId: number, aiModelIds: number[]) {
+  return unwrap<Plan>(apiClient.put(`/admin/plans/${planId}/ai-models`, { ai_model_ids: aiModelIds }));
+}
+
+// --- Audit feature registry (global enable/disable only) ---
+
+export function fetchFeatures() {
+  return unwrap<Feature[]>(apiClient.get('/admin/features'));
+}
+
+export function setFeatureStatus(id: number, isEnabled: boolean) {
+  return unwrap<Feature>(apiClient.patch(`/admin/features/${id}/status`, { is_enabled: isEnabled }));
+}
+
+// --- AI model catalog ---
+
+export function fetchAiModels(provider?: string) {
+  return unwrap<AiModel[]>(apiClient.get('/admin/ai/models', { params: provider ? { provider } : {} }));
+}
+
+export interface AiModelPayload {
+  api_provider_id?: number;
+  model_id?: string;
+  display_name?: string;
+  description?: string | null;
+  is_enabled?: boolean;
+  input_cost_per_1k_tokens?: number | null;
+  output_cost_per_1k_tokens?: number | null;
+  context_window?: number | null;
+  capabilities?: string[] | null;
+}
+
+export function createAiModel(payload: AiModelPayload) {
+  return unwrap<AiModel>(apiClient.post('/admin/ai/models', payload));
+}
+
+export function updateAiModel(id: number, payload: AiModelPayload) {
+  return unwrap<AiModel>(apiClient.put(`/admin/ai/models/${id}`, payload));
+}
+
+export function deleteAiModel(id: number) {
+  return unwrap<null>(apiClient.delete(`/admin/ai/models/${id}`));
 }
 
 // --- Leads ---

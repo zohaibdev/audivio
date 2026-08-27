@@ -59,7 +59,7 @@ const adminNavItems = [
   { to: '/admin/providers', label: 'AI & API Providers' },
   { to: '/admin/api-usage', label: 'API Usage / Logs' },
   { to: '/admin/ai-usage', label: 'AI Usage' },
-  { to: '/admin/plans', label: 'Plans & Usage Limits' },
+  { to: '/admin/plans', label: 'Pricing Plans' },
   { to: '/admin/cms', label: 'CMS' },
   { to: '/admin/settings', label: 'Settings' },
   { to: '/admin/system-health', label: 'System Health' },

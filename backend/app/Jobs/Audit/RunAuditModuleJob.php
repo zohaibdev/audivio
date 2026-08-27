@@ -83,7 +83,7 @@ class RunAuditModuleJob implements ShouldQueue
 
     private function dispatchScoreCalculationIfReady(): void
     {
-        $requiredCategories = collect(AuditModuleRegistry::modules())
+        $requiredCategories = collect(AuditModuleRegistry::modulesFor($this->audit))
             ->map(fn ($moduleClass) => app($moduleClass)->category()->value);
 
         $completed = $this->audit->scores()->pluck('category')->map(fn ($c) => $c->value);

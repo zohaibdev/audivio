@@ -22,7 +22,64 @@ export interface Plan {
   daily_audit_limit: number;
   full_recrawls: number;
   is_default: boolean;
+  is_active: boolean;
   features: Record<string, boolean> | null;
+  subscriptions_count?: number;
+  audit_features?: PlanAuditFeature[];
+  allowed_ai_models?: AiModel[];
+}
+
+/** One of the 7 registry rows (performance, accessibility, cro, seo, aio,
+ * ecommerce, product_auditor) — distinct from Plan.features (unrelated
+ * pdf_export/scheduled_audits/audit_history boolean perks). */
+export interface Feature {
+  id: number;
+  key: string;
+  name: string;
+  description: string | null;
+  is_enabled: boolean;
+}
+
+/** A Feature as it comes back nested under Plan.audit_features, carrying
+ * the plan_features pivot's own enabled state alongside the feature row. */
+export interface PlanAuditFeature extends Feature {
+  pivot: { plan_id: number; feature_id: number; is_enabled: boolean };
+}
+
+/** GET /api/me/features shape — the current viewer's (or anonymous
+ * visitor's default-plan) resolved access, not the raw registry. */
+export interface MyFeatureAccess {
+  key: string;
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  plans_with_access: { id: number; name: string; slug: string }[];
+}
+
+export interface AiModel {
+  id: number;
+  api_provider_id: number;
+  model_id: string;
+  display_name: string;
+  description: string | null;
+  is_enabled: boolean;
+  input_cost_per_1k_tokens: number | null;
+  output_cost_per_1k_tokens: number | null;
+  context_window: number | null;
+  capabilities: string[] | null;
+  api_provider?: { id: number; slug: string; name: string; is_enabled: boolean };
+}
+
+/** GET /api/me/ai-models shape — no cost fields, that's admin-only data. */
+export interface MyAiModel {
+  id: number;
+  provider: string;
+  provider_name: string;
+  model_id: string;
+  display_name: string;
+  description: string | null;
+  context_window: number | null;
+  capabilities: string[] | null;
 }
 
 export type AuditStatus = 'pending' | 'crawling' | 'analyzing' | 'completed' | 'failed';
@@ -131,6 +188,7 @@ export interface Paginated<T> {
 }
 
 export interface ApiProviderSummary {
+  id: number;
   slug: string;
   name: string;
   provider_type: 'ai' | 'audit';

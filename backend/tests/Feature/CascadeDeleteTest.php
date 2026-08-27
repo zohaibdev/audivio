@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Enums\ScheduleFrequency;
 use App\Models\AiAnalysis;
+use App\Models\AiModel;
+use App\Models\ApiProvider;
 use App\Models\ApiUsageLog;
 use App\Models\Audit;
 use App\Models\AuditIssue;
@@ -14,6 +16,7 @@ use App\Models\CmsPage;
 use App\Models\CmsSection;
 use App\Models\CrawlJob;
 use App\Models\CrawlUrl;
+use App\Models\Feature;
 use App\Models\Lead;
 use App\Models\LeadActivity;
 use App\Models\Plan;
@@ -24,6 +27,7 @@ use App\Models\User;
 use App\Models\Website;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -280,5 +284,51 @@ class CascadeDeleteTest extends TestCase
 
         $this->assertNotNull($log->fresh());
         $this->assertNull($log->fresh()->audit_id);
+    }
+
+    public function test_deleting_a_plan_cascades_to_its_plan_features_pivot_rows(): void
+    {
+        $plan = $this->makePlan();
+        $feature = Feature::create(['key' => 'seo', 'name' => 'SEO']);
+        $plan->auditFeatures()->attach($feature->id, ['is_enabled' => true]);
+
+        $plan->delete();
+
+        $this->assertSame(0, DB::table('plan_features')->where('feature_id', $feature->id)->count());
+        $this->assertNotNull(Feature::find($feature->id), 'the feature registry row itself must survive');
+    }
+
+    public function test_deleting_a_feature_cascades_to_its_plan_features_pivot_rows(): void
+    {
+        $plan = $this->makePlan();
+        $feature = Feature::create(['key' => 'seo', 'name' => 'SEO']);
+        $plan->auditFeatures()->attach($feature->id, ['is_enabled' => true]);
+
+        $feature->delete();
+
+        $this->assertSame(0, DB::table('plan_features')->where('plan_id', $plan->id)->count());
+    }
+
+    public function test_deleting_a_plan_cascades_to_its_plan_ai_models_pivot_rows(): void
+    {
+        $plan = $this->makePlan();
+        $provider = ApiProvider::create(['slug' => 'claude', 'name' => 'Claude', 'provider_type' => 'ai']);
+        $model = AiModel::create(['api_provider_id' => $provider->id, 'model_id' => 'claude-sonnet-5', 'display_name' => 'Claude Sonnet 5']);
+        $plan->allowedAiModels()->attach($model->id);
+
+        $plan->delete();
+
+        $this->assertSame(0, DB::table('plan_ai_models')->where('ai_model_id', $model->id)->count());
+        $this->assertNotNull(AiModel::find($model->id), 'the ai model catalog row itself must survive');
+    }
+
+    public function test_deleting_an_api_provider_cascades_to_its_ai_models(): void
+    {
+        $provider = ApiProvider::create(['slug' => 'claude', 'name' => 'Claude', 'provider_type' => 'ai']);
+        $model = AiModel::create(['api_provider_id' => $provider->id, 'model_id' => 'claude-sonnet-5', 'display_name' => 'Claude Sonnet 5']);
+
+        $provider->delete();
+
+        $this->assertNull(AiModel::find($model->id));
     }
 }

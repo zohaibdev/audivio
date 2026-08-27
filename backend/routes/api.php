@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\AdminAiModelController;
 use App\Http\Controllers\Api\Admin\AdminAiUsageController;
 use App\Http\Controllers\Api\Admin\AdminApiUsageController;
 use App\Http\Controllers\Api\Admin\AdminAuditController;
@@ -8,6 +9,7 @@ use App\Http\Controllers\Api\Admin\AdminCmsController;
 use App\Http\Controllers\Api\Admin\AdminCrawlJobController;
 use App\Http\Controllers\Api\Admin\AdminDashboardController;
 use App\Http\Controllers\Api\Admin\AdminFailedJobController;
+use App\Http\Controllers\Api\Admin\AdminFeatureController;
 use App\Http\Controllers\Api\Admin\AdminLeadController;
 use App\Http\Controllers\Api\Admin\AdminPlanController;
 use App\Http\Controllers\Api\Admin\AdminProviderController;
@@ -20,6 +22,7 @@ use App\Http\Controllers\Api\AuditScheduleController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CmsController;
 use App\Http\Controllers\Api\LeadController;
+use App\Http\Controllers\Api\MeController;
 use App\Http\Controllers\Api\PlanController;
 use App\Http\Controllers\Api\WebsiteController;
 use Illuminate\Support\Facades\Route;
@@ -73,6 +76,13 @@ Route::post('/leads', [LeadController::class, 'store'])->middleware('throttle:10
 Route::get('/cms/{slug}', [CmsController::class, 'show']);
 Route::get('/plans', [PlanController::class, 'index']);
 
+// Plan-derived, optional-auth self-service reads (§8/§31) — anonymous
+// visitors are resolved to the default plan by FeatureAccessResolver, so
+// the public audit-submission page can show the same locked/unlocked
+// feature state a logged-in user would see.
+Route::get('/me/features', [MeController::class, 'features']);
+Route::get('/me/ai-models', [MeController::class, 'aiModels']);
+
 Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index']);
 
@@ -111,6 +121,18 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::get('/usage/logs', [AdminApiUsageController::class, 'logs']);
 
     Route::apiResource('plans', AdminPlanController::class)->except(['show']);
+    Route::put('/plans/{plan}/features', [AdminPlanController::class, 'updateFeatures']);
+    Route::put('/plans/{plan}/ai-models', [AdminPlanController::class, 'updateAiModels']);
+
+    // Audit-feature registry (global enable/disable only — see
+    // AdminFeatureController) and the AI model catalog (full CRUD).
+    Route::get('/features', [AdminFeatureController::class, 'index']);
+    Route::patch('/features/{feature}/status', [AdminFeatureController::class, 'updateStatus']);
+
+    Route::get('/ai/models', [AdminAiModelController::class, 'index']);
+    Route::post('/ai/models', [AdminAiModelController::class, 'store']);
+    Route::put('/ai/models/{aiModel}', [AdminAiModelController::class, 'update']);
+    Route::delete('/ai/models/{aiModel}', [AdminAiModelController::class, 'destroy']);
 
     Route::get('/leads', [AdminLeadController::class, 'index']);
     Route::get('/leads/{lead}', [AdminLeadController::class, 'show']);

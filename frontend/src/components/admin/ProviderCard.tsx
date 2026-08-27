@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import * as adminApi from '../../api/admin';
 import { apiErrorMessage } from '../../api/client';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import type { ApiProviderSummary } from '../../types';
+import { AiModelManager } from './AiModelManager';
+import type { AiModel, ApiProviderSummary } from '../../types';
 
 export function ProviderCard({ provider, onUpdated }: { provider: ApiProviderSummary; onUpdated: () => void }) {
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState(provider.model ?? '');
+  const [catalogModels, setCatalogModels] = useState<AiModel[]>([]);
   const [maxTokens, setMaxTokens] = useState(String(provider.config?.max_tokens ?? ''));
   const [temperature, setTemperature] = useState(String(provider.config?.temperature ?? ''));
   const [requestTimeout, setRequestTimeout] = useState(String(provider.config?.request_timeout ?? ''));
@@ -26,6 +28,13 @@ export function ProviderCard({ provider, onUpdated }: { provider: ApiProviderSum
 
   const isAi = provider.provider_type === 'ai';
   const isPageSpeed = provider.slug === 'pagespeed';
+
+  function reloadCatalogModels() {
+    if (!isAi) return;
+    adminApi.fetchAiModels(provider.slug).then(setCatalogModels).catch(() => undefined);
+  }
+
+  useEffect(reloadCatalogModels, [isAi, provider.slug]);
 
   async function handleSave(event: React.FormEvent) {
     event.preventDefault();
@@ -136,7 +145,29 @@ export function ProviderCard({ provider, onUpdated }: { provider: ApiProviderSum
 
       <form onSubmit={handleSave} className="mt-4 grid gap-4 sm:grid-cols-2">
         <Input label="API Key" type="password" placeholder="Leave blank to keep current key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
-        {isAi && <Input label="Model" value={model} onChange={(e) => setModel(e.target.value)} />}
+        {isAi && catalogModels.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <label htmlFor="active-model" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Active model
+            </label>
+            <select
+              id="active-model"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            >
+              <option value="">Select a model…</option>
+              {catalogModels.map((m) => (
+                <option key={m.id} value={m.model_id} disabled={!m.is_enabled}>
+                  {m.display_name} {!m.is_enabled && '(disabled)'}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {isAi && catalogModels.length === 0 && (
+          <Input label="Model" placeholder="Add a model below first, or type an id" value={model} onChange={(e) => setModel(e.target.value)} />
+        )}
         {isAi && <Input label="Max Tokens" type="number" value={maxTokens} onChange={(e) => setMaxTokens(e.target.value)} />}
         {isAi && <Input label="Temperature" type="number" step="0.1" min="0" max="2" value={temperature} onChange={(e) => setTemperature(e.target.value)} />}
         <Input label="Request Timeout (seconds)" type="number" value={requestTimeout} onChange={(e) => setRequestTimeout(e.target.value)} />
@@ -174,6 +205,8 @@ export function ProviderCard({ provider, onUpdated }: { provider: ApiProviderSum
           {testResult.response_time_ms !== null && ` (${testResult.response_time_ms}ms)`}
         </p>
       )}
+
+      {isAi && <AiModelManager providerSlug={provider.slug} providerId={provider.id} onChange={reloadCatalogModels} />}
     </Card>
   );
 }

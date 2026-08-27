@@ -27,6 +27,7 @@ class PlanRequest extends FormRequest
             'daily_audit_limit' => ['required', 'integer', 'min:1'],
             'full_recrawls' => ['sometimes', 'integer', 'min:0'],
             'is_default' => ['sometimes', 'boolean'],
+            'is_active' => ['sometimes', 'boolean'],
             'features' => ['sometimes', 'array'],
         ];
     }

@@ -119,6 +119,7 @@ class AdminProviderController extends Controller
             ->count();
 
         return [
+            'id' => $provider->id,
             'slug' => $provider->slug,
             'name' => $provider->name,
             'provider_type' => $provider->provider_type,

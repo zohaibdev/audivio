@@ -16,5 +16,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(PlanSeeder::class);
         $this->call(ProviderSeeder::class);
+        $this->call(FeatureSeeder::class);
+        $this->call(AiModelSeeder::class);
     }
 }

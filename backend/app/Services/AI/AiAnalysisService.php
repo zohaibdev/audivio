@@ -21,6 +21,7 @@ class AiAnalysisService
 {
     public function __construct(
         private readonly AiProviderFactory $providerFactory,
+        private readonly PlanAiModelResolver $planModelResolver,
     ) {}
 
     /**
@@ -48,7 +49,20 @@ class AiAnalysisService
             }
         }
 
-        $provider = $this->providerFactory->make();
+        $provider = $this->planModelResolver->resolveFor($audit);
+
+        if ($provider === null) {
+            Log::channel('ai')->info('AI analysis skipped: no AI model allowed by the current plan', [
+                'audit_id' => $audit->id,
+                'category' => $category->value,
+            ]);
+
+            // No provider was ever selected here, so there is nothing to
+            // attribute an api_usage_logs row to (that table's `provider`
+            // column is required) — unlike exceedsConfiguredLimits() below,
+            // which already has a specific provider in hand.
+            return null;
+        }
 
         if ($this->exceedsConfiguredLimits($provider->name())) {
             Log::channel('ai')->warning('AI analysis skipped: provider request limit reached', [

@@ -16,6 +16,11 @@ class PlanController extends Controller
 {
     public function index(): JsonResponse
     {
-        return ApiResponse::success(Plan::orderBy('price_cents')->get());
+        return ApiResponse::success(
+            Plan::where('is_active', true)
+                ->with(['auditFeatures' => fn ($q) => $q->where('features.is_enabled', true)->wherePivot('is_enabled', true)])
+                ->orderBy('price_cents')
+                ->get(),
+        );
     }
 }
