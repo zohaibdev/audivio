@@ -9,7 +9,7 @@ whenever coverage is added, moved, or removed.
 for all external calls — no test hits a real third-party API) and
 `cd crawler && npm test` (Node's built-in test runner, `node --test`).
 
-**Current total**: 201 tests (161 PHP + 40 Node), all passing, 0 known failures.
+**Current total**: 240 tests (200 PHP + 40 Node), all passing, 0 known failures.
 
 Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 
@@ -122,6 +122,11 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Report access | Owner viewing their own audit has full access | `ReportAccessResolverTest::test_owner_viewing_their_own_audit_has_full_access` | ✅ |
 | Report access | A different registered user does NOT get full access to someone else's audit (closed an authorization gap — see CONTEXT.md §9/§26) | `ReportAccessResolverTest::test_a_different_registered_user_does_not_get_full_access_to_someone_elses_audit` | ✅ |
 | Report access | Anonymous viewer of a registered user's audit has no full access | `ReportAccessResolverTest::test_anonymous_viewer_of_a_registered_users_audit_has_no_full_access` | ✅ |
+| Admin dashboard | Users/admins counted separately | `AdminDashboardServiceTest::test_counts_users_and_admins_separately` | ✅ |
+| Admin dashboard | Audits grouped by status | `AdminDashboardServiceTest::test_audits_grouped_by_status` | ✅ |
+| Admin dashboard | Leads grouped by status | `AdminDashboardServiceTest::test_leads_grouped_by_status` | ✅ |
+| Admin dashboard | AI usage separates successful from failed calls, sums tokens | `AdminDashboardServiceTest::test_ai_usage_separates_successful_from_failed_calls_and_sums_tokens` | ✅ |
+| Admin dashboard | Empty database returns zeros, not errors/exceptions | `AdminDashboardServiceTest::test_empty_database_returns_zeros_not_errors` | ✅ |
 
 ## Feature tests
 
@@ -144,8 +149,14 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Report generation | Covered by `CrawlAndAnalyzePipelineTest::test_full_pipeline_produces_a_completed_audit_with_all_category_scores`, which now also asserts `GenerateReportJob` created a `Report` row with correct content | ✅ |
 | Usage limits | See `AuditApiTest`'s usage-limit rows above (API level) and `UsageLimitServiceTest` (Unit level) | ✅ |
 | Recrawl | — | ⬜ not built — no recrawl endpoint/feature exists yet (only `full_recrawls` sits unused on `plans`, reserved for when it's built) |
-| Lead creation | — | ⬜ not built (no `leads` table yet) |
-| Admin operations | — | ⬜ not built (Phase 7) |
+| Lead creation (public) | `AdminApiTest::test_anyone_can_submit_a_lead`, `test_lead_submission_requires_a_valid_source` | ✅ |
+| Lead management (admin) | `AdminApiTest::test_admin_can_list_and_filter_leads_by_status`, `test_admin_can_update_lead_status_and_it_logs_an_activity`, `test_admin_can_add_a_note_to_a_lead`, `test_lead_submission_is_rejected_without_admin_auth_to_list` | ✅ |
+| CMS content (public read) | `AdminApiTest::test_public_can_read_a_cms_page`, `test_public_read_of_unknown_cms_page_returns_404` | ✅ |
+| CMS content (admin management) | `AdminApiTest::test_admin_can_create_a_cms_page`, `test_admin_can_upsert_a_section_creating_it_if_new`, `test_admin_can_upsert_a_section_updating_it_if_it_exists` (asserts update, not duplicate, on the second call), `test_admin_can_delete_a_section`, `test_cms_page_slug_must_be_unique` | ✅ |
+| Admin operations — authorization | `AdminApiTest::test_unauthenticated_request_to_admin_route_is_rejected` (401), `test_non_admin_authenticated_user_is_rejected_with_403` (403 — a real Sanctum-authenticated non-admin, not just no auth), `test_admin_user_can_access_admin_routes` | ✅ |
+| Admin operations — dashboard/resource listings | `AdminApiTest::test_dashboard_returns_summary_data`, `test_users_listing_is_paginated_and_includes_subscription`, `test_websites_listing_includes_audit_count`, `test_audit_show_includes_scores_and_issues`, `test_crawl_jobs_listing`, `test_usage_listing`, `test_ai_usage_endpoint_returns_aggregates` | ✅ |
+| Admin operations — failed jobs | `AdminApiTest::test_failed_jobs_listing_and_deletion`, `test_deleting_an_unknown_failed_job_returns_404` | ✅ |
+| Admin operations — plan CRUD | `AdminApiTest::test_admin_can_create_a_plan`, `test_setting_a_new_default_plan_unsets_the_previous_default` (only one plan can ever be default), `test_admin_can_update_a_plan`, `test_admin_cannot_delete_a_plan_with_an_active_subscription` (409, not a raw 500), `test_plan_slug_must_be_unique` | ✅ |
 
 **The default `Tests\Feature\ExampleTest`** (Laravel scaffold, asserts `/`
 returns 200) still exists and passes — kept as-is; no real reason to
@@ -157,15 +168,15 @@ actual functionality either way.
 | Category | Test | Status |
 |---|---|---|
 | Authentication (register/login/logout/me) | `AuthTest` (10 tests, see Feature tests table above) | ✅ |
-| Authorization (report access scoped to the real viewer) | `AuditApiTest`'s report-access tests (see Feature tests table above) | ✅ |
-| Validation (missing/invalid input → 422) | `AuthTest::test_registration_rejects_mismatched_password_confirmation`, `AuditApiTest::test_missing_url_is_rejected_with_a_validation_error` | ✅ |
-| Status codes (200/201/202/401/404/422/429) | Exercised across `AuthTest`/`AuditApiTest` — every status code the API actually returns has at least one test asserting it | ✅ |
-| Response schema | `AuthTest::test_registration_creates_a_user_and_returns_a_token` asserts `assertJsonStructure(['data' => ['user', 'token']])`; other tests assert specific `assertJsonPath()` values | ✅ |
-| Error handling (SSRF rejection, usage-limit rejection) | `AuditApiTest::test_unsafe_url_is_rejected_before_creating_any_records`, usage-limit tests (see Feature tests table) | ✅ |
+| Authorization (report access scoped to the real viewer; admin gate) | `AuditApiTest`'s report-access tests, `AdminApiTest`'s authorization tests (see Feature tests table above) | ✅ |
+| Validation (missing/invalid input → 422) | `AuthTest::test_registration_rejects_mismatched_password_confirmation`, `AuditApiTest::test_missing_url_is_rejected_with_a_validation_error`, `AdminApiTest::test_plan_slug_must_be_unique`, `test_cms_page_slug_must_be_unique`, `test_lead_submission_requires_a_valid_source` | ✅ |
+| Status codes (200/201/202/401/403/404/409/422/429) | Exercised across `AuthTest`/`AuditApiTest`/`AdminApiTest` — every status code the API actually returns has at least one test asserting it, including 403 (non-admin) and 409 (plan deletion conflict), which only exist because of Phase 7 | ✅ |
+| Response schema | `AuthTest::test_registration_creates_a_user_and_returns_a_token` asserts `assertJsonStructure(['data' => ['user', 'token']])`; `AdminApiTest::test_dashboard_returns_summary_data` asserts the full dashboard shape; other tests assert specific `assertJsonPath()` values | ✅ |
+| Error handling (SSRF rejection, usage-limit rejection, plan-deletion conflict) | `AuditApiTest::test_unsafe_url_is_rejected_before_creating_any_records`, usage-limit tests (see Feature tests table), `AdminApiTest::test_admin_cannot_delete_a_plan_with_an_active_subscription` | ✅ |
 | Rate limits | `AuditApiTest::test_requests_beyond_the_rate_limit_are_throttled` | ✅ |
 | Security — cross-user data leakage | `AuditApiTest::test_report_endpoint_does_not_grant_full_access_to_a_different_registered_user` | ✅ |
-| Pagination | — | ⬜ n/a — no list endpoints exist yet (Phase 7 admin listings will need this) |
-| Duplicate/malicious input beyond SSRF | — | ⬜ gap: no test sends e.g. oversized payloads, unexpected types, or injection-style strings to the audit/auth endpoints — Laravel's validation layer handles most of this by construction, but it isn't explicitly exercised |
+| Pagination | `AdminApiTest::test_users_listing_is_paginated_and_includes_subscription` and every other admin listing test asserts the paginator shape (`current_page`/`total`/`data`) | ✅ |
+| Duplicate/malicious input beyond SSRF | — | ⬜ gap: no test sends e.g. oversized payloads, unexpected types, or injection-style strings to the audit/auth/admin endpoints — Laravel's validation layer handles most of this by construction, but it isn't explicitly exercised |
 | Backward compatibility | — | ⬜ n/a — no prior API version exists to be compatible with |
 
 ## Database tests
@@ -187,6 +198,10 @@ actual functionality either way.
 | Restrict delete: a plan with an active subscription cannot be deleted | `CascadeDeleteTest::test_deleting_a_plan_with_an_active_subscription_is_prevented` — asserts the DB actually throws `QueryException`, not just that the app happens not to call delete | ✅ |
 | Cascade delete: user → usage_logs | `CascadeDeleteTest::test_deleting_a_user_cascades_to_their_usage_logs` | ✅ |
 | Null-on-delete: website/audit → usage_logs.website_id/audit_id (log itself survives) | `CascadeDeleteTest::test_deleting_a_website_or_audit_nulls_the_usage_logs_references_instead_of_deleting_the_log` | ✅ |
+| Cascade delete: lead → lead_activities | `CascadeDeleteTest::test_deleting_a_lead_cascades_to_its_activities` | ✅ |
+| Null-on-delete: audit → lead.audit_id (lead itself survives) | `CascadeDeleteTest::test_deleting_an_audit_nulls_the_leads_audit_id_instead_of_deleting_the_lead` | ✅ |
+| Null-on-delete: user → lead_activity.user_id (activity itself survives) | `CascadeDeleteTest::test_deleting_a_user_nulls_the_lead_activities_user_id_instead_of_deleting_the_activity` | ✅ |
+| Cascade delete: cms_page → cms_sections | `CascadeDeleteTest::test_deleting_a_cms_page_cascades_to_its_sections` | ✅ |
 
 All cascade tests above were confirmed to exercise real DB-level FK
 enforcement, not vacuous passes — `config/database.php`'s sqlite
@@ -288,23 +303,30 @@ added above.
    `LandingPageAuditModuleTest` (4), `ConversionAuditModuleTest` (4).
 5. ~~Migration rollback and cascade-delete behavior were unverified~~ —
    **closed**: `DatabaseMigrationTest` (3 tests: fresh migrate, single-
-   step rollback + re-migrate, full reset) and `CascadeDeleteTest` (11
-   tests as of Phase 6, covering every declared
-   `cascadeOnDelete()`/`nullOnDelete()` relationship in the schema plus
-   the one `RESTRICT`-by-default relationship — `plans` ← `subscriptions`
-   — that deliberately prevents deletion), confirmed to exercise real FK
-   enforcement (not vacuous passes) by checking SQLite's
-   `foreign_key_constraints` connection setting first.
-6. ~~No API tests existed~~ — **closed** (Phase 6): `AuthTest` (10
-   tests) and `AuditApiTest` (15 tests) exercise the real HTTP
-   endpoints, not just the services behind them — authentication,
-   authorization (including a cross-user isolation check that caught a
-   real Sanctum-guard testing gotcha, documented in CONTEXT.md §26),
-   validation, status codes, error handling, and rate limiting.
-7. Everything under Frontend/E2E, and the Feature-level flows explicitly
-   marked not-built above (recrawl, leads, admin), is a gap because the
-   corresponding features don't exist yet — not a testing shortfall,
-   just not built. See CONTEXT.md §25 for phase status.
+   step rollback + re-migrate, full reset) and `CascadeDeleteTest` (15
+   tests as of Phase 7 — 11 from Phase 6 plus 4 covering
+   `leads`/`lead_activities`/`cms_pages`/`cms_sections`), covering every
+   declared `cascadeOnDelete()`/`nullOnDelete()` relationship in the
+   schema plus the one `RESTRICT`-by-default relationship — `plans` ←
+   `subscriptions` — that deliberately prevents deletion), confirmed to
+   exercise real FK enforcement (not vacuous passes) by checking
+   SQLite's `foreign_key_constraints` connection setting first.
+6. ~~No API tests existed~~ — **closed** (Phase 6, extended Phase 7):
+   `AuthTest` (10 tests), `AuditApiTest` (15 tests), and `AdminApiTest`
+   (30 tests, Phase 7) exercise the real HTTP endpoints, not just the
+   services behind them — authentication, authorization (including a
+   cross-user isolation check that caught a real Sanctum-guard testing
+   gotcha, documented in CONTEXT.md §26; and admin-gate 401/403 checks),
+   validation, status codes, error handling, rate limiting, and
+   pagination.
+7. ~~Everything under Frontend/E2E, and the Feature-level flows
+   explicitly marked not-built (recrawl, leads, admin), was a gap
+   because the corresponding features didn't exist yet~~ — **partially
+   closed** (Phase 7): lead capture and admin (dashboard, resource
+   listings, plan CRUD, CMS, lead management) are now built and tested
+   via `AdminApiTest`. Frontend/E2E for these remains a gap since no
+   frontend UI exists yet for admin or lead capture — see CONTEXT.md §25
+   for phase status.
 8. `OpenAiProvider`/`GeminiProvider` only have their success-path parsing
    tested; the missing-key/error-status pair is only verified for
    `ClaudeProvider`. Low priority — the failure behavior is structurally
@@ -313,8 +335,10 @@ added above.
 9. No test asserts the DB rejects a duplicate insert against the
    `audit_scores` (per audit+category) or `ai_analyses` (cache key)
    unique constraints directly — only exercised indirectly via
-   `updateOrCreate` call sites.
+   `updateOrCreate` call sites. (The equivalent `cms_sections`
+   `(cms_page_id, section_key)` unique constraint from Phase 7 has the
+   same gap.)
 10. No test sends oversized payloads, unexpected types, or injection-
-    style strings to the audit/auth endpoints beyond what Laravel's
-    validation layer handles by construction (see the API tests table's
-    "Duplicate/malicious input" row).
+    style strings to the audit/auth/admin endpoints beyond what
+    Laravel's validation layer handles by construction (see the API
+    tests table's "Duplicate/malicious input" row).

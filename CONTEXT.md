@@ -131,7 +131,7 @@ boilerplate. `Builder::defaultStringLength(191)` is set in
 
 | Table | Key columns | Relationships |
 |---|---|---|
-| `users` | name, email, password | Sanctum `HasApiTokens`; `hasMany` websites, audits |
+| `users` | name, email, password, is_admin (boolean, default false) | Sanctum `HasApiTokens`; `hasMany` websites, audits; `hasOne` subscription |
 | `websites` | user_id (nullable), url, domain, platform (enum string) | `belongsTo` user; `hasMany` audits |
 | `audits` | website_id, user_id (nullable), status, max_pages, pages_crawled, error_message, started_at, completed_at | `belongsTo` website/user; `hasOne` crawlJob; `hasMany` pages, issues, scores |
 | `crawl_jobs` | audit_id, status, total_urls, processed_urls, failed_urls | `belongsTo` audit; `hasMany` urls |
@@ -144,12 +144,15 @@ boilerplate. `Builder::defaultStringLength(191)` is set in
 | `plans` | name, slug (unique), price_cents, max_pages, daily_audit_limit, full_recrawls, is_default, features (json) | `hasMany` subscriptions |
 | `subscriptions` | user_id (unique — one active plan per user, no history), plan_id, status, started_at, ends_at | `belongsTo` user, plan |
 | `usage_logs` | user_id (nullable — anonymous tracked by IP instead), ip_address, action, website_id (nullable), audit_id (nullable) | `belongsTo` user, website, audit |
+| `leads` | audit_id (nullable), name, email, phone (nullable), website_url (nullable), message (nullable), source, status | `belongsTo` audit; `hasMany` activities |
+| `lead_activities` | lead_id, user_id (nullable — an activity can be system-generated, not just an admin's note), note | `belongsTo` lead, user |
+| `cms_pages` | slug (unique), title, meta_description (nullable) | `hasMany` sections (ordered by `sort_order`) |
+| `cms_sections` | cms_page_id, section_key (not an enum — admins add new named sections without a migration), content (json), sort_order; unique `(cms_page_id, section_key)` | `belongsTo` page |
 
 **Not yet created** (planned, per the original spec's full table list):
 `report_sections` (deferred — a single `reports.content` JSON blob covers
 Phase 5's needs; revisit only if PDF pagination in Phase 8 needs
-per-section storage), `leads`, `lead_activities`, `cms_pages`,
-`cms_sections`, `audit_schedules`, `notifications`.
+per-section storage), `audit_schedules`, `notifications`.
 
 ## 8. API endpoints and responsibilities
 
@@ -183,6 +186,35 @@ CLI convenience for local testing (its `--pages` option is real there,
 since it bypasses `AuditController` entirely) — it's just no longer the
 only way to trigger an audit.
 
+**Public, non-admin** (Phase 7):
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/api/leads` | none | Capture a "Talk to a Consultant" / "Request an Audit Review" CTA submission |
+| GET | `/api/cms/{slug}` | none | Fetch a CMS page + its sections, for the (future) frontend — never hardcode page content |
+
+**Admin** (`/api/admin/*`, all behind `auth:sanctum` + the `admin`
+middleware alias, which checks `$request->user()->is_admin`):
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/dashboard` | Aggregate counts: users/admins, websites, audits by status, leads by status, AI usage (calls/tokens), failed jobs |
+| GET | `/users` | Paginated user listing, with subscription+plan eager-loaded |
+| GET | `/websites` | Paginated website listing, with audit count |
+| GET | `/audits`, `/audits/{audit}` | Paginated listing / single audit with scores+issues+crawl job |
+| GET | `/crawl-jobs` | Paginated crawl job listing |
+| GET | `/failed-jobs`, DELETE `/failed-jobs/{id}` | List/remove Laravel's own failed-job bookkeeping rows (no retry endpoint yet — see §27) |
+| GET | `/ai-usage` | Aggregates by provider and category, plus the 50 most recent `ai_analyses` rows |
+| GET/POST `/plans`, PUT/DELETE `/plans/{plan}` | Full plan CRUD — **the only place paid tiers get created**, since none are seeded (§25) |
+| GET | `/usage` | Paginated `usage_logs`, filterable by `user_id`/`action` |
+| GET `/leads`, GET `/leads/{lead}`, PUT `/leads/{lead}`, POST `/leads/{lead}/activities` | Lead management — status updates auto-log a `LeadActivity`; manual notes via the activities endpoint |
+| Full CRUD `/cms`, `/cms/{page}`, PUT/DELETE `/cms/{page}/sections/{sectionKey}` | CMS page + section management. Section endpoints are an upsert-by-key — one PUT both creates and edits, so the frontend never needs to know which case it is |
+
+There is no "promote a user to admin" endpoint — `is_admin` is set
+directly in the database (or via `tinker`) by design. A self-service or
+API-driven path to grant admin access would be a privilege-escalation
+surface with no product requirement to justify it yet.
+
 ## 9. Authentication and authorization rules
 
 Sanctum bearer tokens (`AuthController@register/login/logout/me`).
@@ -209,6 +241,21 @@ reveals a target URL's crawl progress to anyone who knows or guesses the
 ID. Low severity (no sensitive data beyond "someone is auditing this
 URL"), but worth hardening (UUID references, or an ownership check) in
 Phase 9.
+
+**Admin authorization** (Phase 7): a single `is_admin` boolean on
+`users`, checked by the `EnsureUserIsAdmin` middleware (aliased as
+`admin` in `bootstrap/app.php`, stacked after `auth:sanctum` on the
+`/api/admin/*` group so `$request->user()` is guaranteed non-null when
+it runs). No roles/permissions system — one flag is sufficient for a
+single admin tier, and building more would be scope the spec's MVP
+exclusions ("advanced team management") explicitly reject.
+`is_admin` had to be added to `User::$fillable` to be settable via
+`User::create()`/`update()` at all — this is safe because no
+request-driven code path passes raw/validated request input into a
+User create/update call that could smuggle it in (`AuthController::register()`
+builds an explicit `['name', 'email', 'password']` array, and no
+`RegisterRequest` rule even permits an `is_admin` field, so Laravel's
+`validated()` would strip it even if a client sent one).
 
 ## 10. Crawler architecture
 
@@ -439,9 +486,34 @@ as of Phase 6 — not just "does this audit have some owner." Rules:
 
 ## 21. Admin dashboard functionality
 
-**Not built yet** (Phase 7 per the original timeline: dashboard, users,
-websites, audits, crawl_jobs, failed_jobs, ai_usage, plans, usage, leads,
-cms modules).
+All 11 modules from the spec's `admin.modules` list are built as API
+endpoints (§8) — this is backend-only; there's no admin frontend yet
+(§22), so these are the surface a future admin UI would consume.
+
+`AdminDashboardService::summary()` is the one piece of real aggregation
+logic, isolated and unit-tested independently of the controller —
+users/admins counted separately, audits and leads grouped by status
+(`selectRaw(...)->groupBy('status')->pluck('count', 'status')`), AI
+usage split into successful vs. failed calls with token sums, failed
+job count from Laravel's own `failed_jobs` table (queried directly via
+`DB::table()` — there's no Eloquent model for it, it's queue
+infrastructure, not an application concept).
+
+Everything else (users/websites/audits/crawl-jobs/usage listings) is
+plain paginated Eloquent queries in the controller — no service layer,
+because there's no real business logic in "list this resource,
+paginated." `AdminPlanController` is the one CRUD controller with actual
+logic: setting a plan `is_default` unsets it on every other plan inside
+a DB transaction (so two plans can never both claim to be the default),
+and deleting a plan with an active subscription returns a friendly 409
+instead of a raw 500 by catching the `QueryException` the DB's `RESTRICT`
+FK (§7, verified in Phase 6's `CascadeDeleteTest`) throws.
+
+Failed-job management is deliberately list+delete only — no retry
+endpoint. Retrying (`php artisan queue:retry`) re-serializes and
+re-dispatches a job, which has more failure modes than a simple CRUD
+pair; add it if a real operational need shows up rather than
+speculatively.
 
 ## 22. Frontend functionality
 
@@ -494,7 +566,7 @@ the backend re-validates everything.
 
 ## 25. Current development status
 
-Phases 1-6 complete and committed. See §26/27 for what's outstanding.
+Phases 1-7 complete and committed. See §26/27 for what's outstanding.
 
 | Phase | Days | Status |
 |---|---|---|
@@ -504,7 +576,7 @@ Phases 1-6 complete and committed. See §26/27 for what's outstanding.
 | 4. AI Auditors (ecommerce/landing_page/conversion/aio + providers) | 22-31 | ✅ done |
 | 5. Report System | 32-36 | ✅ done |
 | 6. User System (auth endpoints, subscriptions, plans) | 37-40 | ✅ done |
-| 7. Admin and CMS | 41-46 | ⬜ not started |
+| 7. Admin and CMS | 41-46 | ✅ done |
 | 8. PDF and Scheduling | 47-50 | ⬜ not started |
 | 9. Testing and Security | 51-58 | ⬜ not started (ongoing testing exists per-phase; a dedicated hardening pass has not happened) |
 | 10. Production | 59-60 | ⬜ not started |
@@ -530,6 +602,23 @@ None currently open. Three were found and fixed during development
   configured. Fixed to return the literal known value
   (`AuditStatus::Pending->value`) instead of reading back
   possibly-stale state. (Phase 6)
+- `User::$fillable` never included `is_admin` when the column was added
+  — `User::create([..., 'is_admin' => true])` silently dropped the
+  field instead of erroring, so the very first `AdminDashboardService`
+  test ("counts users and admins separately") failed with a count of 0
+  admins instead of 1. Fixed by adding it to `$fillable` — verified safe
+  to do so since no request-driven create/update path passes raw input
+  through (see §9). (Phase 7)
+- Two migrations sharing the same auto-generated timestamp minute
+  sorted in the wrong dependency order — `create_lead_activities_table`
+  (needs `leads` to exist first, via its `lead_id` FK) alphabetically
+  sorts *before* `create_leads_table` ('a' < 's'). Same root cause as
+  a Phase 2 bug (`crawl_urls`/`audit_pages` ordering) — caught
+  immediately by the `Cannot add foreign key constraint` error on
+  first migrate attempt, fixed by bumping the later migration's
+  timestamp. Worth remembering: always check migration run order when
+  `make:migration` generates multiple files in the same command batch,
+  not just when adding one at a time. (Phase 7)
 
 **Testing-only gotcha, not a bug** (documented so it isn't rediscovered
 and mistaken for one): within a single test method, Sanctum's
@@ -576,15 +665,27 @@ authenticated actors in one method, use one of these two patterns.
   simple existence query with no locking. Fine for the current single-
   worker local setup; worth revisiting once Horizon/multi-worker queue
   processing is in play (production, Phase 9+).
+- **No "promote user to admin" endpoint** — deliberate (§9), but means
+  the very first admin has to be created via `tinker` or a direct DB
+  write. Fine for a single-operator MVP; would need a real bootstrapping
+  story before this could be handed to a team.
+- **No failed-job retry endpoint** — list and delete only (§21).
+- **No plans are seeded except the free default.** Paid tiers don't
+  exist until an admin creates them via `POST /api/admin/plans` — no
+  concrete pricing/limits were invented since the spec doesn't specify
+  them and "complex billing" is an MVP exclusion (see Phase 6's
+  `PlanSeeder` comment).
 
 ## 28. Pending tasks
 
-In spec order, next up is **Phase 7: Admin and CMS**. After that:
-Phase 8 (PDF export — Phase 5 built the report *data*; Phase 8 renders
-it to PDF, to avoid overlap per the original phase-split decision),
-Phase 9 (security/testing hardening pass — the audit-ID-enumeration and
-IP-based-anonymous-tracking items from §27 are natural candidates),
-Phase 10 (production deploy).
+In spec order, next up is **Phase 8: PDF and Scheduling** (Phase 5
+built the report *data*; Phase 8 renders it to PDF, plus recurring/
+scheduled audits — `plans.full_recrawls` and `audit_schedules` sit
+unused until this phase). After that: Phase 9 (security/testing
+hardening pass — the audit-ID-enumeration and
+IP-based-anonymous-tracking items from §27 are natural candidates,
+along with a "promote to admin" bootstrapping story if this needs to
+move beyond single-operator), Phase 10 (production deploy).
 
 ## 29. Important technical decisions
 
@@ -648,6 +749,26 @@ Phase 10 (production deploy).
   unique) — matches "complex billing" being an explicit MVP exclusion;
   upgrading/downgrading updates the existing row. Add subscription
   history only if a real feature needs it, not preemptively.
+- **A single `is_admin` boolean, not a roles/permissions system** — one
+  admin tier is all the spec calls for; a full RBAC system would be
+  scope the MVP exclusions ("advanced team management") explicitly
+  reject.
+- **No admin-creation endpoint** — `is_admin` is set directly via
+  `tinker`/DB, not through the API. An API path to grant admin access
+  is a privilege-escalation surface with no product requirement behind
+  it yet.
+- **`cms_sections.section_key` is a free-text string, not an enum** —
+  admins can add a new named section (beyond the spec's hero/services/
+  pricing/faq/etc. list) without a migration. The upsert-by-key PUT
+  endpoint (create-or-update in one call) means the frontend never
+  needs to know whether a section already exists.
+- **Only the free plan is seeded** (`PlanSeeder`) — paid tiers get
+  created through the new admin Plan CRUD once real pricing is decided,
+  rather than inventing numbers the spec doesn't specify.
+- **Failed-job management is list+delete only, no retry** — retrying
+  re-serializes and re-dispatches a job, a meaningfully different
+  (and riskier) operation than simple CRUD; add it only if a real
+  operational need shows up.
 
 ## 30. Testing architecture
 
@@ -661,9 +782,9 @@ real third-party API. The Node/Playwright crawler subprocess
 (`PlaywrightCrawlerClient`) is mocked in the one Feature test that drives
 the full pipeline (`CrawlAndAnalyzePipelineTest`) — no test launches a
 real browser. `tests/Feature/Api/` covers the real HTTP endpoints
-(`AuthTest`, `AuditApiTest`) — the first tests in this project to
-exercise actual routes/middleware/controllers rather than services
-directly. 161 PHP tests currently, all passing.
+(`AuthTest`, `AuditApiTest`, `AdminApiTest`) — the first tests in this
+project to exercise actual routes/middleware/controllers rather than
+services directly. 200 PHP tests currently, all passing.
 
 Crawler: `crawler/lib/*.test.mjs`, run via `npm test` (Node's built-in
 `node --test`, no added dependency). Covers the SSRF logic
@@ -672,7 +793,7 @@ defense-in-depth layer described in §24, tested independently of the PHP
 side since the two can't share code across the language boundary. 40
 Node tests currently, all passing.
 
-**201 tests total** (161 PHP + 40 Node). See `tests/TEST_CASES.md` at the
+**240 tests total** (200 PHP + 40 Node). See `tests/TEST_CASES.md` at the
 repo root for the full registry mapped to test-requirement categories,
 coverage status, and any remaining gaps.
 

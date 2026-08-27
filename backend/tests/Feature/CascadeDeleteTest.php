@@ -7,8 +7,12 @@ use App\Models\Audit;
 use App\Models\AuditIssue;
 use App\Models\AuditPage;
 use App\Models\AuditScore;
+use App\Models\CmsPage;
+use App\Models\CmsSection;
 use App\Models\CrawlJob;
 use App\Models\CrawlUrl;
+use App\Models\Lead;
+use App\Models\LeadActivity;
 use App\Models\Plan;
 use App\Models\Report;
 use App\Models\Subscription;
@@ -174,5 +178,49 @@ class CascadeDeleteTest extends TestCase
         $this->assertNotNull($log->fresh());
         $this->assertNull($log->fresh()->website_id);
         $this->assertNull($log->fresh()->audit_id);
+    }
+
+    public function test_deleting_a_lead_cascades_to_its_activities(): void
+    {
+        $lead = Lead::create(['name' => 'A', 'email' => 'a@example.com', 'source' => 'talk_to_consultant']);
+        $activity = LeadActivity::create(['lead_id' => $lead->id, 'note' => 'x']);
+
+        $lead->delete();
+
+        $this->assertNull(LeadActivity::find($activity->id));
+    }
+
+    public function test_deleting_an_audit_nulls_the_leads_audit_id_instead_of_deleting_the_lead(): void
+    {
+        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
+        $lead = Lead::create(['audit_id' => $audit->id, 'name' => 'A', 'email' => 'a@example.com', 'source' => 'request_audit_review']);
+
+        $audit->delete();
+
+        $this->assertNotNull($lead->fresh());
+        $this->assertNull($lead->fresh()->audit_id);
+    }
+
+    public function test_deleting_a_user_nulls_the_lead_activities_user_id_instead_of_deleting_the_activity(): void
+    {
+        $user = User::create(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => 'x']);
+        $lead = Lead::create(['name' => 'A', 'email' => 'a@example.com', 'source' => 'talk_to_consultant']);
+        $activity = LeadActivity::create(['lead_id' => $lead->id, 'user_id' => $user->id, 'note' => 'x']);
+
+        $user->delete();
+
+        $this->assertNotNull($activity->fresh());
+        $this->assertNull($activity->fresh()->user_id);
+    }
+
+    public function test_deleting_a_cms_page_cascades_to_its_sections(): void
+    {
+        $page = CmsPage::create(['slug' => 'homepage', 'title' => 'Home']);
+        $section = $page->sections()->create(['section_key' => 'hero', 'content' => ['x' => 'y']]);
+
+        $page->delete();
+
+        $this->assertNull(CmsSection::find($section->id));
     }
 }

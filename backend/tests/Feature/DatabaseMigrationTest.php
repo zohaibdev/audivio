@@ -73,6 +73,7 @@ class DatabaseMigrationTest extends TestCase
             'users', 'websites', 'audits', 'crawl_jobs', 'crawl_urls',
             'audit_pages', 'audit_issues', 'audit_scores', 'ai_analyses',
             'reports', 'plans', 'subscriptions', 'usage_logs',
+            'leads', 'lead_activities', 'cms_pages', 'cms_sections',
             'personal_access_tokens',
         ];
     }
