@@ -24,6 +24,9 @@ final readonly class CrawledPageData
         public array $headers = [],
         public string $htmlSample = '',
         public ?array $accessibilityViolations = null,
+        /** Browser-measured resource/timing data — null when the crawler
+         * could not collect it, never a zeroed placeholder. */
+        public ?array $performanceMetrics = null,
     ) {}
 
     public static function fromArray(array $data): self
@@ -48,6 +51,7 @@ final readonly class CrawledPageData
             headers: $data['headers'] ?? [],
             htmlSample: $data['htmlSample'] ?? '',
             accessibilityViolations: $data['accessibilityViolations'] ?? null,
+            performanceMetrics: $data['performanceMetrics'] ?? null,
         );
     }
 }

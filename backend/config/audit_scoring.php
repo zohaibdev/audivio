@@ -18,6 +18,7 @@ return [
         'landing_page' => 10,
         'conversion' => 5,
         'aio' => 5,
+        'product_auditor' => 10,
     ],
 
     /*
@@ -68,6 +69,32 @@ return [
         'pagespeed_pages' => 1,
         'max_load_time_ms' => 3000,
         'max_page_weight_bytes' => 2 * 1024 * 1024,
+
+        // Per-resource budgets, checked against the crawler's own measured
+        // transfer sizes (see PerformanceAuditModule::checkResourceBreakdown).
+        // Starting points based on commonly cited web-performance guidance,
+        // deliberately configurable rather than hardcoded — tune per project
+        // rather than editing the module.
+        'max_js_bytes' => 500 * 1024,
+        'max_css_bytes' => 150 * 1024,
+        'max_image_bytes' => 1024 * 1024,
+        'max_font_requests' => 4,
+        'max_requests' => 75,
+        'max_third_party_bytes' => 500 * 1024,
+        'max_ttfb_ms' => 800,
+        'max_dom_nodes' => 1500,
+
+        // Core Web Vitals thresholds (good / needs-improvement boundary),
+        // per web.dev's published guidance. Used to label a metric
+        // Good / Needs Improvement / Poor in the performance report.
+        'vitals' => [
+            'lcp_ms' => ['good' => 2500, 'poor' => 4000],
+            'cls' => ['good' => 0.1, 'poor' => 0.25],
+            'tbt_ms' => ['good' => 200, 'poor' => 600],
+            'fcp_ms' => ['good' => 1800, 'poor' => 3000],
+            'ttfb_ms' => ['good' => 800, 'poor' => 1800],
+            'speed_index_ms' => ['good' => 3400, 'poor' => 5800],
+        ],
     ],
 
     /*
@@ -102,5 +129,17 @@ return [
     */
     'ecommerce' => [
         'min_confidence_score' => 3,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Product page auditing
+    |--------------------------------------------------------------------------
+    | Thresholds for ProductAuditModule, which only runs against pages
+    | ProductPageDetector identified as real product pages.
+    */
+    'product' => [
+        'min_images' => 3,
+        'min_description_length' => 200,
     ],
 ];

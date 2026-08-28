@@ -20,9 +20,9 @@ class FeatureAccessResolver
      * landing_page) share the "ecommerce" feature key per the product
      * spec's "AI Ecommerce / Landing Auditor" grouping — disabling it
      * skips both modules together. AuditCategory::Overall is a derived
-     * rollup, never itself gated. `product_auditor` has no AuditCategory
-     * yet (no audit module exists for it — see CONTEXT.md §29); it's
-     * registered so admins can toggle its future availability per plan.
+     * rollup, never itself gated. `product_auditor` is now a real module
+     * (ProductAuditModule, §36) with its own AuditCategory, so gating it
+     * skips actual product-page checks rather than being a no-op.
      */
     private const CATEGORY_FEATURE_MAP = [
         'performance' => 'performance',
@@ -32,6 +32,7 @@ class FeatureAccessResolver
         'conversion' => 'cro',
         'ecommerce' => 'ecommerce',
         'landing_page' => 'ecommerce',
+        'product_auditor' => 'product_auditor',
     ];
 
     public function planFor(?User $user): ?Plan

@@ -1931,15 +1931,8 @@ and served at `/storage/{path}`; the frontend derives that origin from
 needs `php artisan storage:link` once, or every screenshot 403s.
 
 **Known limitations / not covered:**
-- The deep performance report (Core Web Vitals panels, mobile-vs-desktop
-  opportunity and diagnostic sections, per-page transfer/request
-  breakdowns) is **not built**. The data model supports it, but the
-  crawler currently stores only `load_time_ms`/`html_size_bytes` plus
-  whatever PageSpeed returns for the homepage — there is no per-resource
-  JS/CSS/image/font/third-party breakdown to populate those sections, so
-  building the UI first would mean inventing metrics.
-- `product_auditor` has no audit module (§29), so it is not a service
-  report — it is absent rather than empty.
+- ~~The deep performance report~~ and ~~`product_auditor` has no audit
+  module~~ — both **closed by §36 below**.
 - Ecommerce detection depends on `PlatformDetector::isWooCommerce()`,
   which only inspects the **homepage** HTML. A WordPress site whose
   WooCommerce assets load only on `/shop/` is classified plain
@@ -1949,6 +1942,113 @@ needs `php artisan storage:link` once, or every screenshot 403s.
   that site *should* count as ecommerce is a genuine product judgment
   (a ministry selling one book), so the tuning from §34 was left alone
   rather than flip-flopped a second time.
+
+---
+
+## 36. Performance measurement and the product audit
+
+Closes the two gaps §35 left open, by collecting the data first rather
+than building UI against numbers that did not exist.
+
+### Measurement collection
+
+**The crawler now records every response.** A `page.on('response')`
+listener attached *before* `goto()` captures each resource's type, status
+and real transferred bytes via `request.sizes()` (CDP), not the
+`content-length` header — which is absent on chunked responses and wrong
+on compressed ones. Aggregated into per-type buckets (js/css/image/font/
+document/media/other), plus third-party counts (host ≠ page host), DOM
+node count, and navigation timings (TTFB from `responseStart -
+requestStart`, FCP from the paint entry). Anything the browser does not
+report stays `null`, never 0.
+
+**PageSpeed now runs both strategies.** `PageSpeedService::analyzeBoth()`
+attempts mobile and desktop as two independent calls, each honouring its
+own `mobile_enabled`/`desktop_enabled` provider flag. Previously a single
+ternary picked one strategy, so desktop numbers could never coexist with
+mobile ones. Also newly extracted: TTFB, Speed Index, and Lighthouse
+"opportunities" (audits carrying a measured `overallSavingsMs`/`Bytes`;
+anything without one is a diagnostic, and passing audits are skipped —
+we never invent a saving Lighthouse did not compute).
+
+### Storage: `page_performance_metrics`
+
+One row per `(audit_page_id, source, strategy)`, with that triple as a
+**unique key**. This is what makes "never show a desktop number as
+mobile" a schema guarantee rather than a convention — a metric physically
+belongs to exactly one page, one source (`crawler`|`pagespeed`) and one
+strategy (`mobile`|`desktop`). Every metric column is nullable: a value
+the tool did not report stays null and renders as "unavailable", because
+defaulting to 0 is indistinguishable from a real measurement of zero.
+Lighthouse's category score is likewise `null` (not 0) when absent.
+
+Crawler metrics are stored under the **desktop** strategy, because
+desktop is the viewport the page was actually loaded at — the mobile
+screenshot is a resize of that same load, not a second navigation, so
+labelling those numbers "mobile" would attribute them to a device profile
+never measured.
+
+### Deterministic performance issues
+
+`PerformanceAuditModule::checkResourceBreakdown()` raises findings from
+the measured breakdown against configurable budgets
+(`audit_scoring.performance.*`): oversized JS/CSS/images, too many fonts
+or requests, excessive page weight, heavy third-party payload, slow TTFB,
+excessive DOM size. Each issue's `meta` carries **both** the measured
+value and the budget it was compared against, so the evidence shows why
+it fired. Issues are driven by the **mobile** Lighthouse result when
+available (mobile is the priority); desktop is stored and displayed but
+does not drive the score twice.
+
+### `PerformanceReportBuilder`
+
+Sits alongside the standard service-report shape as `report.performance`.
+Produces `mobile` and `desktop` blocks (each with score + Core Web Vitals
+carrying value, threshold, status and **source**), site-wide `resources`
+totals, and per-page rows. Pages with no measurement are excluded from
+sums rather than counted as zero, and `measured_pages` is returned so the
+figure can be read honestly.
+
+**INP is deliberately absent.** It is a field metric requiring real user
+data; Lighthouse lab runs do not produce it. TBT is shown instead as the
+lab-measurable proxy, labelled as what it actually is rather than being
+passed off as INP.
+
+Free/anonymous viewers keep the headline scores and Core Web Vitals (the
+proof something real was measured) but lose the per-page metric table and
+resource breakdown, consistent with §35's split.
+
+### Product audit (`product_auditor`)
+
+Now a real `AuditCategory` and module. `ProductPageDetector` is stricter
+than `EcommerceDetector`: that one asks "is this a store", this asks "is
+*this page* a product page". Product schema alone is definitive; otherwise
+a product-shaped URL **plus** a corroborating buy signal is required —
+either alone is too weak, since `/shop/` is often a listing page and an
+add-to-cart link can sit in a site-wide nav.
+
+`ProductAuditModule` checks schema, price, availability, image count,
+description depth, review data and a purchase action. All deterministic,
+no AI. A site with no detected product page reports **Not Applicable**
+rather than a score derived from pages that sell nothing. Missing schema
+is reported once rather than cascading into separate
+price/availability/review findings for the same root cause.
+
+**Known limitations:**
+- Lighthouse opportunities are extracted and stored in the PageSpeed
+  result but are **not yet surfaced** as a separate "Opportunities vs
+  Diagnostics" UI section — the deterministic resource issues cover the
+  same ground for now, and splitting them is presentation work on data
+  that is already collected.
+- PageSpeed still runs against a capped page subset (default: homepage),
+  so most pages show crawler-measured metrics only and `—` for Lighthouse
+  scores. That is a cost/rate-limit tradeoff, and the report shows the
+  dash rather than borrowing another page's numbers.
+- `add to basket`/`add to bag` were missing from the crawler's CTA
+  keyword list, so UK/EU product pages yielded no purchase CTA at all and
+  could not be detected. Added to both the crawler and the detectors, but
+  **not yet verified against a live basket button** — the test store used
+  for real-audit validation has no working cart element to exercise it.
 
 ---
 

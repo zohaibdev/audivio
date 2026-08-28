@@ -78,6 +78,18 @@ class ServiceReportVisibilityFilter
             'recommendations' => $visibleRecommendations,
             'pages' => [],
             'ai' => ['used' => $report['ai']['used'], 'available' => $report['ai']['available'], 'analysis' => null, 'error' => null],
+            // Headline scores and Core Web Vitals stay visible (they are
+            // the proof the audit measured something real), but the
+            // per-page metric table and resource breakdown are full-access
+            // detail, same as page findings above.
+            'performance' => isset($report['performance']) && $report['performance'] !== null
+                ? [
+                    'mobile' => $report['performance']['mobile'],
+                    'desktop' => $report['performance']['desktop'],
+                    'resources' => ['available' => false, 'measured_pages' => 0, 'by_type' => [], 'totals' => []],
+                    'pages' => [],
+                ]
+                : null,
             'hidden_issue_count' => max(0, $allIssues->count() - count($visibleIssues)),
             'hidden_recommendation_count' => max(0, count($report['recommendations']) - count($visibleRecommendations)),
             'hidden_page_count' => count($report['pages']),

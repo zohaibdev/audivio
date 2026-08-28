@@ -85,6 +85,16 @@ class AuditPage extends Model
     }
 
     /**
+     * Every performance measurement for this page — one row per
+     * (source, strategy), so mobile and desktop stay separate records
+     * rather than one blended set of numbers.
+     */
+    public function performanceMetrics(): HasMany
+    {
+        return $this->hasMany(PagePerformanceMetric::class);
+    }
+
+    /**
      * Every issue affecting this page, single- and multi-page combined —
      * Eloquent can't union a hasMany and a belongsToMany into one query,
      * so this merges them application-side.

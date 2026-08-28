@@ -28,6 +28,7 @@ class AuditModuleRegistry
             LandingPageAuditModule::class,
             ConversionAuditModule::class,
             AioAuditModule::class,
+            ProductAuditModule::class,
         ];
     }
 

@@ -26,7 +26,10 @@ use Illuminate\Support\Collection;
  */
 class ServiceReportBuilder
 {
-    public function __construct(private readonly IssueTaxonomy $taxonomy) {}
+    public function __construct(
+        private readonly IssueTaxonomy $taxonomy,
+        private readonly PerformanceReportBuilder $performance,
+    ) {}
 
     /**
      * Every service report for an audit, keyed by service.
@@ -153,6 +156,12 @@ class ServiceReportBuilder
             'recommendations' => $this->buildRecommendations($serialized),
             'pages' => $applicable ? $this->pageFindings($audit, $issues) : [],
             'ai' => $ai,
+            // Service-specific detail. Only performance has one today —
+            // the deep Core Web Vitals / resource breakdown that the
+            // generic issue shape can't express.
+            'performance' => $serviceKey === 'performance' && $applicable
+                ? $this->performance->build($audit)
+                : null,
         ];
     }
 
@@ -205,8 +214,16 @@ class ServiceReportBuilder
         }
 
         $last = substr($code, strrpos($code, '.') + 1);
+        $words = explode(' ', str_replace('_', ' ', $last));
 
-        return ucfirst(str_replace('_', ' ', $last));
+        // Keep well-known acronyms uppercase — "Lcp"/"Cls"/"Ttfb" read as
+        // typos rather than as the metrics practitioners recognize.
+        $acronyms = ['lcp', 'cls', 'tbt', 'ttfb', 'fcp', 'inp', 'seo', 'cta', 'aio', 'dom', 'css', 'html', 'url', 'ada'];
+
+        return implode(' ', array_map(
+            fn (string $word) => in_array($word, $acronyms, true) ? strtoupper($word) : ucfirst($word),
+            $words,
+        ));
     }
 
     /**

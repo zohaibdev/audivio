@@ -4,6 +4,7 @@ import { Badge } from '../ui/Badge';
 import { EmptyState } from '../ui/EmptyState';
 import { IssueCard } from './IssueCard';
 import { PageFindingCard } from './PageFindingCard';
+import { PerformanceReportView } from './PerformanceReportView';
 import type { Severity, ServiceReport } from '../../types';
 
 const SEVERITY_ORDER: Severity[] = ['critical', 'high', 'medium', 'low'];
@@ -102,6 +103,11 @@ export function ServiceReportView({
           ))}
         </div>
       </Card>
+
+      {/* Performance-specific detail: Core Web Vitals, resource breakdown
+          and per-page metrics, rendered directly under the score so the
+          measured numbers lead rather than sitting below the issue list. */}
+      {report.performance && <PerformanceReportView detail={report.performance} />}
 
       {/* Quick wins — low-effort fixes surfaced ahead of the full list */}
       {quickWins.length > 0 && (

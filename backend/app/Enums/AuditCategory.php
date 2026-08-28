@@ -11,5 +11,6 @@ enum AuditCategory: string
     case LandingPage = 'landing_page';
     case Conversion = 'conversion';
     case Aio = 'aio';
+    case ProductAuditor = 'product_auditor';
     case Overall = 'overall';
 }

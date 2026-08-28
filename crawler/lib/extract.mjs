@@ -4,7 +4,10 @@
  */
 export function extractPageData() {
   const CTA_KEYWORDS = [
-    'buy', 'shop now', 'add to cart', 'checkout', 'sign up', 'sign in', 'log in',
+    // 'add to basket'/'add to bag' are the standard UK/EU wording — without
+    // them, product pages on those stores yield no purchase CTA at all,
+    // which made ProductPageDetector miss real product pages entirely.
+    'buy', 'shop now', 'add to cart', 'add to basket', 'add to bag', 'checkout', 'sign up', 'sign in', 'log in',
     'get started', 'start free', 'start trial', 'book', 'contact', 'call',
     'subscribe', 'download', 'learn more', 'request a', 'talk to', 'schedule',
     'demo', 'quote', 'apply now', 'join', 'register',

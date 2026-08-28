@@ -119,7 +119,9 @@ class EcommerceDetector
     private function hasAddToCartCta($page): bool
     {
         return collect($page->cta_elements ?? [])->contains(
-            fn ($cta) => preg_match('/\badd\s*to\s*cart\b/i', $cta['text'] ?? '')
+            // Includes the UK/EU 'basket'/'bag' wording — see the matching
+            // keyword list in the crawler's extract.mjs.
+            fn ($cta) => preg_match('/\badd\s*to\s*(cart|basket|bag)\b/i', $cta['text'] ?? '')
         );
     }
 

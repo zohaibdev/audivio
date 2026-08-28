@@ -5,11 +5,14 @@ namespace App\Services\Crawler;
 use App\DTOs\CrawledPageData;
 use App\Enums\CrawlJobStatus;
 use App\Enums\CrawlUrlStatus;
+use App\Enums\MetricSource;
+use App\Enums\MetricStrategy;
 use App\Enums\ScreenshotViewport;
 use App\Models\Audit;
 use App\Models\AuditPage;
 use App\Models\CrawlJob;
 use App\Models\CrawlUrl;
+use App\Models\PagePerformanceMetric;
 use App\Models\Screenshot;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -226,8 +229,44 @@ class CrawlOrchestrator
 
         $this->storeScreenshot($audit, $page, ScreenshotViewport::Desktop, $data->screenshotDesktopPath);
         $this->storeScreenshot($audit, $page, ScreenshotViewport::Mobile, $data->screenshotMobilePath);
+        $this->storeCrawlerMetrics($audit, $page, $data);
 
         return $page;
+    }
+
+    /**
+     * Persists the browser-measured resource/timing breakdown. Recorded
+     * under the desktop strategy because that is the viewport the page was
+     * actually loaded at (the mobile screenshot is a resize of the same
+     * load, not a second navigation) — labelling it mobile would attribute
+     * numbers to a device profile that was never measured.
+     */
+    private function storeCrawlerMetrics(Audit $audit, AuditPage $page, CrawledPageData $data): void
+    {
+        $metrics = $data->performanceMetrics;
+
+        if ($metrics === null) {
+            return;
+        }
+
+        PagePerformanceMetric::updateOrCreate(
+            [
+                'audit_page_id' => $page->id,
+                'source' => MetricSource::Crawler->value,
+                'strategy' => MetricStrategy::Desktop->value,
+            ],
+            [
+                'audit_id' => $audit->id,
+                'fcp_ms' => $metrics['fcpMs'] ?? null,
+                'ttfb_ms' => $metrics['ttfbMs'] ?? null,
+                'total_requests' => $metrics['totalRequests'] ?? null,
+                'total_transfer_bytes' => $metrics['totalTransferBytes'] ?? null,
+                'third_party_requests' => $metrics['thirdPartyRequests'] ?? null,
+                'third_party_bytes' => $metrics['thirdPartyBytes'] ?? null,
+                'dom_nodes' => $metrics['domNodes'] ?? null,
+                'by_type' => $metrics['byType'] ?? null,
+            ],
+        );
     }
 
     /**

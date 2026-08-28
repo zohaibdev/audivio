@@ -22,13 +22,51 @@ class PageSpeedService
     private const TEST_URL = 'https://example.com';
 
     /**
-     * @return array{score: int, lcpMs: ?float, cls: ?float, tbtMs: ?float, fcpMs: ?float}|null
-     *                                                                                          Null if the API key isn't configured, the provider is
-     *                                                                                          disabled, its request limit is reached, or the call
-     *                                                                                          fails — callers must degrade gracefully, not fail the
-     *                                                                                          whole audit.
+     * Runs mobile and desktop as two independent measurements, keyed by
+     * strategy. Each is attempted separately, so one failing (or one being
+     * disabled in provider config) never silently substitutes the other's
+     * numbers — the missing strategy is simply absent from the result.
+     *
+     * @return array<string, array<string, mixed>> keyed 'mobile'/'desktop'; empty if neither ran
      */
-    public function analyze(string $url): ?array
+    public function analyzeBoth(string $url): array
+    {
+        $provider = null;
+
+        try {
+            $provider = (new ProviderResolver)->resolve('pagespeed');
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $results = [];
+
+        foreach (['mobile' => 'mobile_enabled', 'desktop' => 'desktop_enabled'] as $strategy => $configKey) {
+            // Mobile defaults on (the primary audit priority), desktop off
+            // — matching the existing provider config defaults so enabling
+            // desktop stays an explicit admin choice.
+            if (! $provider->getConfigValue($configKey, $strategy === 'mobile')) {
+                continue;
+            }
+
+            $result = $this->analyze($url, $strategy);
+
+            if ($result !== null) {
+                $results[$strategy] = $result;
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * One strategy's measurement. Null if the API key isn't configured,
+     * the provider is disabled, its request limit is reached, or the call
+     * fails — callers must degrade gracefully, not fail the whole audit.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function analyze(string $url, string $strategy = 'mobile'): ?array
     {
         $resolver = new ProviderResolver;
 
@@ -48,7 +86,7 @@ class PageSpeedService
         }
 
         try {
-            [$result, $elapsedMs, $status] = $this->performRequest($resolver, $provider, $url);
+            [$result, $elapsedMs, $status] = $this->performRequest($resolver, $provider, $url, $strategy);
         } catch (\Throwable $e) {
             Log::channel('crawler')->warning('PageSpeed Insights request failed', ['url' => $url, 'error' => $e->getMessage()]);
             $this->logUsage(success: false, errorCategory: 'exception');
@@ -93,10 +131,8 @@ class PageSpeedService
     /**
      * @return array{0: ?array<string, mixed>, 1: int, 2: ?int} [result-or-null, elapsed ms, http status]
      */
-    private function performRequest(ProviderResolver $resolver, ApiProvider $provider, string $url): array
+    private function performRequest(ProviderResolver $resolver, ApiProvider $provider, string $url, string $strategy = 'mobile'): array
     {
-        $strategy = $provider->getConfigValue('mobile_enabled', true) ? 'mobile' : 'desktop';
-
         $startedAt = microtime(true);
 
         $response = Http::timeout($provider->getConfigValue('request_timeout', 45))->get(self::ENDPOINT, [
@@ -120,12 +156,59 @@ class PageSpeedService
         $performanceScore = $response->json('lighthouseResult.categories.performance.score');
 
         return [[
-            'score' => $performanceScore !== null ? (int) round($performanceScore * 100) : 0,
+            // A missing category score stays null rather than becoming 0 —
+            // "Lighthouse didn't report a score" is not "this page scored
+            // zero", and the report must be able to tell them apart.
+            'score' => $performanceScore !== null ? (int) round($performanceScore * 100) : null,
+            'strategy' => $strategy,
             'lcpMs' => $audits['largest-contentful-paint']['numericValue'] ?? null,
             'cls' => $audits['cumulative-layout-shift']['numericValue'] ?? null,
             'tbtMs' => $audits['total-blocking-time']['numericValue'] ?? null,
             'fcpMs' => $audits['first-contentful-paint']['numericValue'] ?? null,
+            'ttfbMs' => $audits['server-response-time']['numericValue'] ?? null,
+            'speedIndexMs' => $audits['speed-index']['numericValue'] ?? null,
+            // Lighthouse "opportunities" carry a measured millisecond
+            // saving; anything without one is a diagnostic, not an
+            // opportunity. Both are passed through as-is — we never invent
+            // a saving Lighthouse didn't compute.
+            'opportunities' => $this->extractOpportunities($audits),
         ], $elapsedMs, $response->status()];
+    }
+
+    /**
+     * @param  array<string, mixed>  $audits
+     * @return array<int, array<string, mixed>>
+     */
+    private function extractOpportunities(array $audits): array
+    {
+        $opportunities = [];
+
+        foreach ($audits as $id => $audit) {
+            $savingsMs = $audit['details']['overallSavingsMs'] ?? null;
+            $savingsBytes = $audit['details']['overallSavingsBytes'] ?? null;
+
+            if ($savingsMs === null && $savingsBytes === null) {
+                continue;
+            }
+
+            // score === 1 means Lighthouse considers this already passing;
+            // surfacing it as an "opportunity" would be noise.
+            if (($audit['score'] ?? null) === 1) {
+                continue;
+            }
+
+            $opportunities[] = [
+                'id' => $id,
+                'title' => $audit['title'] ?? $id,
+                'description' => $audit['description'] ?? null,
+                'savings_ms' => $savingsMs !== null ? (int) round($savingsMs) : null,
+                'savings_bytes' => $savingsBytes !== null ? (int) round($savingsBytes) : null,
+            ];
+        }
+
+        usort($opportunities, fn ($a, $b) => ($b['savings_ms'] ?? 0) <=> ($a['savings_ms'] ?? 0));
+
+        return array_slice($opportunities, 0, 15);
     }
 
     private function exceedsConfiguredLimits(ApiProvider $provider): bool

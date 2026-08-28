@@ -205,6 +205,70 @@ export interface ServiceAiState {
   error: string | null;
 }
 
+// --- Performance-specific report detail (§36) ---
+
+export type VitalStatus = 'good' | 'needs_improvement' | 'poor' | 'unavailable';
+
+export interface CoreWebVital {
+  key: string;
+  label: string;
+  unit: string;
+  about: string;
+  /** Null means not measured — render as "unavailable", never as 0. */
+  value: number | null;
+  source: 'crawler' | 'pagespeed' | null;
+  good_below: number | null;
+  poor_above: number | null;
+  status: VitalStatus;
+}
+
+export interface PerformanceStrategyBlock {
+  available: boolean;
+  reason: string | null;
+  score: number | null;
+  score_source?: string | null;
+  vitals: CoreWebVital[];
+}
+
+export interface PerformanceResourceRow {
+  type: string;
+  requests: number;
+  bytes: number;
+}
+
+export interface PerformanceResources {
+  available: boolean;
+  measured_pages: number;
+  by_type: PerformanceResourceRow[];
+  totals: Record<string, number>;
+}
+
+export interface PerformancePageRow {
+  url: string;
+  title: string | null;
+  mobile_score: number | null;
+  desktop_score: number | null;
+  lcp_ms: number | null;
+  cls: number | null;
+  tbt_ms: number | null;
+  ttfb_ms: number | null;
+  fcp_ms: number | null;
+  speed_index_ms: number | null;
+  total_requests: number | null;
+  transfer_bytes: number | null;
+  third_party_bytes: number | null;
+  dom_nodes: number | null;
+  by_type: Record<string, { requests: number; bytes: number }> | null;
+  screenshots: { desktop: string | null; mobile: string | null };
+}
+
+export interface PerformanceDetail {
+  mobile: PerformanceStrategyBlock;
+  desktop: PerformanceStrategyBlock;
+  resources: PerformanceResources;
+  pages: PerformancePageRow[];
+}
+
 export interface ServiceReport {
   service: ServiceKey;
   name: string;
@@ -221,6 +285,8 @@ export interface ServiceReport {
   recommendations: ServiceRecommendation[];
   pages: ServicePageFinding[];
   ai: ServiceAiState;
+  /** Present only on the performance service; null elsewhere. */
+  performance?: PerformanceDetail | null;
   is_full_access?: boolean;
   hidden_issue_count?: number;
   hidden_recommendation_count?: number;

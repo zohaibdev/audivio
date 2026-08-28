@@ -37,6 +37,7 @@ class IssueTaxonomy
         'cro' => 'Conversion Rate Optimization',
         'aio' => 'AI Search Readiness',
         'ecommerce' => 'Ecommerce',
+        'product_auditor' => 'AI Product Audit',
     ];
 
     /**
@@ -59,6 +60,7 @@ class IssueTaxonomy
         'landing_page' => 'cro',
         'aio' => 'aio',
         'ecommerce' => 'ecommerce',
+        'product_auditor' => 'product_auditor',
     ];
 
     /** Exact issue code => category within its service. */
@@ -69,7 +71,16 @@ class IssueTaxonomy
         'performance.pagespeed_score' => 'Loading Performance',
         'performance.slow_load_time' => 'Loading Performance',
         'performance.large_html' => 'Page Weight',
+        'performance.heavy_page_weight' => 'Page Weight',
         'performance.missing_image_dimensions' => 'Images',
+        'performance.heavy_images' => 'Images',
+        'performance.large_javascript' => 'JavaScript',
+        'performance.large_css' => 'CSS',
+        'performance.too_many_fonts' => 'Fonts',
+        'performance.too_many_requests' => 'Network',
+        'performance.slow_server_response' => 'Server Response',
+        'performance.third_party_weight' => 'Third-Party Resources',
+        'performance.excessive_dom_size' => 'Render Blocking',
 
         // SEO
         'seo.missing_title' => 'Metadata',
@@ -96,6 +107,16 @@ class IssueTaxonomy
         // Ecommerce
         'ecommerce.missing_product_schema' => 'Structured Data',
         'ecommerce.missing_purchase_cta' => 'Add to Cart',
+
+        // Product audit
+        'product.missing_product_schema' => 'Structured Data',
+        'product.missing_price' => 'Pricing',
+        'product.missing_availability' => 'Pricing',
+        'product.no_images' => 'Images',
+        'product.too_few_images' => 'Images',
+        'product.thin_description' => 'Product Information',
+        'product.no_review_data' => 'Trust',
+        'product.no_add_to_cart' => 'CTA',
     ];
 
     /**
@@ -136,6 +157,7 @@ class IssueTaxonomy
         'cro' => 'Conversion Friction',
         'aio' => 'Semantic Content',
         'ecommerce' => 'Conversion',
+        'product_auditor' => 'Product Information',
     ];
 
     public function serviceFor(AuditCategory $category): ?string

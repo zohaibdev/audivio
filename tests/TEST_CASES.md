@@ -9,7 +9,7 @@ whenever coverage is added, moved, or removed.
 for all external calls — no test hits a real third-party API) and
 `cd crawler && npm test` (Node's built-in test runner, `node --test`).
 
-**Current total**: 420 tests (380 PHP + 40 Node), all passing, 0 known failures.
+**Current total**: 455 tests (415 PHP + 40 Node), all passing, 0 known failures.
 Frontend verification is manual only (browser, against the real backend)
 — see the "Frontend manual verification" entry near the bottom; there is
 no automated frontend test suite yet.
@@ -155,6 +155,14 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Per-service reports | **Partial coverage**: an AI-dependent service whose AI failed is marked `partial` (never "good") and keeps its real deterministic score, with a note naming what was skipped — found against a live audit reporting "CRO 100 — good" with its provider down | `ServiceReportBuilderTest::test_an_ai_dependent_service_whose_ai_failed_is_marked_partial_not_good`, `test_a_service_with_working_ai_is_marked_complete`, `test_a_service_with_no_ai_dependency_is_complete_without_an_ai_record` | ✅ |
 | Per-service reports | A failed AI provider reads as unavailable rather than as an absent finding; AI-derived issues are labelled `detected_by: ai` | `ServiceReportBuilderTest::test_a_failed_ai_provider_reads_as_unavailable_not_as_an_absent_finding`, `test_ai_generated_issues_are_labelled_as_ai_detected` | ✅ |
 | Per-service reports | Recommendations come only from issues that actually carry one — never fabricated to fill space | `ServiceReportBuilderTest::test_recommendations_only_come_from_issues_that_carry_one` | ✅ |
+| Performance metrics | Resource-breakdown issues fire from measured JS/CSS/image/font/request/weight values, each carrying both the measured value and the budget it was compared against | `PerformanceAuditModuleTest::test_resource_breakdown_flags_oversized_javascript_css_and_images`, `test_resource_issues_carry_the_measured_value_and_the_budget_as_evidence`, `test_slow_server_response_and_excessive_dom_are_flagged_from_measured_values` | ✅ |
+| Performance metrics | A page with no crawler measurement raises no resource issues at all — absent data is never treated as zeros that trivially pass every budget | `PerformanceAuditModuleTest::test_a_page_with_no_crawler_metrics_raises_no_resource_issues` | ✅ |
+| Mobile/desktop separation | Mobile and desktop Lighthouse results are stored as two separate rows and keep their own scores/metrics; issues are driven by the mobile result, never desktop's | `PerformanceAuditModuleTest::test_mobile_and_desktop_pagespeed_results_are_stored_separately`, `test_issues_are_driven_by_the_mobile_result_not_desktop` | ✅ |
+| Performance metrics | A null Lighthouse score is not treated as a score of 0 and does not raise a critical issue | `PerformanceAuditModuleTest::test_a_null_lighthouse_score_does_not_become_a_zero_issue` | ✅ |
+| Issue taxonomy | Every performance issue code maps to a specific category rather than the catch-all bucket; axe rules map to accessibility categories; unknown/AI-invented codes fall back rather than disappearing | `IssueTaxonomyTest` (19 tests incl. a data provider over all 15 performance codes) | ✅ |
+| Product audit | A site with no product pages is Not Applicable, not scored; a fully specified product page scores 100 | `ProductAuditModuleTest::test_a_site_with_no_product_pages_is_not_applicable`, `test_a_fully_specified_product_page_scores_100` | ✅ |
+| Product detection | Product schema alone is definitive; a product-shaped URL without a corroborating buy signal is not a product page (listing pages and site-wide nav links must not qualify) | `ProductAuditModuleTest::test_a_product_page_is_detected_from_schema_alone`, `test_a_product_shaped_url_without_a_buy_signal_is_not_a_product_page` | ✅ |
+| Product audit | Missing price/availability/images/copy are flagged; a missing schema is reported once rather than cascading into several derived findings; the same defect across products aggregates to one issue | `ProductAuditModuleTest::test_missing_price_and_availability_are_flagged`, `test_a_product_page_with_no_images_is_critical`, `test_too_few_images_and_thin_copy_are_flagged`, `test_a_missing_schema_is_reported_once_not_as_several_derived_findings`, `test_findings_across_several_product_pages_are_aggregated` | ✅ |
 | Screenshot paths | A relative path is produced even when the disk base path uses backslashes and the crawler's path uses forward slashes (the real Windows mismatch); POSIX and no-trailing-separator cases; a path outside the disk is normalized, not mangled | `ScreenshotPathTest` (4 tests) — reproduces what `Storage::fake()` structurally cannot, which is why the earlier fix shipped broken | ✅ |
 
 ## Feature tests
@@ -519,6 +527,22 @@ added above.
   Vite HMR state, not a defect — confirmed by hard-reloading and then
   exercising that exact code path (the button renders with
   `disabled=false`, a value computed from that variable).
+- **Performance & product audit manual verification** (§36): two live
+  audits driven end to end. Audit #18 (6 real pages) produced mobile 36 /
+  desktop 51 with mobile LCP 14.06s marked Poor beside desktop 2.28s
+  marked Good — the mobile/desktop separation visible in the actual UI,
+  not just the database — with mobile labelled "Primary", plain-English
+  metric explanations, and published thresholds ("Good is under 2.5s ·
+  measured by Lighthouse"). The resource panel rendered a real
+  31.0 MB / 707-request breakdown (JavaScript 14.9 MB across 444
+  requests, third-party 9.6 MB), and the per-page table showed a dash for
+  the five pages Lighthouse never ran against rather than borrowing the
+  homepage's numbers. Screenshots loaded at exactly 390×844 with mobile
+  as the default view, and no failing resource requests were recorded.
+  Audit #19 against a real store confirmed the negative case: the
+  catalogue listing page was correctly *not* classified as a product
+  page. Two real gaps were found this way (the taxonomy catch-all and the
+  missing basket/bag CTA keywords) — see Known gaps item 19.
 
 ---
 
@@ -752,4 +776,28 @@ added above.
     (Core Web Vitals / opportunities / diagnostics), because the crawler
     does not yet collect per-resource JS/CSS/image/font/third-party
     metrics to populate it — building that UI first would mean inventing
-    numbers (CONTEXT.md §35).
+    numbers (CONTEXT.md §35). **Closed by item 19.**
+19. The performance report had no real measurements behind it and
+    `product_auditor` had no audit module — **closed**: the crawler now
+    records every response's real transferred bytes by resource type,
+    PageSpeed runs mobile and desktop as two independent measurements
+    stored in a new `page_performance_metrics` table (unique on
+    page+source+strategy, so a desktop number can never be read as
+    mobile), and `ProductAuditModule`/`ProductPageDetector` audit real
+    product pages. See CONTEXT.md §36. 35 new PHP tests (380 -> 415):
+    `PerformanceAuditModuleTest` additions (7), `IssueTaxonomyTest` (19),
+    `ProductAuditModuleTest` (9). Verified against **two live audits**: a
+    6-page real-site crawl produced mobile 36 / desktop 51 with mobile
+    LCP 14.06s (poor) vs desktop 2.28s (good) — the strategies
+    demonstrably not mixed — plus a real 31MB/707-request resource
+    breakdown, while pages without a Lighthouse run correctly showed a
+    dash rather than borrowing another page's numbers. Two real gaps
+    found this way: the 15 new performance issue codes were all landing
+    in the "Other Performance" catch-all because the taxonomy had not
+    been extended (now covered by a data-provider test over every code),
+    and the crawler's CTA keyword list omitted `add to basket`/`add to
+    bag`, so UK/EU product pages yielded no purchase CTA and could never
+    be detected. Still open: Lighthouse opportunities are collected but
+    not yet surfaced as their own UI section, and the basket-wording fix
+    is not verified against a live basket button (the validation store
+    has no working cart element).

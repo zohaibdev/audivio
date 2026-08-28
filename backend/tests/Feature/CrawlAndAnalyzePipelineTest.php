@@ -80,7 +80,7 @@ class CrawlAndAnalyzePipelineTest extends TestCase
 
         $scores = AuditScore::where('audit_id', $audit->id)->get()->keyBy(fn ($s) => $s->category->value);
 
-        foreach (['performance', 'accessibility', 'seo', 'ecommerce', 'landing_page', 'conversion', 'aio', 'overall'] as $category) {
+        foreach (['performance', 'accessibility', 'seo', 'ecommerce', 'landing_page', 'conversion', 'aio', 'product_auditor', 'overall'] as $category) {
             $this->assertTrue($scores->has($category), "Missing score row for category: {$category}");
         }
 
@@ -91,14 +91,21 @@ class CrawlAndAnalyzePipelineTest extends TestCase
         $this->assertFalse($scores['ecommerce']->is_applicable);
         $this->assertNull($scores['ecommerce']->score);
 
+        // Same reasoning as ecommerce above: the fixture page carries no
+        // Product schema, no product-shaped URL and no add-to-cart action,
+        // so the product audit correctly has nothing to audit and reports
+        // Not Applicable rather than a manufactured 100.
+        $this->assertFalse($scores['product_auditor']->is_applicable);
+        $this->assertNull($scores['product_auditor']->score);
+
         // The page was crafted to be flawless against every deterministic
-        // rule across the other 6 modules, and no AI keys are configured
+        // rule across the remaining modules, and no AI keys are configured
         // in the test environment (graceful degradation, no AI-derived
         // issues) — every *applicable* category, and therefore the
         // overall score (which excludes Not Applicable categories from
         // its weighting), must be 100.
         foreach ($scores as $category => $score) {
-            if ($category === 'ecommerce') {
+            if (in_array($category, ['ecommerce', 'product_auditor'], true)) {
                 continue;
             }
             $this->assertSame(100, $score->score, "Expected category '{$category}' to score 100, got {$score->score}");

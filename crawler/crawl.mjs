@@ -85,6 +85,36 @@ async function run() {
       await route.continue();
     });
 
+    // Record every response so the performance report can break page
+    // weight down by resource type instead of guessing from the HTML size
+    // alone. Attached BEFORE goto() so nothing loaded during navigation is
+    // missed. Sizes come from request.sizes() (real transferred bytes via
+    // CDP), not the content-length header, which is absent on chunked and
+    // wrong on compressed responses.
+    const resources = [];
+    const pageHost = new URL(url).hostname;
+
+    page.on('response', (res) => {
+      const req = res.request();
+      let host = null;
+      try {
+        host = new URL(res.url()).hostname;
+      } catch {
+        // data:/blob: URLs have no host — they're same-document by
+        // definition, so treat them as first-party rather than dropping.
+      }
+
+      resources.push({
+        url: res.url().slice(0, 500),
+        type: req.resourceType(),
+        status: res.status(),
+        isThirdParty: host !== null && host !== pageHost,
+        // Filled in after load; sizes() is only reliable once the
+        // response body has finished streaming.
+        request: req,
+      });
+    });
+
     const startedAt = Date.now();
     let response;
     try {
@@ -93,6 +123,8 @@ async function run() {
       throw new CrawlFailure(`Navigation failed: ${error.message}`);
     }
     const loadTimeMs = Date.now() - startedAt;
+
+    const performanceMetrics = await collectPerformanceMetrics(page, response, resources);
 
     if (!response) {
       throw new CrawlFailure('No response received from navigation');
@@ -155,11 +187,113 @@ async function run() {
       screenshotDesktopPath,
       screenshotMobilePath,
       accessibilityViolations,
+      performanceMetrics,
       ...extracted,
     };
   } finally {
     await browser.close();
   }
+}
+
+/**
+ * Aggregates the recorded responses into the per-resource-type breakdown
+ * the performance report needs, plus browser-reported navigation timings.
+ *
+ * Every number here is measured. Anything the browser or CDP does not
+ * report comes back null rather than 0, so the report can say
+ * "unavailable" instead of implying a real measurement of zero.
+ */
+async function collectPerformanceMetrics(page, response, resources) {
+  // Map Playwright resource types onto the buckets the report groups by.
+  const bucketFor = (type) => {
+    if (type === 'stylesheet') return 'css';
+    if (type === 'script') return 'js';
+    if (type === 'image') return 'image';
+    if (type === 'font') return 'font';
+    if (type === 'document') return 'document';
+    if (type === 'media') return 'media';
+    return 'other';
+  };
+
+  const byType = {};
+  let totalBytes = 0;
+  let thirdPartyBytes = 0;
+  let thirdPartyRequests = 0;
+
+  for (const entry of resources) {
+    let bytes = 0;
+    try {
+      const sizes = await entry.request.sizes();
+      bytes = (sizes.responseBodySize ?? 0) + (sizes.responseHeadersSize ?? 0);
+    } catch {
+      // Served from cache, aborted, or otherwise has no CDP size record.
+      // Counted as a request but contributes no bytes, rather than being
+      // dropped (which would understate the request count).
+      bytes = 0;
+    }
+
+    const bucket = bucketFor(entry.type);
+    byType[bucket] ??= { requests: 0, bytes: 0 };
+    byType[bucket].requests += 1;
+    byType[bucket].bytes += bytes;
+    totalBytes += bytes;
+
+    if (entry.isThirdParty) {
+      thirdPartyBytes += bytes;
+      thirdPartyRequests += 1;
+    }
+  }
+
+  // Navigation timings straight from the browser. TTFB is responseStart
+  // relative to requestStart on the main document.
+  let timings = null;
+  try {
+    timings = await page.evaluate(() => {
+      const nav = performance.getEntriesByType('navigation')[0];
+      if (!nav) return null;
+      return {
+        ttfbMs: nav.responseStart > 0 ? Math.round(nav.responseStart - nav.requestStart) : null,
+        domContentLoadedMs: nav.domContentLoadedEventEnd > 0 ? Math.round(nav.domContentLoadedEventEnd) : null,
+        loadEventMs: nav.loadEventEnd > 0 ? Math.round(nav.loadEventEnd) : null,
+      };
+    });
+  } catch {
+    timings = null;
+  }
+
+  // First Contentful Paint, if the browser recorded it.
+  let fcpMs = null;
+  try {
+    fcpMs = await page.evaluate(() => {
+      const paint = performance.getEntriesByName('first-contentful-paint')[0];
+      return paint ? Math.round(paint.startTime) : null;
+    });
+  } catch {
+    fcpMs = null;
+  }
+
+  let domNodes = null;
+  try {
+    domNodes = await page.evaluate(() => document.getElementsByTagName('*').length);
+  } catch {
+    domNodes = null;
+  }
+
+  const compressed = (response.headers()['content-encoding'] ?? '') !== '';
+
+  return {
+    totalRequests: resources.length,
+    totalTransferBytes: totalBytes,
+    byType,
+    thirdPartyRequests,
+    thirdPartyBytes,
+    domNodes,
+    fcpMs,
+    ttfbMs: timings?.ttfbMs ?? null,
+    domContentLoadedMs: timings?.domContentLoadedMs ?? null,
+    loadEventMs: timings?.loadEventMs ?? null,
+    documentCompressed: compressed,
+  };
 }
 
 run()
