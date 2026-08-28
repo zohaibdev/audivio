@@ -9,7 +9,7 @@ whenever coverage is added, moved, or removed.
 for all external calls — no test hits a real third-party API) and
 `cd crawler && npm test` (Node's built-in test runner, `node --test`).
 
-**Current total**: 380 tests (340 PHP + 40 Node), all passing, 0 known failures.
+**Current total**: 394 tests (354 PHP + 40 Node), all passing, 0 known failures.
 Frontend verification is manual only (browser, against the real backend)
 — see the "Frontend manual verification" entry near the bottom; there is
 no automated frontend test suite yet.
@@ -33,11 +33,14 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Audit rules — SEO | Images missing alt aggregated per page (not per image) | `SeoAuditModuleTest::test_images_missing_alt_are_aggregated_per_page` | ✅ |
 | Audit rules — SEO | Duplicate titles flagged once site-wide (not per page) | `SeoAuditModuleTest::test_duplicate_titles_across_pages_flagged_once` | ✅ |
 | Audit rules — SEO | Broken internal link only flagged for crawled targets | `SeoAuditModuleTest::test_broken_internal_link_detected_only_for_crawled_targets` | ✅ |
+| Audit rules — SEO | The same issue on every page (e.g. 25/25 missing meta description) collapses to one site-wide issue and does not zero the score | `SeoAuditModuleTest::test_the_same_issue_on_every_page_is_aggregated_into_one_and_does_not_zero_the_score` — regression for a real bug found auditing a live 25-page site (CONTEXT.md §34) | ✅ |
 | Audit rules — Accessibility | No violations scores 100 | `AccessibilityAuditModuleTest::test_no_violations_scores_100` | ✅ |
 | Audit rules — Accessibility | Same rule across pages raised once, not per page | `AccessibilityAuditModuleTest::test_same_rule_repeated_across_pages_is_raised_once` | ✅ |
 | Audit rules — Accessibility | Highest impact seen for a rule wins | `AccessibilityAuditModuleTest::test_highest_impact_seen_for_a_rule_wins` | ✅ |
 | Audit rules — Accessibility | Pages with no violation scan ignored, not penalized | `AccessibilityAuditModuleTest::test_pages_with_no_violation_scan_are_ignored_not_penalized` | ✅ |
-| Audit rules — Ecommerce | Non-ecommerce site scores 100, zero issues, **zero AI calls** | `EcommerceAuditModuleTest::test_non_ecommerce_site_scores_100_with_no_issues` | ✅ |
+| Audit rules — Ecommerce | Non-ecommerce site is Not Applicable (`score: null`, `is_applicable: false`), zero issues, **zero AI calls** | `EcommerceAuditModuleTest::test_non_ecommerce_site_is_not_applicable_with_no_score` — was "scores 100" before `EcommerceDetector` (CONTEXT.md §34); a Not Applicable category is no longer a fabricated 100 | ✅ |
+| Audit rules — Ecommerce | A lone generic transaction CTA ("checkout"/"buy") does not trigger ecommerce detection | `EcommerceAuditModuleTest::test_a_lone_generic_checkout_cta_does_not_trigger_ecommerce_detection` — regression for the reported false-positive bug (nonprofit ticket-order flow) | ✅ |
+| Audit rules — Ecommerce | A checkout-shaped link *plus* a generic CTA alone still does not trigger detection | `EcommerceAuditModuleTest::test_a_checkout_link_plus_a_generic_cta_alone_does_not_trigger_ecommerce_detection` — a second false positive on the *same* real site, found only by re-auditing after the first fix (CONTEXT.md §34) | ✅ |
 | Audit rules — Ecommerce | Purchase CTA without Product schema flagged | `EcommerceAuditModuleTest::test_purchase_cta_without_product_schema_flagged` | ✅ |
 | Audit rules — Ecommerce | Product schema without purchase CTA flagged | `EcommerceAuditModuleTest::test_product_schema_without_purchase_cta_flagged` | ✅ |
 | Audit rules — Ecommerce | Shopify platform treated as ecommerce even without other signals | `EcommerceAuditModuleTest::test_shopify_platform_treated_as_ecommerce_even_without_signals` | ✅ |
@@ -60,6 +63,8 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | Audit rules — Performance | Poor LCP (>2500ms) → high | `PerformanceAuditModuleTest::test_poor_lcp_is_flagged_high` | ✅ |
 | Audit rules — Performance | Poor CLS (>0.1) → medium | `PerformanceAuditModuleTest::test_poor_cls_is_flagged_medium` | ✅ |
 | Audit rules — Performance | PSI only called for the configured page count (mocked `PageSpeedService`, `->once()` expectation) | `PerformanceAuditModuleTest::test_pagespeed_only_called_for_configured_page_count` | ✅ |
+| Audit rules — Performance | The same issue on every page (e.g. 25/25 slow load time) collapses to one site-wide issue and does not zero the score | `PerformanceAuditModuleTest::test_the_same_issue_on_every_page_is_aggregated_into_one_and_does_not_zero_the_score` — regression for the same real-site bug as SEO's equivalent test (CONTEXT.md §34) | ✅ |
+| Per-page issue aggregation | Single occurrence of a code passes through unchanged; 2+ occurrences collapse into one site-wide issue with `affected_pages`/`affected_page_count`/`affectedPageIds`; different codes never merge; affected-pages list is deduplicated | `PerPageIssueAggregatorTest` (4 tests) — the shared logic `SeoAuditModule`/`PerformanceAuditModule` both use, extracted so the aggregation rule (and its bug fix) lives in one place, CONTEXT.md §34 | ✅ |
 | AI | Parses plain JSON array response | `AiIssueParserTest::test_parses_plain_json_array` | ✅ |
 | AI | Strips a markdown code fence | `AiIssueParserTest::test_strips_markdown_code_fence` | ✅ |
 | AI | Invalid severity falls back to medium | `AiIssueParserTest::test_invalid_severity_falls_back_to_medium` | ✅ |
@@ -77,6 +82,7 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | AI | Different context is not a cache hit | `AiAnalysisServiceTest::test_different_context_is_not_a_cache_hit` | ✅ |
 | AI | Provider failure returns null + records an error row | `AiAnalysisServiceTest::test_provider_failure_returns_null_and_logs_an_error_row` | ✅ |
 | AI | Caching disabled calls the provider every time | `AiAnalysisServiceTest::test_caching_disabled_calls_provider_every_time` | ✅ |
+| AI | No plan-allowed model records a visible `ai_analyses` error row instead of being silent | `AiAnalysisServiceTest::test_no_plan_allowed_model_records_an_error_row_instead_of_being_silent` — closes a visibility regression introduced by §33's `PlanAiModelResolver` (CONTEXT.md §34); asserts zero `api_usage_logs` rows too, since no provider was ever chosen | ✅ |
 | Platform detection | Shopify (CDN reference, header, case-insensitive header) | `PlatformDetectorTest::test_detects_shopify_from_cdn_reference` + 2 siblings | ✅ |
 | Platform detection | WordPress (wp-content, generator meta) | `PlatformDetectorTest::test_detects_wordpress_from_wp_content` + 1 sibling | ✅ |
 | Platform detection | WooCommerce (WordPress + commerce markers) vs plain WordPress | `PlatformDetectorTest::test_detects_woocommerce_as_wordpress_plus_woocommerce_markers`, `test_wordpress_without_woocommerce_markers_is_plain_wordpress` | ✅ |
@@ -307,7 +313,7 @@ hypothetical one, §29).
 |---|---|
 | Fresh migrations run cleanly | `DatabaseMigrationTest::test_migrate_fresh_runs_cleanly` — asserts exit code 0 and every application table exists afterward | ✅ |
 | Every table is InnoDB with enforced FKs | ✅ verified manually via `information_schema` query in Phase 2 after finding the MyISAM default-engine issue (MySQL-specific — the automated test suite runs against SQLite, so this check isn't portable to it); not automated |
-| Migration rollback (`down()`) — single-step and full reset | `DatabaseMigrationTest::test_rolling_back_the_last_migration_drops_its_table_and_remigrating_restores_it`, `test_rolling_back_every_migration_drops_every_application_table` — actually runs `migrate:rollback` / `migrate:reset` and asserts tables are dropped, then re-migrates and asserts they're back | ✅ |
+| Migration rollback (`down()`) — single-step and full reset | `DatabaseMigrationTest::test_rolling_back_the_last_migration_reverses_it_and_remigrating_restores_the_schema`, `test_rolling_back_every_migration_drops_every_application_table` — actually runs `migrate:rollback` / `migrate:reset` and asserts the schema (tables *and* columns — several migrations only alter a column rather than create a table, e.g. `add_is_active_to_plans_table`) changed, then re-migrates and asserts it's back exactly | ✅ |
 | Unique constraint: `audit_scores` rejects a duplicate (audit, category) insert | `UniqueConstraintsTest::test_audit_scores_rejects_a_duplicate_category_for_the_same_audit` — asserts a real `QueryException`, not just that application code happens to call `updateOrCreate()` | ✅ |
 | Unique constraint: `ai_analyses` rejects a duplicate cache-key insert | `UniqueConstraintsTest::test_ai_analyses_rejects_a_duplicate_cache_key` | ✅ |
 | Unique constraint: `audit_schedules` per (user_id, website_id) | `AuditScheduleApiTest::test_a_website_cannot_be_scheduled_twice` — asserted at the API level via the controller's friendlier pre-check (422), not a raw `QueryException` | ✅ |
@@ -330,6 +336,15 @@ hypothetical one, §29).
 | Cascade delete: website → audit_schedules | `CascadeDeleteTest::test_deleting_a_website_cascades_to_its_audit_schedules` | ✅ |
 | Null-on-delete: user → api_usage_log.user_id (log itself survives) | `CascadeDeleteTest::test_deleting_a_user_nulls_the_api_usage_logs_user_id_instead_of_deleting_the_log` | ✅ |
 | Null-on-delete: audit → api_usage_log.audit_id (log itself survives) | `CascadeDeleteTest::test_deleting_an_audit_nulls_the_api_usage_logs_audit_id_instead_of_deleting_the_log` | ✅ |
+| Cascade delete: plan → plan_features pivot (the `features` registry row itself survives) | `CascadeDeleteTest::test_deleting_a_plan_cascades_to_its_plan_features_pivot_rows` | ✅ |
+| Cascade delete: feature → plan_features pivot | `CascadeDeleteTest::test_deleting_a_feature_cascades_to_its_plan_features_pivot_rows` | ✅ |
+| Cascade delete: plan → plan_ai_models pivot (the `ai_models` catalog row itself survives) | `CascadeDeleteTest::test_deleting_a_plan_cascades_to_its_plan_ai_models_pivot_rows` | ✅ |
+| Cascade delete: api_provider → ai_models | `CascadeDeleteTest::test_deleting_an_api_provider_cascades_to_its_ai_models` | ✅ |
+| Cascade delete: audit → screenshots | `CascadeDeleteTest::test_deleting_an_audit_cascades_to_its_screenshots` | ✅ |
+| Cascade delete: audit_issue → issue_pages pivot | `CascadeDeleteTest::test_deleting_an_audit_issue_cascades_to_its_issue_pages_pivot_rows` | ✅ |
+| Cascade delete: audit_page → issue_pages pivot | `CascadeDeleteTest::test_deleting_a_page_cascades_to_its_issue_pages_pivot_rows` | ✅ |
+| Issue↔page relational query — an issue is queryable by page *and* a page is queryable by issue (not just a JSON list) | `IssuePageRelationshipTest::test_a_multi_page_issue_is_queryable_by_page_and_a_page_is_queryable_by_issue` — drives a real `SeoAuditModule` run through `RunAuditModuleJob`, not a hand-inserted pivot row (CONTEXT.md §34) | ✅ |
+| Screenshot storage paths are relative to the public disk, not absolute filesystem paths | `CrawlAndAnalyzePipelineTest::test_screenshot_storage_paths_are_stored_relative_to_the_public_disk_not_as_absolute_paths` — regression for a real bug found by inspecting a live audit's stored `Screenshot.storage_path` (Windows backslash vs. forward-slash mismatch in `CrawlOrchestrator::toPublicPath()`, CONTEXT.md §34) | ✅ |
 
 All cascade tests above were confirmed to exercise real DB-level FK
 enforcement, not vacuous passes — `config/database.php`'s sqlite
@@ -620,3 +635,57 @@ added above.
     provider's one currently-*active* model, not truly pick among
     several concurrently (see CONTEXT.md §29 for why this is an
     architectural constraint, not an oversight).
+16. A real audit against a live 25-page site (not a synthetic fixture)
+    scored `seo: 0` and `performance: 0`, and produced a false-positive
+    Ecommerce score on a nonprofit ministry site — **closed**:
+    `PerPageIssueAggregator` (site-wide aggregation of a repeated
+    per-page issue, the same pattern `AccessibilityAuditModule` already
+    used) fixes the zero-score bug; `EcommerceDetector` (weighted
+    multi-signal confidence scoring, replacing a single loose CTA-text
+    regex) fixes ecommerce false positives; `audit_scores.score` is now
+    nullable with an `is_applicable` flag so "Not Applicable" is a real
+    state, never a fabricated 0 or 100; a visibility regression in
+    `AiAnalysisService` (introduced by item 15's own `PlanAiModelResolver`
+    — "no AI model allowed" silently recorded nothing) now writes a
+    visible `ai_analyses` error row. A **second** ecommerce false
+    positive on the *same* real site was found only by re-running the
+    real audit again after the first fix landed (a checkout-link
+    signal's weight was too generous) — see CONTEXT.md §34 for the full
+    account of both misses. 13 new PHP tests this chunk (340 → 353):
+    `PerPageIssueAggregatorTest` (4), `SeoAuditModuleTest`/
+    `PerformanceAuditModuleTest` aggregation regressions (2),
+    `EcommerceAuditModuleTest` additions (2 new false-positive
+    regressions, 1 rewritten for the Not Applicable state), `AiAnalysisServiceTest`
+    addition (1). Known gap: `ConversionAuditModule`/`LandingPageAuditModule`
+    still have only 1-2 deterministic checks each — accurate for what
+    they actually check, not fabricated, but a much narrower audit than
+    the product spec's ~15-signal CRO/AIO checklists; building that out
+    was explicitly scoped out of this pass.
+17. Screenshots were captured (desktop only, one path column on
+    `audit_pages`) but nothing used them, and an issue affecting several
+    pages was only listable via a `meta.affected_pages` JSON array — not
+    queryable by page, and a page's issues weren't queryable at all in
+    the multi-page case — **closed**: dual-viewport (desktop 1366×900 +
+    mobile 390×844) capture from a single page load, a dedicated
+    `screenshots` table (`App\Models\Screenshot`), and a real `issue_pages`
+    pivot (`AuditIssue::pages()`, `AuditPage::multiPageIssues()`/
+    `allIssues()`) giving genuine bidirectional queryability — see
+    CONTEXT.md §34. This reopens (supersedes) the JSON-blob decision from
+    item 15's own session, once a later requirement explicitly needed
+    bidirectional queries a JSON blob can't do without a table scan. 4
+    new PHP tests this chunk (counted in item 16's 353 total, 353 → 354):
+    `IssuePageRelationshipTest` (1), `CascadeDeleteTest` additions for
+    `screenshots`/`issue_pages` (2), `CrawlAndAnalyzePipelineTest`'s
+    screenshot-storage-path regression (1, see the Database tests
+    table) — a real bug (Windows absolute path stored instead of a
+    relative one, `CrawlOrchestrator::toPublicPath()`) found by
+    inspecting a live audit's actual `Screenshot.storage_path`, not by
+    any test, since every prior test faked the disk with a consistent
+    separator throughout — plus 4 previously-missing
+    `plan_features`/`plan_ai_models`/`ai_models` cascade rows from item 15
+    that were written but never actually added to the Database tests
+    table until now. Explicitly out of scope for this pass (per the
+    user's own sequencing choice): the seven per-service report UIs, the
+    GTmetrix/PageSpeed-style performance report, per-service PDFs, the
+    page explorer, and the frontend dashboard redesign — this closes only
+    the data model and capture pipeline they'll need.

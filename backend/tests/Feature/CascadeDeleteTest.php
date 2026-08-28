@@ -21,6 +21,7 @@ use App\Models\Lead;
 use App\Models\LeadActivity;
 use App\Models\Plan;
 use App\Models\Report;
+use App\Models\Screenshot;
 use App\Models\Subscription;
 use App\Models\UsageLog;
 use App\Models\User;
@@ -330,5 +331,43 @@ class CascadeDeleteTest extends TestCase
         $provider->delete();
 
         $this->assertNull(AiModel::find($model->id));
+    }
+
+    public function test_deleting_an_audit_cascades_to_its_screenshots(): void
+    {
+        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
+        $page = AuditPage::create(['audit_id' => $audit->id, 'url' => 'https://example.com/', 'http_status' => 200]);
+        $screenshot = Screenshot::create(['audit_id' => $audit->id, 'audit_page_id' => $page->id, 'viewport' => 'desktop', 'width' => 1366, 'height' => 900, 'storage_path' => 'screenshots/1/1/desktop.png']);
+
+        $audit->delete();
+
+        $this->assertNull(Screenshot::find($screenshot->id));
+    }
+
+    public function test_deleting_an_audit_issue_cascades_to_its_issue_pages_pivot_rows(): void
+    {
+        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
+        $page = AuditPage::create(['audit_id' => $audit->id, 'url' => 'https://example.com/', 'http_status' => 200]);
+        $issue = AuditIssue::create(['audit_id' => $audit->id, 'category' => 'seo', 'severity' => 'medium', 'code' => 'seo.test', 'message' => 'x']);
+        $issue->pages()->attach($page->id);
+
+        $issue->delete();
+
+        $this->assertSame(0, DB::table('issue_pages')->where('audit_page_id', $page->id)->count());
+    }
+
+    public function test_deleting_a_page_cascades_to_its_issue_pages_pivot_rows(): void
+    {
+        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
+        $page = AuditPage::create(['audit_id' => $audit->id, 'url' => 'https://example.com/', 'http_status' => 200]);
+        $issue = AuditIssue::create(['audit_id' => $audit->id, 'category' => 'seo', 'severity' => 'medium', 'code' => 'seo.test', 'message' => 'x']);
+        $issue->pages()->attach($page->id);
+
+        $page->delete();
+
+        $this->assertSame(0, DB::table('issue_pages')->where('audit_issue_id', $issue->id)->count());
     }
 }

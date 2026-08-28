@@ -13,7 +13,7 @@ use Symfony\Component\Process\Process;
  */
 class PlaywrightCrawlerClient
 {
-    public function crawl(string $url, ?string $screenshotAbsolutePath = null): CrawledPageData
+    public function crawl(string $url, ?string $screenshotAbsoluteDir = null): CrawledPageData
     {
         $args = [
             config('crawler.node_binary'),
@@ -24,8 +24,8 @@ class PlaywrightCrawlerClient
             '--user-agent='.config('crawler.user_agent'),
         ];
 
-        if ($screenshotAbsolutePath !== null) {
-            $args[] = "--screenshot-path={$screenshotAbsolutePath}";
+        if ($screenshotAbsoluteDir !== null) {
+            $args[] = "--screenshot-dir={$screenshotAbsoluteDir}";
         }
 
         $process = new Process($args, timeout: config('crawler.page_timeout') + 15);

@@ -7,6 +7,7 @@ use App\Models\AiAnalysis;
 use App\Models\ApiProvider;
 use App\Models\ApiUsageLog;
 use App\Models\Audit;
+use App\Models\Plan;
 use App\Models\Website;
 use App\Services\AI\AiAnalysisService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -117,6 +118,31 @@ class AiAnalysisServiceTest extends TestCase
 
         $this->assertSame(1, ApiUsageLog::count());
         $this->assertFalse(ApiUsageLog::first()->success);
+    }
+
+    /**
+     * When a real plan exists but allows no usable AI model (e.g. every
+     * provider is disabled, matching this app's actual dev-environment
+     * state), the category must be recorded as visibly AI-unavailable —
+     * not silently skipped with no trace, which would be indistinguishable
+     * from "nothing was ever attempted" and could be mistaken for an AI
+     * score having quietly been fabricated from nothing.
+     */
+    public function test_no_plan_allowed_model_records_an_error_row_instead_of_being_silent(): void
+    {
+        ApiProvider::where('slug', 'claude')->update(['is_enabled' => false]);
+        $plan = Plan::create(['name' => 'Restricted', 'slug' => 'restricted', 'max_pages' => 25, 'daily_audit_limit' => 5, 'is_default' => true, 'is_active' => true]);
+        // No ai_models attached to $plan at all.
+
+        $audit = $this->makeAudit();
+        $result = app(AiAnalysisService::class)->analyze($audit, AuditCategory::Seo, 'Analyze this', ['page' => 'a']);
+
+        $this->assertNull($result);
+        $this->assertSame(1, AiAnalysis::count());
+        $analysis = AiAnalysis::first();
+        $this->assertNotNull($analysis->error);
+        $this->assertSame('unavailable', $analysis->provider);
+        $this->assertSame(0, ApiUsageLog::count(), 'no provider was ever chosen, so there is nothing to attribute a usage-log row to');
     }
 
     public function test_analysis_is_skipped_once_the_daily_limit_is_reached(): void

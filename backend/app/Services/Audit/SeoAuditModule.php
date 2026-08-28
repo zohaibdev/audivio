@@ -21,14 +21,14 @@ class SeoAuditModule implements AuditModule
     public function run(Audit $audit): AuditModuleResult
     {
         $pages = $audit->pages;
-        $issues = [];
+        $perPageIssues = [];
 
         $urlStatusMap = $pages->pluck('http_status', 'url');
         $titlesSeen = [];
 
         foreach ($pages as $page) {
-            $issues = array_merge(
-                $issues,
+            $perPageIssues = array_merge(
+                $perPageIssues,
                 $this->checkTitle($page),
                 $this->checkMetaDescription($page),
                 $this->checkCanonical($page),
@@ -43,7 +43,16 @@ class SeoAuditModule implements AuditModule
             }
         }
 
-        $issues = array_merge($issues, $this->checkDuplicateTitles($titlesSeen));
+        // Site-wide by construction (already grouped by title, not by
+        // page), so it bypasses the per-page aggregator below.
+        $duplicateTitleIssues = $this->checkDuplicateTitles($titlesSeen);
+
+        // Collapses e.g. 24 near-identical "missing meta description"
+        // findings (one per page) into a single site-wide issue with an
+        // affected-pages list — see PerPageIssueAggregator's docblock for
+        // why this is necessary for the score to mean anything on a
+        // multi-page site.
+        $issues = array_merge(PerPageIssueAggregator::aggregate($perPageIssues), $duplicateTitleIssues);
 
         [$score, $breakdown] = ScoreCalculator::deductPoints($issues);
 
@@ -57,7 +66,7 @@ class SeoAuditModule implements AuditModule
             return [new AuditIssueData(
                 severity: IssueSeverity::Critical,
                 code: 'seo.missing_title',
-                message: "Page has no <title> tag: {$page->url}",
+                message: "Page is missing a <title> tag: {$page->url}",
                 recommendation: 'Add a unique, descriptive <title> tag between '.config('audit_scoring.seo.title_min_length').' and '.config('audit_scoring.seo.title_max_length').' characters.',
                 auditPageId: $page->id,
                 meta: ['url' => $page->url],
@@ -72,7 +81,7 @@ class SeoAuditModule implements AuditModule
             return [new AuditIssueData(
                 severity: IssueSeverity::Low,
                 code: 'seo.title_length',
-                message: "Title length ({$length} chars) is outside the recommended {$min}-{$max} range: {$page->url}",
+                message: "Title length is outside the recommended {$min}-{$max} character range: {$page->url}",
                 recommendation: "Adjust the title to between {$min} and {$max} characters.",
                 auditPageId: $page->id,
                 meta: ['url' => $page->url, 'length' => $length],
@@ -89,7 +98,7 @@ class SeoAuditModule implements AuditModule
             return [new AuditIssueData(
                 severity: IssueSeverity::High,
                 code: 'seo.missing_meta_description',
-                message: "Page has no meta description: {$page->url}",
+                message: "Page is missing a meta description: {$page->url}",
                 recommendation: 'Add a unique meta description summarizing the page content.',
                 auditPageId: $page->id,
                 meta: ['url' => $page->url],
@@ -104,7 +113,7 @@ class SeoAuditModule implements AuditModule
             return [new AuditIssueData(
                 severity: IssueSeverity::Low,
                 code: 'seo.meta_description_length',
-                message: "Meta description length ({$length} chars) is outside the recommended {$min}-{$max} range: {$page->url}",
+                message: "Meta description length is outside the recommended {$min}-{$max} character range: {$page->url}",
                 auditPageId: $page->id,
                 meta: ['url' => $page->url, 'length' => $length],
             )];
@@ -120,7 +129,7 @@ class SeoAuditModule implements AuditModule
             return [new AuditIssueData(
                 severity: IssueSeverity::Medium,
                 code: 'seo.missing_canonical',
-                message: "Page has no canonical URL: {$page->url}",
+                message: "Page is missing a canonical URL: {$page->url}",
                 recommendation: 'Add a <link rel="canonical"> tag to avoid duplicate-content ambiguity.',
                 auditPageId: $page->id,
                 meta: ['url' => $page->url],
@@ -139,7 +148,7 @@ class SeoAuditModule implements AuditModule
             return [new AuditIssueData(
                 severity: IssueSeverity::Medium,
                 code: 'seo.missing_h1',
-                message: "Page has no H1 heading: {$page->url}",
+                message: "Page is missing an H1 heading: {$page->url}",
                 auditPageId: $page->id,
                 meta: ['url' => $page->url],
             )];
@@ -247,7 +256,7 @@ class SeoAuditModule implements AuditModule
                     code: 'seo.duplicate_title',
                     message: count($urls)." pages share the title \"{$title}\"",
                     recommendation: 'Give each page a unique, descriptive title.',
-                    meta: ['title' => $title, 'urls' => array_slice($urls, 0, 10)],
+                    meta: ['title' => $title, 'urls' => array_slice($urls, 0, 10), 'affected_pages' => array_slice($urls, 0, 10), 'affected_page_count' => count($urls)],
                 );
             }
         }

@@ -12,6 +12,7 @@ class AuditScore extends Model
         'audit_id',
         'category',
         'score',
+        'is_applicable',
         'breakdown',
     ];
 
@@ -19,6 +20,7 @@ class AuditScore extends Model
     {
         return [
             'category' => AuditCategory::class,
+            'is_applicable' => 'boolean',
             'breakdown' => 'array',
         ];
     }

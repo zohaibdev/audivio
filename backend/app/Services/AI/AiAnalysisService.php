@@ -57,10 +57,23 @@ class AiAnalysisService
                 'category' => $category->value,
             ]);
 
-            // No provider was ever selected here, so there is nothing to
+            // No provider was ever selected, so there's nothing to
             // attribute an api_usage_logs row to (that table's `provider`
-            // column is required) — unlike exceedsConfiguredLimits() below,
-            // which already has a specific provider in hand.
+            // column is required and means "a specific provider was
+            // called") — but the *category* must still show as visibly
+            // AI-unavailable rather than silently having no record at
+            // all, so the report can say so instead of just omitting the
+            // AI-derived findings without explanation.
+            AiAnalysis::updateOrCreate(
+                ['audit_id' => $audit->id, 'category' => $category->value, 'context_hash' => $contextHash],
+                [
+                    'provider' => 'unavailable',
+                    'context' => $context,
+                    'prompt' => $prompt,
+                    'error' => 'No AI model configured/enabled is allowed by the current plan.',
+                ],
+            );
+
             return null;
         }
 

@@ -7,7 +7,6 @@ use App\DTOs\AuditIssueData;
 use App\DTOs\AuditModuleResult;
 use App\Enums\AuditCategory;
 use App\Enums\IssueSeverity;
-use App\Enums\PlatformName;
 use App\Models\Audit;
 use App\Services\AI\AiAnalysisService;
 
@@ -15,6 +14,7 @@ class EcommerceAuditModule implements AuditModule
 {
     public function __construct(
         private readonly AiAnalysisService $ai,
+        private readonly EcommerceDetector $detector,
     ) {}
 
     public function category(): AuditCategory
@@ -24,20 +24,28 @@ class EcommerceAuditModule implements AuditModule
 
     public function run(Audit $audit): AuditModuleResult
     {
-        $pageContexts = PageContextSummarizer::summarizePages($audit);
+        $detection = $this->detector->detect($audit);
 
+        // Not enough evidence this is actually an ecommerce site — report
+        // Not Applicable rather than running (and scoring) checks against
+        // a site that sells nothing. No score, no issues, no ecommerce
+        // recommendations for a site like a ministry/nonprofit whose
+        // "Checkout" button is for event tickets, not products.
+        if (! $detection->isEcommerce) {
+            return new AuditModuleResult(
+                category: $this->category(),
+                score: null,
+                isApplicable: false,
+                notApplicableReason: 'No sufficient ecommerce signals detected (confidence: '.$detection->confidence.').',
+                detectionEvidence: $detection->signals,
+            );
+        }
+
+        $pageContexts = PageContextSummarizer::summarizePages($audit);
         $hasProductSchema = collect($pageContexts)->contains(fn ($p) => in_array('Product', $p['structured_data_types']));
         $hasPurchaseCta = collect($pageContexts)->contains(fn ($p) => collect($p['cta_texts'])->contains(
             fn ($text) => preg_match('/\b(buy|add to cart|checkout|shop now)\b/i', $text)
         ));
-
-        // Only an ecommerce audit if the site actually shows commerce
-        // signals — otherwise there's nothing for this module to say.
-        $looksLikeEcommerce = $hasProductSchema || $hasPurchaseCta || $audit->website->platform === PlatformName::Shopify;
-
-        if (! $looksLikeEcommerce) {
-            return new AuditModuleResult(category: $this->category(), score: 100, issues: [], breakdown: []);
-        }
 
         $issues = [];
 
@@ -72,7 +80,13 @@ class EcommerceAuditModule implements AuditModule
 
         [$score, $breakdown] = ScoreCalculator::deductPoints($issues);
 
-        return new AuditModuleResult(category: $this->category(), score: $score, issues: $issues, breakdown: $breakdown);
+        return new AuditModuleResult(
+            category: $this->category(),
+            score: $score,
+            issues: $issues,
+            breakdown: $breakdown,
+            detectionEvidence: $detection->signals,
+        );
     }
 
     private function buildPrompt(): string

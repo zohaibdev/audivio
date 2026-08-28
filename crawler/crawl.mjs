@@ -9,6 +9,13 @@ const axeCorePath = require.resolve('axe-core/axe.min.js');
 
 class CrawlFailure extends Error {}
 
+// Must match App\Enums\ScreenshotViewport on the PHP side — both capture
+// (here) and storage metadata (Screenshot model) need the same consistent
+// dimensions for screenshots to be comparable page to page and audit to
+// audit.
+const DESKTOP_VIEWPORT = { width: 1366, height: 900 };
+const MOBILE_VIEWPORT = { width: 390, height: 844 };
+
 function parseArgs(argv) {
   const args = {};
   for (const arg of argv) {
@@ -18,11 +25,24 @@ function parseArgs(argv) {
   return args;
 }
 
+// A screenshot failure (e.g. a page that hangs mid-render) must not fail
+// the whole page crawl — it's an enhancement on top of the base
+// extraction, not required, same contract as the accessibility scan below.
+async function captureScreenshot(page, path) {
+  try {
+    await page.screenshot({ path, fullPage: false });
+
+    return path;
+  } catch {
+    return null;
+  }
+}
+
 async function run() {
   const args = parseArgs(process.argv.slice(2));
   const url = args.url;
   const pageTimeoutMs = Number(args.timeout ?? 30) * 1000;
-  const screenshotPath = args['screenshot-path'] || null;
+  const screenshotDir = args['screenshot-dir'] || null;
   const maxFileSizeBytes = Number(args['max-file-size-mb'] ?? 10) * 1024 * 1024;
 
   if (!url) throw new CrawlFailure('Missing required --url argument');
@@ -44,7 +64,7 @@ async function run() {
 
   try {
     const context = await browser.newContext({
-      viewport: { width: 1366, height: 900 },
+      viewport: DESKTOP_VIEWPORT,
       userAgent: args['user-agent'] || 'AudivioBot/1.0 (+https://audivio.example/bot)',
     });
     const page = await context.newPage();
@@ -111,8 +131,19 @@ async function run() {
       accessibilityViolations = null;
     }
 
-    if (screenshotPath) {
-      await page.screenshot({ path: screenshotPath, fullPage: false });
+    // Desktop viewport is already active from context creation — capture
+    // it first, then resize in-place for mobile rather than re-navigating
+    // (a second full page load per page would double crawl time/cost for
+    // no benefit, since the DOM/extraction already happened above and
+    // doesn't need to be redone per viewport).
+    let screenshotDesktopPath = null;
+    let screenshotMobilePath = null;
+
+    if (screenshotDir) {
+      screenshotDesktopPath = await captureScreenshot(page, `${screenshotDir}/desktop.png`);
+
+      await page.setViewportSize(MOBILE_VIEWPORT);
+      screenshotMobilePath = await captureScreenshot(page, `${screenshotDir}/mobile.png`);
     }
 
     return {
@@ -121,7 +152,8 @@ async function run() {
       headers: response.headers(),
       redirectChain,
       loadTimeMs,
-      screenshotPath,
+      screenshotDesktopPath,
+      screenshotMobilePath,
       accessibilityViolations,
       ...extracted,
     };

@@ -90,4 +90,17 @@ return [
     | (never raw HTML) to control both token cost and prompt size.
     */
     'ai_context_pages' => (int) env('AUDIT_AI_CONTEXT_PAGES', 5),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Ecommerce detection
+    |--------------------------------------------------------------------------
+    | Minimum weighted signal score (see EcommerceDetector) before a site is
+    | treated as ecommerce at all. Below this, the category is reported as
+    | Not Applicable rather than running deterministic/AI ecommerce checks
+    | against a site that isn't selling anything.
+    */
+    'ecommerce' => [
+        'min_confidence_score' => 3,
+    ],
 ];

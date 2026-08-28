@@ -25,28 +25,54 @@ class DatabaseMigrationTest extends TestCase
         }
     }
 
-    public function test_rolling_back_the_last_migration_drops_its_table_and_remigrating_restores_it(): void
+    public function test_rolling_back_the_last_migration_reverses_it_and_remigrating_restores_the_schema(): void
     {
         // Deliberately doesn't hardcode which table the last migration
-        // creates — that changes every time a migration is added — and
-        // instead compares the full table set before/after, so this stays
-        // valid as the schema grows.
+        // touches, or assume it creates a whole table rather than altering
+        // one (several migrations in this schema only add/drop a column,
+        // e.g. add_is_active_to_plans_table, add_is_applicable_to_audit_scores_table)
+        // — instead compares full table *and* column state before/after,
+        // so this stays valid regardless of what kind of change is last.
         Artisan::call('migrate:fresh', ['--force' => true]);
-        $before = Schema::getTableListing();
+        $tablesBefore = Schema::getTableListing();
+        $columnsBefore = $this->columnFingerprint($tablesBefore);
 
         $rollbackExitCode = Artisan::call('migrate:rollback', ['--step' => 1, '--force' => true]);
         $this->assertSame(0, $rollbackExitCode);
 
-        $afterRollback = Schema::getTableListing();
-        $this->assertLessThan(count($before), count($afterRollback), 'Rolling back one migration should drop at least one table');
+        $tablesAfterRollback = Schema::getTableListing();
+        $columnsAfterRollback = $this->columnFingerprint(array_intersect($tablesBefore, $tablesAfterRollback));
+        $this->assertNotSame(
+            [$tablesBefore, $columnsBefore],
+            [$tablesAfterRollback, $columnsAfterRollback],
+            'Rolling back the last migration should change the schema somehow — either a table or a column',
+        );
 
         $migrateExitCode = Artisan::call('migrate', ['--force' => true]);
         $this->assertSame(0, $migrateExitCode);
 
-        $afterRemigrate = Schema::getTableListing();
-        sort($before);
-        sort($afterRemigrate);
-        $this->assertSame($before, $afterRemigrate, 'Re-running migrate should restore the exact same set of tables');
+        $tablesAfterRemigrate = Schema::getTableListing();
+        sort($tablesBefore);
+        sort($tablesAfterRemigrate);
+        $this->assertSame($tablesBefore, $tablesAfterRemigrate, 'Re-running migrate should restore the exact same set of tables');
+        $this->assertSame($columnsBefore, $this->columnFingerprint($tablesAfterRemigrate), 'Re-running migrate should restore the exact same columns');
+    }
+
+    /**
+     * @param  string[]  $tables
+     * @return array<string, string[]>
+     */
+    private function columnFingerprint(array $tables): array
+    {
+        $fingerprint = [];
+        foreach ($tables as $table) {
+            $columns = Schema::getColumnListing($table);
+            sort($columns);
+            $fingerprint[$table] = $columns;
+        }
+        ksort($fingerprint);
+
+        return $fingerprint;
     }
 
     public function test_rolling_back_every_migration_drops_every_application_table(): void
@@ -75,6 +101,8 @@ class DatabaseMigrationTest extends TestCase
             'reports', 'plans', 'subscriptions', 'usage_logs',
             'leads', 'lead_activities', 'cms_pages', 'cms_sections',
             'audit_schedules', 'api_providers', 'api_usage_logs', 'personal_access_tokens',
+            'features', 'plan_features', 'ai_models', 'plan_ai_models',
+            'screenshots', 'issue_pages',
         ];
     }
 }

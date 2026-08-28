@@ -60,7 +60,7 @@ class RunAuditModuleJob implements ShouldQueue
                 ->delete();
 
             foreach ($result->issues as $issue) {
-                AuditIssue::create([
+                $created = AuditIssue::create([
                     'audit_id' => $this->audit->id,
                     'audit_page_id' => $issue->auditPageId,
                     'category' => $result->category,
@@ -70,11 +70,15 @@ class RunAuditModuleJob implements ShouldQueue
                     'recommendation' => $issue->recommendation,
                     'meta' => $issue->meta,
                 ]);
+
+                if ($issue->affectedPageIds !== []) {
+                    $created->pages()->sync($issue->affectedPageIds);
+                }
             }
 
             AuditScore::updateOrCreate(
                 ['audit_id' => $this->audit->id, 'category' => $result->category->value],
-                ['score' => $result->score, 'breakdown' => $result->breakdown],
+                ['score' => $result->score, 'is_applicable' => $result->isApplicable, 'breakdown' => $result->breakdown],
             );
         });
 

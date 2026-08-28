@@ -21,7 +21,7 @@ class AccessibilityAuditModule implements AuditModule
         $impactMap = config('audit_scoring.accessibility.impact_severity_map');
         $maxScored = config('audit_scoring.accessibility.max_scored_violations');
 
-        /** @var array<string, array{impact: string, description: string, help: string, helpUrl: string, pages: array, nodeCount: int}> $byRule */
+        /** @var array<string, array{impact: string, description: string, help: string, helpUrl: string, pages: array, pageIds: array, nodeCount: int}> $byRule */
         $byRule = [];
 
         foreach ($audit->pages as $page) {
@@ -40,6 +40,7 @@ class AccessibilityAuditModule implements AuditModule
                         'help' => $violation['help'] ?? '',
                         'helpUrl' => $violation['helpUrl'] ?? '',
                         'pages' => [],
+                        'pageIds' => [],
                         'nodeCount' => 0,
                     ];
                 }
@@ -49,6 +50,7 @@ class AccessibilityAuditModule implements AuditModule
                 }
 
                 $byRule[$ruleId]['pages'][] = $page->url;
+                $byRule[$ruleId]['pageIds'][] = $page->id;
                 $byRule[$ruleId]['nodeCount'] += $violation['nodeCount'] ?? 0;
             }
         }
@@ -60,17 +62,23 @@ class AccessibilityAuditModule implements AuditModule
         $issues = [];
         foreach ($byRule as $ruleId => $data) {
             $severity = IssueSeverity::from($impactMap[$data['impact']] ?? 'medium');
+            $pageIds = array_values(array_unique($data['pageIds']));
 
             $issues[] = new AuditIssueData(
                 severity: $severity,
                 code: "axe.{$ruleId}",
                 message: $data['help'] !== '' ? $data['help'] : $data['description'],
                 recommendation: $data['helpUrl'],
+                // A rule violated on exactly one page still links directly
+                // via audit_page_id (consistent with every other module),
+                // rather than only through the issue_pages pivot.
+                auditPageId: count($pageIds) === 1 ? $pageIds[0] : null,
                 meta: [
                     'affected_pages' => array_slice(array_unique($data['pages']), 0, 10),
                     'affected_page_count' => count(array_unique($data['pages'])),
                     'node_count' => $data['nodeCount'],
                 ],
+                affectedPageIds: count($pageIds) > 1 ? $pageIds : [],
             );
         }
 

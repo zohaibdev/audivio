@@ -64,4 +64,9 @@ class Audit extends Model
     {
         return $this->hasOne(Report::class);
     }
+
+    public function screenshots(): HasMany
+    {
+        return $this->hasMany(Screenshot::class);
+    }
 }

@@ -41,8 +41,11 @@ class ScoreCalculator
 
     /**
      * Weighted average of category scores, renormalized over only the
-     * categories that actually ran for this audit — so an audit that
-     * hasn't run every module yet still gets a fair overall score.
+     * categories that actually ran *and are applicable* for this audit —
+     * so an audit that hasn't run every module yet, or has a category a
+     * module determined doesn't apply (e.g. Ecommerce with no commerce
+     * signals, is_applicable=false, score=null), still gets a fair overall
+     * score instead of a Not Applicable category silently counting as 0.
      */
     public function calculateOverall(Collection $categoryScores): int
     {
@@ -53,6 +56,10 @@ class ScoreCalculator
 
         foreach ($categoryScores as $categoryScore) {
             /** @var AuditScore $categoryScore */
+            if (! $categoryScore->is_applicable || $categoryScore->score === null) {
+                continue;
+            }
+
             $weight = $weights[$categoryScore->category->value] ?? 0;
             $totalWeight += $weight;
             $weightedSum += $weight * $categoryScore->score;

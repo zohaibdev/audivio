@@ -191,9 +191,11 @@ boilerplate. `Builder::defaultStringLength(191)` is set in
 | `audits` | website_id, user_id (nullable), status, max_pages, pages_crawled, error_message, started_at, completed_at | `belongsTo` website/user; `hasOne` crawlJob; `hasMany` pages, issues, scores |
 | `crawl_jobs` | audit_id, status, total_urls, processed_urls, failed_urls | `belongsTo` audit; `hasMany` urls |
 | `crawl_urls` | crawl_job_id, url, status, http_status, depth, discovered_via | `belongsTo` crawlJob |
-| `audit_pages` | audit_id, crawl_url_id (nullable), url, http_status, title, meta_description, canonical_url, redirect_chain (json), headings/links/images/forms/structured_data/cta_elements (json), accessibility_violations (json), performance_metrics (json), screenshot_path, html_size_bytes, load_time_ms | `belongsTo` audit, crawlUrl; `hasMany` issues |
-| `audit_issues` | audit_id, audit_page_id (nullable), category, severity, code, message, recommendation, meta (json) | `belongsTo` audit, auditPage |
-| `audit_scores` | audit_id, category (unique per audit incl. `overall`), score, breakdown (json) | `belongsTo` audit |
+| `audit_pages` | audit_id, crawl_url_id (nullable), url, http_status, title, meta_description, canonical_url, redirect_chain (json), headings/links/images/forms/structured_data/cta_elements (json), accessibility_violations (json), performance_metrics (json), html_size_bytes, load_time_ms | `belongsTo` audit, crawlUrl; `hasMany` issues (single-page only, see `issue_pages`), screenshots; `belongsToMany` issues (multi-page, via `issue_pages`) — see §34 |
+| `audit_issues` | audit_id, audit_page_id (nullable — null for a multi-page issue, see `issue_pages`), category, severity, code, message, recommendation, meta (json) | `belongsTo` audit, auditPage; `belongsToMany` pages (via `issue_pages`) |
+| `issue_pages` | audit_issue_id, audit_page_id; unique `(audit_issue_id, audit_page_id)` | `belongsTo` (implicitly, via the pivot) — real bidirectional issue↔page relation for an issue spanning more than one page, §34 |
+| `audit_scores` | audit_id, category (unique per audit incl. `overall`), score (nullable), is_applicable (default true), breakdown (json) | `belongsTo` audit — `score=null, is_applicable=false` means "Not Applicable," never a fabricated number, §34 |
+| `screenshots` | audit_id, audit_page_id, viewport (`desktop`\|`mobile`), width, height, storage_path; unique `(audit_page_id, viewport)` | `belongsTo` audit, auditPage — §34 |
 | `ai_analyses` | audit_id, category, provider, context_hash, context (json), prompt, response, prompt_tokens, completion_tokens, error | `belongsTo` audit; unique `(audit_id, category, context_hash)` — the cache key |
 | `reports` | audit_id (unique), content (json — always the FULL report; visibility is a read-time filter, not stored), generated_at | `belongsTo` audit |
 | `plans` | name, slug (unique), price_cents, max_pages, daily_audit_limit, full_recrawls, is_default, is_active, features (json — unrelated pdf_export/scheduled_audits/audit_history perks, see §33) | `hasMany` subscriptions; `belongsToMany` features (via `plan_features`), aiModels (via `plan_ai_models`) |
@@ -1669,6 +1671,178 @@ module for `product_auditor` (a new audit engine is separate scope from
 plan/feature *governance*); no true concurrent multi-model dispatch per
 provider (an AI-infrastructure change beyond this task, see §29's
 architectural-constraint note).
+
+## 34. Audit scoring accuracy, ecommerce detection, and page-level issue/screenshot architecture
+
+A real audit run against a live, real-world site
+(`beautifulashesministries.org`, a nonprofit ministry — not the kind of
+synthetic fixture the existing unit tests used) surfaced bugs the unit
+suite's flawless-page/single-page fixtures never exercised: `seo`/
+`performance` scoring at 0 on a perfectly normal multi-page site, and a
+false-positive Ecommerce score on a site that sells nothing. Fixed by
+inspecting real production data first (per this task's own "accuracy
+over score" instruction), not by trusting the bug report's claims at
+face value — one of the two claimed ecommerce false positives was
+initially "fixed" incompletely and only caught by re-running the same
+real audit again after the fix, see below.
+
+**Root cause of the SEO/Performance zero-score bug**: `SeoAuditModule`
+and `PerformanceAuditModule` raised one `AuditIssue` *per page* for a
+structural, site-wide problem (e.g. "missing meta description" on every
+page of a 25-page site) — 25 near-identical "high" severity deductions
+(250 points) floors a 100-point score at 0 regardless of how the site
+actually looks. `AccessibilityAuditModule` already had this right
+(aggregates by axe rule ID, `config('audit_scoring.accessibility.max_scored_violations')`
+caps deductions) — Seo/Performance just never got the same treatment.
+
+**`App\Services\Audit\PerPageIssueAggregator`** is the fix, extracted so
+both modules (and any future one) share it rather than duplicating the
+aggregation logic: given an array of per-page `AuditIssueData` findings
+(one per page, codes may repeat), it collapses same-code findings into
+one issue. A code with exactly one occurrence passes through unchanged
+(keeps its own `audit_page_id` and `meta`); two or more become one
+issue with `audit_page_id = null` and `meta.affected_pages`/
+`affected_page_count`, mirroring the pattern `AccessibilityAuditModule`
+already used for axe violations. Each check method in
+`SeoAuditModule`/`PerformanceAuditModule` was changed to move any
+page-varying number (length, count, hops, broken-link list) out of its
+message string and into `meta`, so a message reads the same whether
+aggregated or not (`PerPageIssueAggregator::withPageCount()` just strips
+the trailing `": {$url}"` convention every check method's message
+follows and appends `"(N pages affected)"`).
+
+**Ecommerce false-positive detection** (`App\Services\Audit\EcommerceDetector`):
+replaces a single loose regex (`/\b(buy|add to cart|checkout|shop now)\b/i`
+against any CTA text) with a weighted, multi-signal confidence score —
+Product structured data (3, strong), Shopify/WooCommerce platform (3),
+an "add to cart"-specific CTA (3), price/SKU in structured data (2), a
+cart/checkout-shaped *link path* (1, weak), 2+ pages matching a
+product/shop URL pattern (1, weak), a generic transaction-adjacent CTA
+word like "buy"/"checkout" alone (1, weak). `EcommerceAuditModule` only
+runs its deterministic/AI checks when the weighted score clears
+`config('audit_scoring.ecommerce.min_confidence_score')` (default 3);
+below that, it returns `isApplicable: false, score: null` — Not
+Applicable, never a fabricated 100 *or* a fabricated positive score.
+**The cart/checkout-link signal was originally weighted 2 (medium), not
+1** — a first pass at this fix still produced a false positive on the
+same real ministry site, because its event-ticket order flow has both a
+`/tickets/checkout/`-shaped link (weight 2) and a generic "Checkout" CTA
+(weight 1), summing to 3 with zero actual product evidence anywhere on
+the site. Caught only by re-running the *same* real audit after the
+first fix and inspecting the actual detection signals
+(`EcommerceDetector::detect()->signals`) — lowered to weight 1 (as
+ambiguous as the generic-CTA-text signal it sits next to) after that.
+Both false positives are now regression tests
+(`EcommerceAuditModuleTest::test_a_lone_generic_checkout_cta_does_not_trigger_ecommerce_detection`
+and `test_a_checkout_link_plus_a_generic_cta_alone_does_not_trigger_ecommerce_detection`).
+
+**"Not Applicable" as a first-class state, not a fabricated score**:
+`audit_scores.score` is nullable, with a new `is_applicable` boolean
+(default true). `AuditModuleResult` gained `?int $score` (nullable),
+`bool $isApplicable = true`, `?string $notApplicableReason`, and
+`string[] $detectionEvidence` (the signals behind an applicability
+decision, for report transparency). `ScoreCalculator::calculateOverall()`
+excludes any `is_applicable = false` (or `score === null`) row from
+both the weighted sum and the denominator — a Not Applicable category
+never silently counts as 0 or drags down the overall score, per this
+task's explicit "do not include Not Applicable categories in the
+denominator" rule. `RunAuditModuleJob`'s "are all modules done yet"
+check needed no change: a Not Applicable category still gets an
+`audit_scores` row (just with `score = null`), so it still counts as
+"this category finished" — only the *value* changed, not whether a row
+exists.
+
+**AI-unavailable visibility** (a regression introduced by §33's own
+`PlanAiModelResolver` work, caught while re-verifying against this
+task's "AI provider unavailable" requirement): when no plan-allowed AI
+model is usable, `AiAnalysisService::analyze()` previously returned
+`null` with **no record anywhere** — indistinguishable from "nothing
+was ever attempted," which could read as an AI score having quietly
+been fabricated from nothing rather than an explicit unavailable state.
+Now writes an `ai_analyses` row with `provider: 'unavailable'` and a
+descriptive `error`, same as every other failure path — still writes
+**no** `api_usage_logs` row, since no provider was ever chosen and that
+table's `provider` column means "a specific provider was actually
+called."
+
+**AI cannot invent a numeric score, architecturally, not just by
+convention**: every AI-driven module (`Ecommerce`/`LandingPage`/
+`Conversion`/`Aio`) only ever lets AI contribute *issues* (via
+`AiIssueParser`, each with a severity), which then feed
+`ScoreCalculator::deductPoints()` — the same deterministic
+severity-points formula every other module uses. There is no code path
+where an AI response's text is parsed as or mapped directly to a
+numeric score. `ConversionAuditModule`/`LandingPageAuditModule` have
+deliberately narrow deterministic checks (form-friction count; CTA/
+headline presence) — with AI unavailable, a site with none of those
+specific problems legitimately scores 100 with zero issues, which is
+accurate for what was actually checked, not fabricated; it is a
+*narrow* audit, not a *fake* one. Building out a richer deterministic
+CRO/AIO checklist (the product spec names ~15 more signals per
+category) was explicitly scoped out of this pass by the user.
+
+**Screenshot capture** (`crawler/crawl.mjs`, `App\Enums\ScreenshotViewport`,
+`App\Models\Screenshot`): the crawler already took one desktop-viewport
+screenshot per page (`--screenshot-path`, 1366×900) — extended to
+capture **both** desktop and mobile (390×844) from the *same* page load
+by resizing the Playwright viewport in place after the desktop
+screenshot rather than re-navigating (`page.setViewportSize()` + a
+second `page.screenshot()`), avoiding doubling crawl time/cost per
+page. `--screenshot-dir` replaces `--screenshot-path`; the subprocess
+writes `{dir}/desktop.png` and `{dir}/mobile.png`. Each viewport capture
+is independently wrapped in try/catch (`captureScreenshot()`) — a
+failure on one (or both) doesn't fail the page crawl, matching the same
+graceful-degradation contract as the accessibility scan. `CrawlOrchestrator::storeScreenshot()`
+only creates a `Screenshot` row when a path came back non-null, so a
+failed capture is simply absent rather than a row pointing at a
+nonexistent file. The old `audit_pages.screenshot_path` column was
+dropped (verified nothing read it — no report/frontend code had been
+built against it yet) in favor of the dedicated `screenshots` table,
+which is the right shape for "up to two rows per page" the way a single
+column column isn't.
+
+**Real bug found only by inspecting a live audit's actual stored data**
+(not by any test, since every existing test fakes the storage disk with
+a consistent path separator throughout): `CrawlOrchestrator::toPublicPath()`
+normalized backslashes to forward slashes *before* attempting to strip
+the disk's base path — on Windows, the base path (still
+backslash-separated) then no longer matched anywhere in the
+already-normalized string, so the full absolute filesystem path
+(`C:\Users\...\storage\app\public\screenshots\...`) was stored in
+`screenshots.storage_path` instead of the intended relative one
+(`screenshots/9/homepage/desktop.png`). Fixed by stripping the base path
+first, then normalizing separators. Now covered by
+`CrawlAndAnalyzePipelineTest::test_screenshot_storage_paths_are_stored_relative_to_the_public_disk_not_as_absolute_paths`,
+which asserts the exact relative path rather than merely "some string
+came back."
+
+**Issue↔page relational model** (`issue_pages` pivot,
+`AuditIssue::pages()`, `AuditPage::multiPageIssues()`,
+`AuditPage::allIssues()`): supersedes an earlier decision from earlier
+the same day to extend the JSON-blob (`meta.affected_pages`) approach
+instead of building a relational table — reopened once this task's
+explicit requirement ("issues must be queryable by page and pages must
+be queryable by issue") made clear that a JSON blob can't do
+bidirectional queries without a full table scan. `PerPageIssueAggregator`
+and `AccessibilityAuditModule` now populate `AuditIssueData::$affectedPageIds`
+for a multi-page issue, and `RunAuditModuleJob` syncs those into
+`issue_pages` after creating the `AuditIssue` row. **The
+`meta.affected_pages`/`affected_page_count` JSON fields were kept, not
+removed** — they're a cheap, already-tested display convenience (no
+join needed to render "5 pages affected" in a list), while the pivot is
+now the canonical source for anything that needs to actually query by
+page or by issue (the page explorer's per-page issue list, filtering,
+search — deferred to a later pass, see below). A single-page issue
+still just uses `audit_page_id` directly, as before — no pivot row for
+that case.
+
+**Scope deliberately not covered here** (per explicit user sequencing —
+"start with data model + screenshots, report back before building the 7
+report UIs"): the seven per-service report UIs, the GTmetrix/PageSpeed-
+style performance report (Core Web Vitals, mobile-first opportunities/
+diagnostics), per-service PDF generation, the page explorer, and the
+frontend dashboard redesign are all still open — this pass only
+establishes the data model and capture pipeline they'll be built on.
 
 ---
 

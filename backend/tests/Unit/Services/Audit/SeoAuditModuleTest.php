@@ -176,6 +176,39 @@ class SeoAuditModuleTest extends TestCase
         $this->assertSame(2, $duplicateIssues->first()->meta['urls'] ? count($duplicateIssues->first()->meta['urls']) : 0);
     }
 
+    public function test_the_same_issue_on_every_page_is_aggregated_into_one_and_does_not_zero_the_score(): void
+    {
+        $audit = $this->makeAudit();
+
+        // 25 pages, every single one missing a meta description (High,
+        // 10pts) — before aggregation this was 25 separate deductions
+        // (250pts), flooring the score at 0 regardless of anything else
+        // about the site. This is the bug behind a real production audit
+        // scoring `seo: 0` on an otherwise-fine 25-page site.
+        for ($i = 0; $i < 25; $i++) {
+            AuditPage::create([
+                'audit_id' => $audit->id,
+                'url' => "https://example.com/page-{$i}",
+                'http_status' => 200,
+                'title' => "Unique Page Title {$i}",
+                'meta_description' => null,
+                'canonical_url' => "https://example.com/page-{$i}",
+                'headings' => [['level' => 1, 'text' => 'Heading']],
+                'images' => [],
+                'links' => [],
+                'redirect_chain' => [],
+            ]);
+        }
+
+        $result = (new SeoAuditModule)->run($audit->fresh());
+
+        $missingMetaIssues = collect($result->issues)->where('code', 'seo.missing_meta_description');
+        $this->assertCount(1, $missingMetaIssues, 'the 25 per-page findings must collapse into one site-wide issue');
+        $this->assertSame(25, $missingMetaIssues->first()->meta['affected_page_count']);
+        $this->assertNull($missingMetaIssues->first()->auditPageId, 'a multi-page issue must not point at a single arbitrary page');
+        $this->assertSame(90, $result->score); // 100 - 10 (one High deduction, not 25)
+    }
+
     public function test_broken_internal_link_detected_only_for_crawled_targets(): void
     {
         $audit = $this->makeAudit();

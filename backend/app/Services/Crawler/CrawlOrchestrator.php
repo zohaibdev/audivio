@@ -5,10 +5,12 @@ namespace App\Services\Crawler;
 use App\DTOs\CrawledPageData;
 use App\Enums\CrawlJobStatus;
 use App\Enums\CrawlUrlStatus;
+use App\Enums\ScreenshotViewport;
 use App\Models\Audit;
 use App\Models\AuditPage;
 use App\Models\CrawlJob;
 use App\Models\CrawlUrl;
+use App\Models\Screenshot;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -36,7 +38,7 @@ class CrawlOrchestrator
 
         $homepage = $this->crawlerClient->crawl(
             $website->url,
-            $this->screenshotAbsolutePath($audit->id, 'homepage'),
+            $this->screenshotAbsoluteDir($audit->id, 'homepage'),
         );
 
         $website->update([
@@ -108,7 +110,7 @@ class CrawlOrchestrator
             $this->validator->assertSafe($crawlUrl->url);
             $pageData = $this->crawlerClient->crawl(
                 $crawlUrl->url,
-                $this->screenshotAbsolutePath($audit->id, (string) $crawlUrl->id),
+                $this->screenshotAbsoluteDir($audit->id, (string) $crawlUrl->id),
             );
         } catch (\Throwable $e) {
             Log::channel('crawler')->warning('Discovered URL failed to crawl', [
@@ -201,7 +203,7 @@ class CrawlOrchestrator
 
     private function storeAuditPage(Audit $audit, CrawlUrl $crawlUrl, CrawledPageData $data): AuditPage
     {
-        return AuditPage::create([
+        $page = AuditPage::create([
             'audit_id' => $audit->id,
             'crawl_url_id' => $crawlUrl->id,
             'url' => $data->url,
@@ -217,10 +219,35 @@ class CrawlOrchestrator
             'structured_data' => $data->structuredData,
             'cta_elements' => $data->ctaElements,
             'accessibility_violations' => $data->accessibilityViolations,
-            'screenshot_path' => $data->screenshotPath ? $this->toPublicPath($data->screenshotPath) : null,
             'html_size_bytes' => $data->htmlSizeBytes,
             'load_time_ms' => $data->loadTimeMs,
             'crawled_at' => now(),
+        ]);
+
+        $this->storeScreenshot($audit, $page, ScreenshotViewport::Desktop, $data->screenshotDesktopPath);
+        $this->storeScreenshot($audit, $page, ScreenshotViewport::Mobile, $data->screenshotMobilePath);
+
+        return $page;
+    }
+
+    /**
+     * A null path means capture failed (or wasn't requested) for this
+     * viewport — screenshots are an enhancement, not required, so this
+     * just leaves that viewport unavailable rather than failing the crawl.
+     */
+    private function storeScreenshot(Audit $audit, AuditPage $page, ScreenshotViewport $viewport, ?string $absolutePath): void
+    {
+        if ($absolutePath === null) {
+            return;
+        }
+
+        Screenshot::create([
+            'audit_id' => $audit->id,
+            'audit_page_id' => $page->id,
+            'viewport' => $viewport,
+            'width' => $viewport->width(),
+            'height' => $viewport->height(),
+            'storage_path' => $this->toPublicPath($absolutePath),
         ]);
     }
 
@@ -242,11 +269,11 @@ class CrawlOrchestrator
         return "{$scheme}://{$host}{$path}{$query}";
     }
 
-    private function screenshotAbsolutePath(int $auditId, string $identifier): string
+    private function screenshotAbsoluteDir(int $auditId, string $identifier): string
     {
-        $relative = "screenshots/{$auditId}/{$identifier}.png";
+        $relative = "screenshots/{$auditId}/{$identifier}";
         $disk = Storage::disk(config('crawler.screenshot_disk'));
-        $disk->makeDirectory("screenshots/{$auditId}");
+        $disk->makeDirectory($relative);
 
         return $disk->path($relative);
     }
@@ -256,6 +283,20 @@ class CrawlOrchestrator
         $disk = Storage::disk(config('crawler.screenshot_disk'));
         $basePath = $disk->path('');
 
-        return ltrim(str_replace(['\\', $basePath], ['/', ''], $absolutePath), '/');
+        // Strip the disk's base path first, while both strings still use
+        // the OS-native separator (backslash on Windows) — normalizing
+        // backslashes to forward slashes before this would make $basePath
+        // no longer match anywhere in the already-normalized $absolutePath,
+        // silently leaving the full absolute path instead of the relative
+        // one (a real bug this fixes, caught only by inspecting a real
+        // screenshot's stored path after a live audit, not by any test —
+        // every existing test fakes the disk with Storage::fake(), which
+        // uses a consistent forward-slash path throughout and never
+        // exercises this Windows-backslash mismatch).
+        $relative = str_starts_with($absolutePath, $basePath)
+            ? substr($absolutePath, strlen($basePath))
+            : $absolutePath;
+
+        return ltrim(str_replace('\\', '/', $relative), '/');
     }
 }

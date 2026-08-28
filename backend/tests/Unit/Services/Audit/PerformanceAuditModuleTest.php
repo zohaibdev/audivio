@@ -216,6 +216,33 @@ class PerformanceAuditModuleTest extends TestCase
         $this->assertSame('medium', $issue->severity->value);
     }
 
+    public function test_the_same_issue_on_every_page_is_aggregated_into_one_and_does_not_zero_the_score(): void
+    {
+        $audit = $this->makeAudit();
+
+        // 25 pages, every single one slow (Medium, 5pts) — before
+        // aggregation this was 25 separate deductions (125pts), flooring
+        // the score at 0 regardless of anything else about the site.
+        for ($i = 0; $i < 25; $i++) {
+            AuditPage::create([
+                'audit_id' => $audit->id,
+                'url' => "https://example.com/page-{$i}",
+                'http_status' => 200,
+                'load_time_ms' => 5000,
+                'html_size_bytes' => 10_000,
+                'images' => [],
+            ]);
+        }
+
+        $result = (new PerformanceAuditModule($this->pageSpeedServiceReturning(null)))->run($audit->fresh());
+
+        $slowIssues = collect($result->issues)->where('code', 'performance.slow_load_time');
+        $this->assertCount(1, $slowIssues, 'the 25 per-page findings must collapse into one site-wide issue');
+        $this->assertSame(25, $slowIssues->first()->meta['affected_page_count']);
+        $this->assertNull($slowIssues->first()->auditPageId, 'a multi-page issue must not point at a single arbitrary page');
+        $this->assertSame(95, $result->score); // 100 - 5 (one Medium deduction, not 25)
+    }
+
     public function test_pagespeed_only_called_for_configured_page_count(): void
     {
         config(['audit_scoring.performance.pagespeed_pages' => 1]);

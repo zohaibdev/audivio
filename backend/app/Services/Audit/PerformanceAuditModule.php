@@ -24,11 +24,11 @@ class PerformanceAuditModule implements AuditModule
     public function run(Audit $audit): AuditModuleResult
     {
         $pages = $audit->pages;
-        $issues = [];
+        $perPageIssues = [];
 
         foreach ($pages as $page) {
-            $issues = array_merge(
-                $issues,
+            $perPageIssues = array_merge(
+                $perPageIssues,
                 $this->checkLoadTime($page),
                 $this->checkPageWeight($page),
                 $this->checkImageDimensions($page),
@@ -37,8 +37,14 @@ class PerformanceAuditModule implements AuditModule
 
         $pagespeedPageCount = config('audit_scoring.performance.pagespeed_pages');
         foreach ($pages->take($pagespeedPageCount) as $page) {
-            $issues = array_merge($issues, $this->checkPageSpeedInsights($page));
+            $perPageIssues = array_merge($perPageIssues, $this->checkPageSpeedInsights($page));
         }
+
+        // Collapses e.g. "slow load time" found on every crawled page into
+        // one site-wide issue instead of N near-identical deductions — see
+        // PerPageIssueAggregator's docblock for why this is necessary for
+        // the score to mean anything on a multi-page site.
+        $issues = PerPageIssueAggregator::aggregate($perPageIssues);
 
         [$score, $breakdown] = ScoreCalculator::deductPoints($issues);
 
