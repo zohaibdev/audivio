@@ -9,7 +9,7 @@ whenever coverage is added, moved, or removed.
 for all external calls — no test hits a real third-party API) and
 `cd crawler && npm test` (Node's built-in test runner, `node --test`).
 
-**Current total**: 394 tests (354 PHP + 40 Node), all passing, 0 known failures.
+**Current total**: 420 tests (380 PHP + 40 Node), all passing, 0 known failures.
 Frontend verification is manual only (browser, against the real backend)
 — see the "Frontend manual verification" entry near the bottom; there is
 no automated frontend test suite yet.
@@ -148,6 +148,14 @@ Status legend: ✅ covered · ⬜ not yet covered (gap, not a defect)
 | AI providers | `testConnection()` works even while the provider is disabled (only requires configured), and fails safely with a message when no key exists | `ProvidersTest::test_claude_test_connection_succeeds_even_when_disabled`, `test_claude_test_connection_fails_safely_without_a_key` | ✅ |
 | AI analysis | A successful/failed call writes an `api_usage_logs` row with the right provider/service/tokens/audit; analysis is skipped once the provider's configured daily request limit is reached | `AiAnalysisServiceTest::test_successful_call_writes_an_api_usage_log`, `test_failed_call_writes_a_failed_api_usage_log`, `test_analysis_is_skipped_once_the_daily_limit_is_reached` | ✅ |
 | Provider cost estimation | Returns a computed cost when both per-1k-token rates are configured; returns `null` (never a guessed number) when neither is set | `AdminProviderApiTest::test_estimated_cost_is_calculated_where_supported` | ✅ |
+| Per-service reports | A service with no score row is omitted (never an empty report); a Not Applicable service keeps `score: null` rather than a number | `ServiceReportBuilderTest::test_a_service_with_no_score_row_is_omitted_entirely`, `test_a_not_applicable_service_keeps_that_state_instead_of_a_number` | ✅ |
+| Per-service reports | Issues group into user-facing categories within their service (Metadata/Headings/…), worst severity first, with a full severity summary | `ServiceReportBuilderTest::test_issues_are_grouped_into_categories_within_their_service`, `test_severity_summary_counts_every_level` | ✅ |
+| Per-service reports | CRO merges its two internal categories (`conversion` + `landing_page`) into one score as their mean, not one picked arbitrarily | `ServiceReportBuilderTest::test_cro_merges_the_two_internal_categories_into_one_service_score` | ✅ |
+| Per-service reports | Page findings carry both screenshots and only that service's issues (no cross-service leakage) | `ServiceReportBuilderTest::test_page_findings_include_both_screenshots_and_only_this_services_issues` | ✅ |
+| Per-service reports | **Partial coverage**: an AI-dependent service whose AI failed is marked `partial` (never "good") and keeps its real deterministic score, with a note naming what was skipped — found against a live audit reporting "CRO 100 — good" with its provider down | `ServiceReportBuilderTest::test_an_ai_dependent_service_whose_ai_failed_is_marked_partial_not_good`, `test_a_service_with_working_ai_is_marked_complete`, `test_a_service_with_no_ai_dependency_is_complete_without_an_ai_record` | ✅ |
+| Per-service reports | A failed AI provider reads as unavailable rather than as an absent finding; AI-derived issues are labelled `detected_by: ai` | `ServiceReportBuilderTest::test_a_failed_ai_provider_reads_as_unavailable_not_as_an_absent_finding`, `test_ai_generated_issues_are_labelled_as_ai_detected` | ✅ |
+| Per-service reports | Recommendations come only from issues that actually carry one — never fabricated to fill space | `ServiceReportBuilderTest::test_recommendations_only_come_from_issues_that_carry_one` | ✅ |
+| Screenshot paths | A relative path is produced even when the disk base path uses backslashes and the crawler's path uses forward slashes (the real Windows mismatch); POSIX and no-trailing-separator cases; a path outside the disk is normalized, not mangled | `ScreenshotPathTest` (4 tests) — reproduces what `Storage::fake()` structurally cannot, which is why the earlier fix shipped broken | ✅ |
 
 ## Feature tests
 
@@ -209,6 +217,11 @@ actual functionality either way.
 | Password policy | `AuthTest::test_registration_rejects_a_password_with_no_numbers`, `test_registration_rejects_a_password_under_eight_characters` (Phase 9 — tightened from Laravel's bare 8-characters-only default, CONTEXT.md §26) | ✅ |
 | Security headers | `AuthTest::test_successful_api_responses_include_baseline_security_headers`, `test_exception_rendered_api_responses_also_include_security_headers` (the second one specifically proves the `RequestHandled`-listener approach, not a middleware, since middleware after-code is skipped on the exception path — CONTEXT.md §26/§28) | ✅ |
 | Backward compatibility | — | ⬜ n/a — no prior API version exists to be compatible with |
+| Per-service report endpoints | Owner sees full reports incl. page findings and screenshots; a missing screenshot reads as `null`, never a fabricated path | `ServiceReportApiTest::test_owner_sees_full_service_reports_including_pages_and_screenshots` | ✅ |
+| Per-service report endpoints | Anonymous viewers keep scores/counts (proving the audit is real) but lose page findings, low-severity issues, fix text, evidence and the affected-URL list — with honest `hidden_*` counts | `ServiceReportApiTest::test_anonymous_viewer_gets_scores_but_not_page_findings_or_low_severity_issues`, `test_anonymous_issue_detail_is_redacted_but_not_misrepresented` | ✅ |
+| Per-service report endpoints | A service that never ran is a 404, not an empty shell; Not Applicable is reported as such rather than scored | `ServiceReportApiTest::test_a_service_that_never_ran_is_404_not_an_empty_report`, `test_a_not_applicable_service_is_reported_as_such_not_scored` | ✅ |
+| Page explorer | Requires full access (403 anonymous); returns cross-service issue counts per page | `ServiceReportApiTest::test_page_explorer_requires_full_access` | ✅ |
+| Per-service PDF | Renders a real `%PDF-` binary with the right filename for a plan with `pdf_export`; 403 anonymous; 404 for a service that never ran | `ServiceReportApiTest::test_service_pdf_renders_a_real_pdf_for_a_plan_with_pdf_export`, `test_service_pdf_is_refused_for_an_anonymous_viewer`, `test_service_pdf_404s_for_a_service_that_never_ran` | ✅ |
 
 ## Provider configuration and usage tracking tests
 
@@ -484,6 +497,28 @@ added above.
   happened *before* this manual pass, catching what would otherwise have
   been a full regression of every pre-existing plan-agnostic test — see
   the Known gaps summary entry below).
+- **Per-service report manual verification** (this chunk, CONTEXT.md
+  §35): the new report driven in a real browser against **audit #11**, a
+  genuine 25-page crawl of a live site, logged in as its owner. Verified:
+  the service navigation lists only the six services that actually ran;
+  score cards show real scores (Performance 61, Accessibility 26, SEO 68)
+  with Ecommerce as N/A and its detection reason; the SEO report renders
+  real categories (Metadata 3 / Headings 1 / Images 1 / Canonical 1),
+  severity tiles, quick wins, site-wide badges, real affected-page lists
+  with "…and 15 more", and a working "Technical details" toggle; the page
+  explorer lists all 25 real pages sorted worst-first with correct
+  per-page critical/high counts; the mobile screenshot loads at exactly
+  390×844 (the configured viewport) and is the default view. **Two real
+  bugs found this way, neither catchable by the unit suite**: the CRO
+  "100 — good with AI down" manufactured score, and screenshots 403ing
+  because `toPublicPath()` still stored absolute Windows paths (item 17's
+  fix was wrong and had shipped unverified). A third, non-code issue was
+  also found: the checkout needs `php artisan storage:link`, without
+  which every screenshot 403s regardless of the stored path. One console
+  error observed (`isDownloading is not defined`) was traced to stale
+  Vite HMR state, not a defect — confirmed by hard-reloading and then
+  exercising that exact code path (the button renders with
+  `disabled=false`, a value computed from that variable).
 
 ---
 
@@ -689,3 +724,32 @@ added above.
     GTmetrix/PageSpeed-style performance report, per-service PDFs, the
     page explorer, and the frontend dashboard redesign — this closes only
     the data model and capture pipeline they'll need.
+18. Every audit service was crushed into one combined report, so no
+    service had its own score/findings/recommendations view, issues had
+    no user-facing category, and page-level findings and screenshots were
+    unreachable from the UI — **closed**: the per-service report
+    architecture in CONTEXT.md §35 (`IssueTaxonomy`,
+    `ServiceReportBuilder`, `ServiceReportVisibilityFilter`,
+    `PageExplorerBuilder`, `ServiceReportPdfService`), 4 new endpoints,
+    and a frontend shell (`AuditReportPage`) with a shared
+    `ServiceReportView`, `IssueCard` progressive disclosure, mobile-first
+    `ScreenshotViewer` and `PageExplorer`. 26 new PHP tests (354 → 380):
+    `ServiceReportBuilderTest` (12), `ServiceReportApiTest` (10),
+    `ScreenshotPathTest` (4). Two real bugs found by running the new
+    model against a **live 25-page audit** rather than fixtures:
+    (a) CRO reported "100 — good" with zero issues while its AI provider
+    was unavailable — a manufactured score from an assessment that mostly
+    never ran, now `confidence: partial` with a `coverage_note` naming
+    what was skipped; (b) `CrawlOrchestrator::toPublicPath()` was *still*
+    storing absolute Windows paths despite item 17 claiming that fix —
+    the incoming path comes from the Node crawler (forward slashes) while
+    `$disk->path('')` is OS-native (backslashes), so `str_starts_with()`
+    never matched. `ScreenshotPathTest` reproduces the mismatch by
+    passing a backslash base path explicitly, which `Storage::fake()`
+    structurally cannot do (it is forward-slash on both sides) — which is
+    exactly why item 17's fix shipped unverified. A data-only migration
+    repairs already-written rows. Still open: the deep performance report
+    (Core Web Vitals / opportunities / diagnostics), because the crawler
+    does not yet collect per-resource JS/CSS/image/font/third-party
+    metrics to populate it — building that UI first would mean inventing
+    numbers (CONTEXT.md §35).

@@ -235,6 +235,10 @@ storage), `notifications`.
 | GET | `/api/audits/{audit}` | **optional** | Poll status/progress — no report data |
 | GET | `/api/audits/{audit}/report` | **optional** | Fetch the report, filtered per viewer (§20) |
 | GET | `/api/audits/{audit}/report/pdf` | **optional** | Export the full report as a PDF — requires full access AND the owner's plan to have the `pdf_export` feature (403 otherwise); 404 if no report yet (§22) |
+| GET | `/api/audits/{audit}/report/services` | **optional** | Every per-service report plus the shared overview (§35), filtered by the same free-vs-full split as `/report` |
+| GET | `/api/audits/{audit}/report/services/{service}` | **optional** | One service's report — 404 (never an empty shell) if that service didn't run for this audit |
+| GET | `/api/audits/{audit}/report/services/{service}/pdf` | **optional** | That one service as its own PDF, from the same normalized model as the web report; same full-access + `pdf_export` gate as the combined PDF |
+| GET | `/api/audits/{audit}/pages` | **optional** | Page explorer — every crawled page with cross-service issue counts and both screenshots. **Full access only** (403 otherwise): page-level detail is paid content |
 
 "Optional" auth: the route carries no `auth:sanctum` middleware (which
 would reject an unauthenticated request outright), and the controller
@@ -1843,6 +1847,108 @@ style performance report (Core Web Vitals, mobile-first opportunities/
 diagnostics), per-service PDF generation, the page explorer, and the
 frontend dashboard redesign are all still open — this pass only
 establishes the data model and capture pipeline they'll be built on.
+**Largely closed by §35 below**, except the deep performance report.
+
+---
+
+## 35. Per-service report architecture
+
+Builds the normalized per-service reporting model on top of §34's data
+layer: one audit produces N *independently viewable* service reports
+rather than a single combined blob.
+
+**The one data model, two renderers.** `ServiceReportBuilder::buildAll()`
+is the single source both the web report and the per-service PDFs render
+from, so the two cannot drift apart — the spec's core consistency
+requirement. `ReportBuilder` (the older flat report) is unchanged and
+still backs `GET /api/audits/{id}/report` and the combined PDF; the new
+model is additive, not a replacement.
+
+**Taxonomy** (`IssueTaxonomy`). Two levels resolved from two different
+sources on purpose:
+- *Service* comes from the issue's stored `AuditCategory` column, which
+  the producing module always writes — never from parsing the code
+  string, which would break for AI-generated codes (the model picks the
+  suffix) and axe rule ids.
+- *Category* (Metadata, Headings, ARIA, Core Web Vitals, …) comes from
+  the code, since that's the only thing separating "missing title" from
+  "missing H1" inside one service.
+Unknown codes fall back to a per-service general bucket rather than
+being dropped, so a new axe rule or AI-invented code still appears.
+
+`landing_page` and `conversion` both map to the **CRO** service, and the
+CRO score is the *mean* of whichever of the two ran (a plain lookup would
+arbitrarily pick one and discard the other). **Known inconsistency**:
+this differs from `FeatureAccessResolver`'s plan-gating map (§33), where
+`landing_page` is gated by the `ecommerce` feature key — so disabling a
+plan's ecommerce feature also silently removes CRO's value-proposition
+findings. Reporting under CRO is correct (the codes are literally CTA and
+headline findings); the gating map is the side that looks wrong, but it
+is tested and documented behavior and was not changed without being
+asked.
+
+**Partial coverage — the anti-manufactured-score rule.** A service whose
+assessment depends on AI, where the AI did not actually run, is marked
+`confidence: 'partial'` and `status: 'partial'`, with a `coverage_note`
+naming what was skipped. Its real deterministic score is *kept* (throwing
+away a genuine measurement would lose information) but is never presented
+as a pass. This was found against a real audit: CRO reported "100 —
+good" with zero issues while its provider was unavailable, on the
+strength of a single form-friction check. `confidence`/`coverage_note`
+are shown to anonymous viewers too — withholding that a score is
+incomplete would misrepresent the audit, which is different from
+withholding paid detail.
+
+**Visibility** (`ServiceReportVisibilityFilter`), mirroring §20's rules:
+free/anonymous keeps every service's score, status, severity counts and
+category *names and counts* — enough to prove the audit is real — but
+withholds full issue lists, recommendations' fix text, evidence, the
+affected-URL list, per-page findings and screenshots. Hidden counts
+(`hidden_issue_count`, `hidden_page_count`, …) are always returned so the
+UI can say "12 more issues" honestly.
+
+**Endpoints** (§8): `GET /audits/{audit}/report/services` (all, plus the
+shared overview), `GET /audits/{audit}/report/services/{service}` (one —
+404, never an empty shell, when that service didn't run),
+`GET /audits/{audit}/pages` (page explorer, full-access only), and
+`GET /audits/{audit}/report/services/{service}/pdf` (per-service PDF,
+same full-access + `pdf_export` plan gate as the combined PDF).
+
+**Frontend**: `AuditReportPage` is the shell — service navigation listing
+only services that actually ran, score cards, and the page explorer.
+Each service renders through one shared `ServiceReportView` (score →
+what it means → coverage warning → severity tiles → quick wins →
+category breakdown → filterable issues → AI analysis → page-by-page), so
+the reading experience is identical across services while the findings
+stay service-specific. `IssueCard` leads with plain English and hides raw
+evidence behind a "Technical details" toggle. `ScreenshotViewer` defaults
+to **mobile** (the primary audit priority) and renders "no screenshot was
+captured" rather than a broken image when capture failed.
+
+**Screenshot serving.** Paths are stored relative to the `public` disk
+and served at `/storage/{path}`; the frontend derives that origin from
+`VITE_API_URL` so a deployment sets one URL, not two. A local checkout
+needs `php artisan storage:link` once, or every screenshot 403s.
+
+**Known limitations / not covered:**
+- The deep performance report (Core Web Vitals panels, mobile-vs-desktop
+  opportunity and diagnostic sections, per-page transfer/request
+  breakdowns) is **not built**. The data model supports it, but the
+  crawler currently stores only `load_time_ms`/`html_size_bytes` plus
+  whatever PageSpeed returns for the homepage — there is no per-resource
+  JS/CSS/image/font/third-party breakdown to populate those sections, so
+  building the UI first would mean inventing metrics.
+- `product_auditor` has no audit module (§29), so it is not a service
+  report — it is absent rather than empty.
+- Ecommerce detection depends on `PlatformDetector::isWooCommerce()`,
+  which only inspects the **homepage** HTML. A WordPress site whose
+  WooCommerce assets load only on `/shop/` is classified plain
+  `wordpress`, losing the +3 platform signal. Observed on a real audit
+  that has `/cart/`, `/checkout/`, `/my-account/` and `/shop/` pages yet
+  scores 2 against a threshold of 3, so it reports Not Applicable. Whether
+  that site *should* count as ecommerce is a genuine product judgment
+  (a ministry selling one book), so the tuning from §34 was left alone
+  rather than flip-flopped a second time.
 
 ---
 

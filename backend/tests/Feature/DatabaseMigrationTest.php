@@ -27,26 +27,22 @@ class DatabaseMigrationTest extends TestCase
 
     public function test_rolling_back_the_last_migration_reverses_it_and_remigrating_restores_the_schema(): void
     {
-        // Deliberately doesn't hardcode which table the last migration
-        // touches, or assume it creates a whole table rather than altering
-        // one (several migrations in this schema only add/drop a column,
-        // e.g. add_is_active_to_plans_table, add_is_applicable_to_audit_scores_table)
-        // — instead compares full table *and* column state before/after,
-        // so this stays valid regardless of what kind of change is last.
+        // Asserts the round trip, not that the last migration is
+        // structural. It deliberately doesn't hardcode which table is
+        // touched (that changes whenever a migration is added), doesn't
+        // assume a whole table is created rather than a column altered
+        // (e.g. add_is_active_to_plans_table), and doesn't assume the last
+        // migration changes the schema at all — a data-only repair
+        // migration such as normalize_absolute_screenshot_paths correctly
+        // has an empty down() and leaves the schema untouched. What must
+        // always hold is that rollback + re-migrate lands back on exactly
+        // the same tables and columns.
         Artisan::call('migrate:fresh', ['--force' => true]);
         $tablesBefore = Schema::getTableListing();
         $columnsBefore = $this->columnFingerprint($tablesBefore);
 
         $rollbackExitCode = Artisan::call('migrate:rollback', ['--step' => 1, '--force' => true]);
         $this->assertSame(0, $rollbackExitCode);
-
-        $tablesAfterRollback = Schema::getTableListing();
-        $columnsAfterRollback = $this->columnFingerprint(array_intersect($tablesBefore, $tablesAfterRollback));
-        $this->assertNotSame(
-            [$tablesBefore, $columnsBefore],
-            [$tablesAfterRollback, $columnsAfterRollback],
-            'Rolling back the last migration should change the schema somehow — either a table or a column',
-        );
 
         $migrateExitCode = Artisan::call('migrate', ['--force' => true]);
         $this->assertSame(0, $migrateExitCode);

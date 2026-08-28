@@ -139,6 +139,111 @@ export interface Report {
   hidden_recommendation_count?: number;
 }
 
+// --- Per-service reports (§35) ---
+
+export type ServiceKey = 'performance' | 'accessibility' | 'seo' | 'cro' | 'aio' | 'ecommerce';
+
+/** `partial` = the service's AI-assisted checks did not run, so the score
+ * covers only the rule-based checks and must not be shown as a clean pass. */
+export type ServiceStatus = 'good' | 'needs_improvement' | 'poor' | 'partial' | 'not_applicable';
+
+export type ServiceConfidence = 'complete' | 'partial' | 'unavailable';
+
+export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'passed';
+
+export interface ServiceIssue {
+  code: string;
+  category: string;
+  severity: Severity;
+  title: string;
+  message: string;
+  /** Absent for anonymous viewers — the fix is full-access content. */
+  recommendation?: string | null;
+  evidence?: Record<string, unknown>;
+  affected_pages?: string[];
+  affected_page_count: number;
+  is_site_wide: boolean;
+  detected_by: 'rule' | 'ai';
+}
+
+export interface ServiceCategoryGroup {
+  name: string;
+  issue_count: number;
+  severity_summary: Record<string, number>;
+  /** Absent for anonymous viewers: names and counts show, findings don't. */
+  issues?: ServiceIssue[];
+}
+
+export interface ServiceRecommendation {
+  title: string;
+  category: string;
+  severity: Severity;
+  priority?: string;
+  problem: string;
+  recommended_action: string;
+  affected_pages?: string[];
+  affected_page_count?: number;
+  evidence?: Record<string, unknown>;
+  effort?: string;
+  detected_by?: 'rule' | 'ai';
+}
+
+export interface ServicePageFinding {
+  url: string;
+  title: string | null;
+  http_status: number;
+  issue_count: number;
+  severity_summary: Record<string, number>;
+  issues: ServiceIssue[];
+  screenshots: { desktop: string | null; mobile: string | null };
+}
+
+export interface ServiceAiState {
+  used: boolean;
+  available: boolean | null;
+  analysis: string | null;
+  error: string | null;
+}
+
+export interface ServiceReport {
+  service: ServiceKey;
+  name: string;
+  score: number | null;
+  is_applicable: boolean;
+  not_applicable_reason: string | null;
+  confidence: ServiceConfidence;
+  coverage_note: string | null;
+  status: ServiceStatus;
+  what_this_means: string | null;
+  severity_summary: Record<string, number>;
+  categories: ServiceCategoryGroup[];
+  issues: ServiceIssue[];
+  recommendations: ServiceRecommendation[];
+  pages: ServicePageFinding[];
+  ai: ServiceAiState;
+  is_full_access?: boolean;
+  hidden_issue_count?: number;
+  hidden_recommendation_count?: number;
+  hidden_page_count?: number;
+}
+
+export interface ServiceReportsResponse {
+  overview: ReportOverview;
+  services: Partial<Record<ServiceKey, ServiceReport>>;
+  is_full_access: boolean;
+}
+
+export interface ExplorerPage {
+  url: string;
+  title: string | null;
+  http_status: number;
+  load_time_ms: number | null;
+  issue_count: number;
+  severity_summary: Record<string, number>;
+  issues_by_service: Record<string, number>;
+  screenshots: { desktop: string | null; mobile: string | null };
+}
+
 export type ScheduleFrequency = 'daily' | 'weekly' | 'monthly';
 
 export interface AuditSchedule {

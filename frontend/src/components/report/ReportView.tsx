@@ -8,10 +8,12 @@ import type { Report } from '../../types';
 
 export function ReportView({
   report,
+  auditId,
   onDownloadPdf,
   canDownloadPdf,
 }: {
   report: Report;
+  auditId?: number;
   onDownloadPdf?: () => void;
   canDownloadPdf?: boolean;
 }) {
@@ -22,6 +24,21 @@ export function ReportView({
   return (
     <div className="flex flex-col gap-8">
       <ReportOverviewCard overview={report.overview} />
+
+      {auditId !== undefined && (
+        <Link
+          to={`/audits/${auditId}/report`}
+          className="flex items-center justify-between rounded-xl border border-indigo-200 bg-indigo-50 p-5 transition hover:border-indigo-300 dark:border-indigo-900 dark:bg-indigo-950/40"
+        >
+          <div>
+            <p className="font-semibold text-indigo-900 dark:text-indigo-200">Open the detailed report</p>
+            <p className="mt-1 text-sm text-indigo-700 dark:text-indigo-400">
+              Separate reports for each audit area, page-by-page findings, and screenshots.
+            </p>
+          </div>
+          <span className="shrink-0 text-sm font-medium text-indigo-600 dark:text-indigo-400">View →</span>
+        </Link>
+      )}
 
       {!report.is_full_access && (
         <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-6 text-center dark:border-indigo-900 dark:bg-indigo-950/40">

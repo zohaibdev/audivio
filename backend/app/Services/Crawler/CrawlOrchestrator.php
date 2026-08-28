@@ -283,20 +283,24 @@ class CrawlOrchestrator
         $disk = Storage::disk(config('crawler.screenshot_disk'));
         $basePath = $disk->path('');
 
-        // Strip the disk's base path first, while both strings still use
-        // the OS-native separator (backslash on Windows) — normalizing
-        // backslashes to forward slashes before this would make $basePath
-        // no longer match anywhere in the already-normalized $absolutePath,
-        // silently leaving the full absolute path instead of the relative
-        // one (a real bug this fixes, caught only by inspecting a real
-        // screenshot's stored path after a live audit, not by any test —
-        // every existing test fakes the disk with Storage::fake(), which
-        // uses a consistent forward-slash path throughout and never
-        // exercises this Windows-backslash mismatch).
-        $relative = str_starts_with($absolutePath, $basePath)
-            ? substr($absolutePath, strlen($basePath))
-            : $absolutePath;
+        // Normalize BOTH sides to forward slashes before comparing. The
+        // two arrive with different separators on Windows: the incoming
+        // path comes from the Node crawler (always forward slashes), while
+        // $disk->path('') is OS-native (backslashes). Comparing them
+        // as-is never matches, so the prefix is never stripped and the
+        // full absolute filesystem path gets stored — which then 403s when
+        // the frontend requests it under /storage. Caught by inspecting a
+        // real screenshot row after a live audit; every existing test uses
+        // Storage::fake(), which is forward-slash on both sides and so
+        // cannot reproduce the mismatch (see the regression test, which
+        // passes a backslash base path explicitly).
+        $normalizedAbsolute = str_replace('\\', '/', $absolutePath);
+        $normalizedBase = rtrim(str_replace('\\', '/', $basePath), '/').'/';
 
-        return ltrim(str_replace('\\', '/', $relative), '/');
+        $relative = str_starts_with($normalizedAbsolute, $normalizedBase)
+            ? substr($normalizedAbsolute, strlen($normalizedBase))
+            : $normalizedAbsolute;
+
+        return ltrim($relative, '/');
     }
 }

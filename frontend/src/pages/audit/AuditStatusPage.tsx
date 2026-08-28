@@ -132,7 +132,12 @@ export function AuditStatusPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
       {pdfError && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{pdfError}</p>}
-      <ReportView report={report} onDownloadPdf={handleDownload} canDownloadPdf={Boolean(user) && !isDownloading} />
+      <ReportView
+        report={report}
+        auditId={id}
+        onDownloadPdf={handleDownload}
+        canDownloadPdf={Boolean(user) && !isDownloading}
+      />
     </div>
   );
 }

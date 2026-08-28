@@ -17,6 +17,7 @@ import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 
 import { SubmitAuditPage } from './pages/audit/SubmitAuditPage';
 import { AuditStatusPage } from './pages/audit/AuditStatusPage';
+import { AuditReportPage } from './pages/audit/AuditReportPage';
 
 import { DashboardOverviewPage } from './pages/dashboard/DashboardOverviewPage';
 import { DashboardWebsitesPage } from './pages/dashboard/DashboardWebsitesPage';
@@ -83,6 +84,10 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/audit" element={<SubmitAuditPage />} />
             <Route path="/audits/:auditId" element={<AuditStatusPage />} />
+            {/* Per-service reports (§35). The bare /report path shows the
+                overview; /report/:service opens one service's own report. */}
+            <Route path="/audits/:auditId/report" element={<AuditReportPage />} />
+            <Route path="/audits/:auditId/report/:service" element={<AuditReportPage />} />
           </Route>
 
           <Route element={<RequireAuth />}>

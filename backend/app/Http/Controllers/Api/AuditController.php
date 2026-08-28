@@ -11,9 +11,14 @@ use App\Models\Audit;
 use App\Models\Website;
 use App\Services\Crawler\SsrfValidationException;
 use App\Services\Crawler\UrlSecurityValidator;
+use App\Services\Report\PageExplorerBuilder;
 use App\Services\Report\ReportAccessResolver;
+use App\Services\Report\ReportBuilder;
 use App\Services\Report\ReportPdfService;
 use App\Services\Report\ReportVisibilityFilter;
+use App\Services\Report\ServiceReportBuilder;
+use App\Services\Report\ServiceReportPdfService;
+use App\Services\Report\ServiceReportVisibilityFilter;
 use App\Services\User\UsageLimitService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -123,6 +128,100 @@ class AuditController extends Controller
         $content = app(ReportVisibilityFilter::class)->filter($report->content, $hasFullAccess);
 
         return ApiResponse::success($content);
+    }
+
+    /**
+     * The per-service reports (§35) — one independently viewable report
+     * per audit service, built from the same normalized model the PDFs
+     * render from. Optional auth, same visibility split as report().
+     */
+    public function serviceReports(Request $request, Audit $audit): JsonResponse
+    {
+        if ($audit->report === null) {
+            return ApiResponse::error('Report is not ready yet.', 404);
+        }
+
+        $hasFullAccess = app(ReportAccessResolver::class)->hasFullAccess($audit, $request->user('sanctum'));
+        $reports = app(ServiceReportBuilder::class)->buildAll($audit);
+
+        return ApiResponse::success([
+            'overview' => app(ReportBuilder::class)->build($audit)['overview'],
+            'services' => app(ServiceReportVisibilityFilter::class)->filterAll($reports, $hasFullAccess),
+            'is_full_access' => $hasFullAccess,
+        ]);
+    }
+
+    public function serviceReport(Request $request, Audit $audit, string $service): JsonResponse
+    {
+        if ($audit->report === null) {
+            return ApiResponse::error('Report is not ready yet.', 404);
+        }
+
+        $reports = app(ServiceReportBuilder::class)->buildAll($audit);
+
+        // A service with no report either never ran for this audit or
+        // isn't a real service key — either way there is nothing to show,
+        // and inventing an empty shell would misrepresent the audit.
+        if (! isset($reports[$service])) {
+            return ApiResponse::error('That service was not part of this audit.', 404);
+        }
+
+        $hasFullAccess = app(ReportAccessResolver::class)->hasFullAccess($audit, $request->user('sanctum'));
+
+        return ApiResponse::success(
+            app(ServiceReportVisibilityFilter::class)->filter($reports[$service], $hasFullAccess),
+        );
+    }
+
+    /**
+     * Page explorer: every crawled page with cross-service issue counts
+     * and screenshots. Full access only — per-page findings and
+     * screenshots are the paid detail (see ServiceReportVisibilityFilter).
+     */
+    public function pages(Request $request, Audit $audit): JsonResponse
+    {
+        if ($audit->report === null) {
+            return ApiResponse::error('Report is not ready yet.', 404);
+        }
+
+        if (! app(ReportAccessResolver::class)->hasFullAccess($audit, $request->user('sanctum'))) {
+            return ApiResponse::error("Sign in as this audit's owner to explore page-level findings.", 403);
+        }
+
+        return ApiResponse::success(app(PageExplorerBuilder::class)->build($audit));
+    }
+
+    /**
+     * One service's report as its own PDF (§35), rendered from the same
+     * normalized model as the web report. Same access rules as the
+     * combined PDF: full access plus the plan's pdf_export feature.
+     */
+    public function serviceReportPdf(Request $request, Audit $audit, string $service): JsonResponse|Response
+    {
+        if ($audit->report === null) {
+            return ApiResponse::error('Report is not ready yet.', 404);
+        }
+
+        $viewer = $request->user('sanctum');
+
+        if (! app(ReportAccessResolver::class)->hasFullAccess($audit, $viewer)) {
+            return ApiResponse::error("Sign in as this audit's owner to export a PDF.", 403);
+        }
+
+        if (! $viewer->plan()?->hasFeature('pdf_export')) {
+            return ApiResponse::error('PDF export is not included in your current plan.', 403);
+        }
+
+        $rendered = app(ServiceReportPdfService::class)->render($audit, $service);
+
+        if ($rendered === null) {
+            return ApiResponse::error('That service was not part of this audit.', 404);
+        }
+
+        return response($rendered['pdf'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$rendered['filename'].'"',
+        ]);
     }
 
     public function reportPdf(Request $request, Audit $audit): JsonResponse|Response

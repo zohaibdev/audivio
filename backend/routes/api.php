@@ -65,6 +65,14 @@ Route::middleware('throttle:10,1')->group(function () {
     Route::get('/audits/{audit}', [AuditController::class, 'show']);
     Route::get('/audits/{audit}/report', [AuditController::class, 'report']);
     Route::get('/audits/{audit}/report/pdf', [AuditController::class, 'reportPdf']);
+
+    // Per-service reports and the page explorer (§35). `services` must be
+    // declared before `services/{service}` so the literal path wins over
+    // the parameterized one.
+    Route::get('/audits/{audit}/report/services', [AuditController::class, 'serviceReports']);
+    Route::get('/audits/{audit}/report/services/{service}', [AuditController::class, 'serviceReport']);
+    Route::get('/audits/{audit}/pages', [AuditController::class, 'pages']);
+    Route::get('/audits/{audit}/report/services/{service}/pdf', [AuditController::class, 'serviceReportPdf']);
 });
 
 // Public — lead capture CTAs and CMS content for the (future) frontend.
