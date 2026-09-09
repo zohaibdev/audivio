@@ -1,7 +1,101 @@
 @import 'tailwindcss';
 
+/*
+ * Tailwind v4 resolves `dark:` from prefers-color-scheme by default,
+ * which cannot express an explicit override. This switches it to a class
+ * on <html>, which ThemeContext sets — including for the `system`
+ * preference, where it mirrors the media query. Three states need a
+ * class; two would not (§47).
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens (§58).
+ *
+ * Every semantic colour is declared once here and swapped wholesale under
+ * `.dark`. Components reference the semantic name (`bg-surface`,
+ * `text-muted`) rather than a raw palette step, so a theme change is one
+ * edit in one file instead of a hunt through `dark:` variants — which is
+ * how the two themes drift apart.
+ *
+ * The primary stays indigo: it already carries the CTAs, and changing it
+ * would churn every call to action for no gain. What is new is the
+ * surface/border/text scale beneath it, which is what actually separates
+ * a premium interface from a flat one.
+ */
+@theme {
+  --color-canvas: var(--app-canvas);
+  --color-surface: var(--app-surface);
+  --color-surface-2: var(--app-surface-2);
+  --color-elevated: var(--app-elevated);
+  --color-line: var(--app-line);
+  --color-line-strong: var(--app-line-strong);
+  --color-ink: var(--app-ink);
+  --color-muted: var(--app-muted);
+  --color-faint: var(--app-faint);
+  --color-brand: var(--app-brand);
+  --color-on-brand: var(--app-on-brand);
+  --color-brand-strong: var(--app-brand-strong);
+  --color-brand-soft: var(--app-brand-soft);
+
+  --radius-card: 1rem;
+  --radius-control: 0.625rem;
+
+  --shadow-soft: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -12px rgb(15 23 42 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(15 23 42 / 0.05), 0 18px 40px -18px rgb(15 23 42 / 0.25);
+}
+
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+
+  --app-canvas: #f7f8fb;
+  --app-surface: #ffffff;
+  --app-surface-2: #f2f4f8;
+  --app-elevated: #ffffff;
+  --app-line: #e5e8ef;
+  --app-line-strong: #d3d8e3;
+  --app-ink: #0d1117;
+  --app-muted: #545c6b;
+  /* Measured, not eyeballed: #7b8496 scored 3.5:1 on white and #6b7386
+     still fell to 4.3:1 on the tinted surface these labels actually sit
+     on. This clears AA on both (§58). */
+  --app-faint: #626a7c;
+  --app-brand: #4f46e5;
+  --app-brand-strong: #4338ca;
+  --app-brand-soft: #eef0ff;
+  /* Paired with the brand, so a brand-filled surface always has a
+     legible foreground. White here scores 6.29:1 on the light brand. */
+  --app-on-brand: #ffffff;
+
+  /* Glass is a token too, so every frosted surface blurs by the same
+     amount and stays legible. */
+  --glass-bg: rgb(255 255 255 / 0.72);
+  --glass-border: rgb(255 255 255 / 0.9);
+  --glass-blur: 14px;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --app-canvas: #080b12;
+  --app-surface: #10141d;
+  --app-surface-2: #161b26;
+  --app-elevated: #171c27;
+  --app-line: #232936;
+  --app-line-strong: #313847;
+  --app-ink: #f2f5fa;
+  --app-muted: #a6b0c2;
+  --app-faint: #7b8496;
+  --app-brand: #7c7cf8;
+  --app-brand-strong: #9a9afb;
+  --app-brand-soft: #1b1d38;
+  /* Dark ink, not white. The dark theme lightens the brand so it reads
+     as a *colour* against a dark page, and white on that scored 3.45:1 —
+     a failing primary CTA. Dark text on it scores 5.49:1 (§58). */
+  --app-on-brand: #0d1117;
+
+  --glass-bg: rgb(16 20 29 / 0.72);
+  --glass-border: rgb(255 255 255 / 0.08);
 }
 
 * {
@@ -10,18 +104,108 @@
 
 body {
   margin: 0;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
-  background: #f8fafc;
-  color: #0f172a;
+  font-family:
+    'Inter var', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--app-canvas);
+  color: var(--app-ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    background: #0b0f19;
-    color: #e2e8f0;
+/*
+ * Inside `@layer base`, not unlayered.
+ *
+ * Tailwind v4 puts its utilities in a cascade layer, and *unlayered* CSS
+ * outranks every layer regardless of specificity. A bare `a { color:
+ * inherit }` therefore beat `text-white` on every anchor — which is why
+ * the primary CTA was rendering near-black text on indigo at 3.01:1
+ * contrast until §58 measured it. The default still applies; utilities
+ * can now override it.
+ */
+@layer base {
+  a {
+    color: inherit;
   }
 }
 
-a {
-  color: inherit;
+/* Tighter tracking on large headings — the single biggest cheap win in
+   making type look considered rather than default. */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+}
+
+/*
+ * Frosted surfaces. Blur is deliberately modest: past about 16px the
+ * content behind turns to soup and the foreground text starts fighting
+ * it, which is the failure mode that makes glass look gimmicky.
+ */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  border: 1px solid var(--glass-border);
+}
+
+/* A readable fallback where backdrop-filter is unsupported: opaque
+   surface rather than translucent text on an unblurred background. */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass {
+    background: var(--app-surface);
+  }
+}
+
+/* Focus ring, once, so every interactive element agrees. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--app-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Slow, wide drift behind the hero. Transform-only so it stays on the
+   compositor and costs nothing per frame. */
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -18px, 0) scale(1.06);
+  }
+}
+
+.animate-drift {
+  animation: drift 16s ease-in-out infinite;
+}
+
+/*
+ * One switch for everyone who asked not to be moved. Covers the keyframe
+ * animations above and any transition a component adds, so a new
+ * component cannot forget to opt in.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

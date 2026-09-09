@@ -40,22 +40,22 @@ class AuditSchedulerServiceTest extends TestCase
     {
         $user = User::create(['name' => 'No Plan', 'email' => 'noplan@example.com', 'password' => 'x']);
 
-        $this->assertFalse((new AuditSchedulerService)->canCreateSchedule($user));
+        $this->assertFalse(app(AuditSchedulerService::class)->canCreateSchedule($user));
     }
 
     public function test_a_plan_without_the_scheduled_audits_feature_cannot_create_a_schedule(): void
     {
         $user = $this->makeUserOnPlan(['features' => ['scheduled_audits' => false]]);
 
-        $this->assertFalse((new AuditSchedulerService)->canCreateSchedule($user));
+        $this->assertFalse(app(AuditSchedulerService::class)->canCreateSchedule($user));
     }
 
     public function test_a_plan_with_the_feature_can_create_a_schedule_up_to_its_full_recrawls_limit(): void
     {
         $user = $this->makeUserOnPlan(['full_recrawls' => 1]);
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
 
-        $this->assertTrue((new AuditSchedulerService)->canCreateSchedule($user));
+        $this->assertTrue(app(AuditSchedulerService::class)->canCreateSchedule($user));
 
         AuditSchedule::create([
             'user_id' => $user->id,
@@ -64,13 +64,13 @@ class AuditSchedulerServiceTest extends TestCase
             'next_run_at' => now()->addWeek(),
         ]);
 
-        $this->assertFalse((new AuditSchedulerService)->canCreateSchedule($user));
+        $this->assertFalse(app(AuditSchedulerService::class)->canCreateSchedule($user));
     }
 
     public function test_inactive_schedules_do_not_count_against_the_limit(): void
     {
         $user = $this->makeUserOnPlan(['full_recrawls' => 1]);
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
 
         AuditSchedule::create([
             'user_id' => $user->id,
@@ -80,15 +80,15 @@ class AuditSchedulerServiceTest extends TestCase
             'next_run_at' => now()->addWeek(),
         ]);
 
-        $this->assertTrue((new AuditSchedulerService)->canCreateSchedule($user));
+        $this->assertTrue(app(AuditSchedulerService::class)->canCreateSchedule($user));
     }
 
     public function test_create_sets_next_run_at_based_on_frequency(): void
     {
         $user = $this->makeUserOnPlan();
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
 
-        $schedule = (new AuditSchedulerService)->create($user, $website, ScheduleFrequency::Daily);
+        $schedule = app(AuditSchedulerService::class)->create($user, $website, ScheduleFrequency::Daily);
 
         $this->assertTrue($schedule->is_active);
         $this->assertTrue($schedule->next_run_at->between(now()->addDay()->subMinute(), now()->addDay()->addMinute()));
@@ -99,7 +99,7 @@ class AuditSchedulerServiceTest extends TestCase
         Queue::fake();
 
         $user = $this->makeUserOnPlan();
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $schedule = AuditSchedule::create([
             'user_id' => $user->id,
             'website_id' => $website->id,
@@ -107,7 +107,7 @@ class AuditSchedulerServiceTest extends TestCase
             'next_run_at' => now()->subMinute(),
         ]);
 
-        $ranCount = (new AuditSchedulerService)->runDue();
+        $ranCount = app(AuditSchedulerService::class)->runDue();
 
         $this->assertSame(1, $ranCount);
         Queue::assertPushed(CrawlWebsiteJob::class);
@@ -123,7 +123,7 @@ class AuditSchedulerServiceTest extends TestCase
         Queue::fake();
 
         $user = $this->makeUserOnPlan();
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         AuditSchedule::create([
             'user_id' => $user->id,
             'website_id' => $website->id,
@@ -131,7 +131,7 @@ class AuditSchedulerServiceTest extends TestCase
             'next_run_at' => now()->addDay(),
         ]);
 
-        $ranCount = (new AuditSchedulerService)->runDue();
+        $ranCount = app(AuditSchedulerService::class)->runDue();
 
         $this->assertSame(0, $ranCount);
         Queue::assertNotPushed(CrawlWebsiteJob::class);
@@ -143,7 +143,7 @@ class AuditSchedulerServiceTest extends TestCase
         Queue::fake();
 
         $user = $this->makeUserOnPlan();
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         AuditSchedule::create([
             'user_id' => $user->id,
             'website_id' => $website->id,
@@ -152,7 +152,7 @@ class AuditSchedulerServiceTest extends TestCase
             'next_run_at' => now()->subMinute(),
         ]);
 
-        $ranCount = (new AuditSchedulerService)->runDue();
+        $ranCount = app(AuditSchedulerService::class)->runDue();
 
         $this->assertSame(0, $ranCount);
         Queue::assertNotPushed(CrawlWebsiteJob::class);

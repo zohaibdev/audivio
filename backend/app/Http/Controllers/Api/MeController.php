@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
 use App\Models\Feature;
 use App\Models\Plan;
+use App\Services\Plan\EntitlementResolver;
 use App\Services\Plan\FeatureAccessResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,27 @@ use Illuminate\Http\Request;
  */
 class MeController extends Controller
 {
-    public function __construct(private readonly FeatureAccessResolver $featureAccess) {}
+    public function __construct(
+        private readonly FeatureAccessResolver $featureAccess,
+        private readonly EntitlementResolver $entitlements,
+    ) {}
+
+    /**
+     * Everything the caller's plan allows (§40), in one payload: numeric
+     * limits, on/off features, and how much of a report they see.
+     *
+     * Optional auth like the rest of this controller, so the public audit
+     * page can show a guest exactly what their tier includes and what
+     * signing up would add. This is the *description* of the limits, never
+     * the enforcement of them — every number here is checked again
+     * server-side at the point it matters.
+     */
+    public function entitlements(Request $request): JsonResponse
+    {
+        return ApiResponse::success(
+            $this->entitlements->forOrDeny($request->user('sanctum'))->toArray(),
+        );
+    }
 
     public function features(Request $request): JsonResponse
     {

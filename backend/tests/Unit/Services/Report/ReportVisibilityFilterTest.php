@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Services\Report;
 
+use App\Services\Plan\Entitlements;
 use App\Services\Report\ReportVisibilityFilter;
 use Tests\TestCase;
 
@@ -26,9 +27,22 @@ class ReportVisibilityFilterTest extends TestCase
         ];
     }
 
+    /**
+     * A viewer on a plan showing $percent of findings, capped at
+     * $issuesPerService. Built straight from the guest-config shape so
+     * these tests exercise the same construction path production uses.
+     */
+    private function viewer(int $percent, ?int $issuesPerService = null): Entitlements
+    {
+        return Entitlements::fromGuestConfig(array_merge(config('entitlements.guest'), [
+            'report_visibility_percent' => $percent,
+            'issues_per_service' => $issuesPerService,
+        ]));
+    }
+
     public function test_full_access_returns_everything_unmodified_plus_the_access_flag(): void
     {
-        $result = (new ReportVisibilityFilter)->filter($this->sampleContent(), hasFullAccess: true);
+        $result = (new ReportVisibilityFilter)->filter($this->sampleContent(), $this->viewer(100));
 
         $this->assertTrue($result['is_full_access']);
         $this->assertCount(4, $result['issues']);
@@ -37,66 +51,139 @@ class ReportVisibilityFilterTest extends TestCase
         $this->assertArrayHasKey('pages', $result);
     }
 
-    public function test_anonymous_view_only_includes_major_severity_issues(): void
+    public function test_a_restricted_plan_never_yields_the_full_report(): void
     {
-        $result = (new ReportVisibilityFilter)->filter($this->sampleContent(), hasFullAccess: false);
+        // The filter has one input that decides how much is shown. Which
+        // entitlements arrive is the caller's decision (an owner gets their
+        // own, everyone else the guest tier), so a plan can never be a key
+        // to an audit that is not the viewer's.
+        $result = (new ReportVisibilityFilter)->filter($this->sampleContent(), $this->viewer(99));
 
         $this->assertFalse($result['is_full_access']);
-        $severities = collect($result['issues'])->pluck('severity');
-        $this->assertTrue($severities->every(fn ($s) => in_array($s, ['critical', 'high'], true)));
-        $this->assertFalse($severities->contains('medium'));
-        $this->assertFalse($severities->contains('low'));
     }
 
-    public function test_anonymous_view_hides_full_only_sections(): void
+    public function test_restricted_view_only_includes_major_severity_issues(): void
     {
-        $result = (new ReportVisibilityFilter)->filter($this->sampleContent(), hasFullAccess: false);
+        $result = (new ReportVisibilityFilter)->filter(
+            $this->sampleContent(),
+            $this->viewer(100 - 1), // anything short of 100 restricts
+        );
 
+        $severities = array_column($result['issues'], 'severity');
+        sort($severities);
+
+        // Medium and low never appear in a restricted view, however high
+        // the percentage — the split is field-based, and the percentage
+        // only scales how much of the eligible part survives it.
+        $this->assertSame(['critical', 'high'], $severities);
+    }
+
+    public function test_restricted_view_hides_full_only_sections(): void
+    {
+        $result = (new ReportVisibilityFilter)->filter(
+            $this->sampleContent(),
+            $this->viewer(50),
+        );
+
+        $this->assertFalse($result['is_full_access']);
         $this->assertArrayNotHasKey('ai_analysis', $result);
         $this->assertArrayNotHasKey('pages', $result);
+        $this->assertArrayHasKey('overview', $result);
     }
 
-    public function test_anonymous_view_strips_priority_from_issues_and_recommendations(): void
+    public function test_restricted_view_strips_priority_from_issues_and_recommendations(): void
     {
-        $result = (new ReportVisibilityFilter)->filter($this->sampleContent(), hasFullAccess: false);
+        $result = (new ReportVisibilityFilter)->filter(
+            $this->sampleContent(),
+            $this->viewer(100 - 1),
+        );
 
         foreach ($result['issues'] as $issue) {
             $this->assertArrayNotHasKey('priority', $issue);
         }
-        foreach ($result['recommendations'] as $rec) {
-            $this->assertArrayNotHasKey('priority', $rec);
+        foreach ($result['recommendations'] as $recommendation) {
+            $this->assertArrayNotHasKey('priority', $recommendation);
         }
     }
 
-    public function test_anonymous_view_respects_configured_limits(): void
+    public function test_the_percentage_decides_how_many_findings_survive(): void
     {
-        config(['report.anonymous_issue_limit' => 1, 'report.anonymous_recommendation_limit' => 1]);
+        $content = $this->sampleContent();
+        // Six major-severity issues, so percentages divide cleanly.
+        $content['issues'] = array_map(
+            fn (int $i) => ['category' => 'seo', 'severity' => 'critical', 'priority' => 'high', 'code' => "c{$i}", 'message' => "m{$i}"],
+            range(1, 6),
+        );
 
-        $result = (new ReportVisibilityFilter)->filter($this->sampleContent(), hasFullAccess: false);
+        $filter = new ReportVisibilityFilter;
 
+        $this->assertCount(3, $filter->filter($content, $this->viewer(50))['issues']);
+        $this->assertCount(2, $filter->filter($content, $this->viewer(25))['issues']);
+    }
+
+    public function test_a_single_finding_survives_a_low_percentage(): void
+    {
+        $content = $this->sampleContent();
+        $content['issues'] = [
+            ['category' => 'seo', 'severity' => 'critical', 'priority' => 'high', 'code' => 'a', 'message' => 'a'],
+        ];
+
+        $result = (new ReportVisibilityFilter)->filter($content, $this->viewer(10));
+
+        // Rounded up on purpose: a restricted report exists to show the
+        // audit found something real, and 10% of one finding rounding to
+        // zero would defeat that entirely.
         $this->assertCount(1, $result['issues']);
-        $this->assertCount(1, $result['recommendations']);
     }
 
-    public function test_anonymous_view_reports_hidden_counts(): void
+    public function test_zero_percent_shows_no_findings_but_still_shows_the_overview(): void
     {
-        config(['report.anonymous_issue_limit' => 1, 'report.anonymous_recommendation_limit' => 1]);
+        $result = (new ReportVisibilityFilter)->filter($this->sampleContent(), $this->viewer(0));
 
-        $result = (new ReportVisibilityFilter)->filter($this->sampleContent(), hasFullAccess: false);
-
-        // hidden_issue_count reflects ALL hidden issues, not just excess
-        // major-severity ones — the medium/low issues excluded entirely
-        // are part of the "N more issues, sign up to see them" signal too.
-        // 4 issues total, 1 shown -> 3 hidden.
-        $this->assertSame(3, $result['hidden_issue_count']);
-        // 2 recommendations exist, 1 shown -> 1 hidden.
-        $this->assertSame(1, $result['hidden_recommendation_count']);
+        $this->assertSame([], $result['issues']);
+        $this->assertSame([], $result['recommendations']);
+        // The scores still prove the audit ran.
+        $this->assertArrayHasKey('overview', $result);
     }
 
-    public function test_anonymous_view_always_shows_the_overview(): void
+    public function test_the_per_service_cap_can_lower_what_the_percentage_allowed(): void
     {
-        $result = (new ReportVisibilityFilter)->filter($this->sampleContent(), hasFullAccess: false);
+        $content = $this->sampleContent();
+        $content['issues'] = array_map(
+            fn (int $i) => ['category' => 'seo', 'severity' => 'critical', 'priority' => 'high', 'code' => "c{$i}", 'message' => "m{$i}"],
+            range(1, 10),
+        );
+
+        // 50% of ten is five, but the plan caps a service at two.
+        $result = (new ReportVisibilityFilter)->filter($content, $this->viewer(50, issuesPerService: 2));
+
+        $this->assertCount(2, $result['issues']);
+    }
+
+    public function test_restricted_view_reports_hidden_counts_against_the_whole_report(): void
+    {
+        $result = (new ReportVisibilityFilter)->filter($this->sampleContent(), $this->viewer(50));
+
+        // Four issues exist in total; the count of what is withheld is
+        // measured against all of them, not only the major-severity subset
+        // that was eligible — otherwise "2 more issues" would understate
+        // what the reader is not seeing.
+        $this->assertSame(4 - count($result['issues']), $result['hidden_issue_count']);
+        $this->assertSame(2 - count($result['recommendations']), $result['hidden_recommendation_count']);
+    }
+
+    public function test_restricted_view_reports_the_percentage_it_applied(): void
+    {
+        $result = (new ReportVisibilityFilter)->filter($this->sampleContent(), $this->viewer(40));
+
+        $this->assertSame(40, $result['visibility_percent']);
+    }
+
+    public function test_restricted_view_always_shows_the_overview(): void
+    {
+        $result = (new ReportVisibilityFilter)->filter($this->sampleContent(), $this->viewer(50));
 
         $this->assertSame(75, $result['overview']['overall_score']);
+        $this->assertSame(['seo' => 75], $result['overview']['category_scores']);
     }
 }

@@ -48,17 +48,17 @@ function SectionEditor({ page, onSaved }: { page: CmsPage; onSaved: () => void }
   }
 
   return (
-    <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
-      <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Sections</h3>
+    <div className="mt-4 border-t border-slate-100 pt-4 dark:border-line">
+      <h3 className="mb-2 text-sm font-semibold text-ink">Sections</h3>
       {page.sections.length === 0 ? (
-        <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">No sections yet.</p>
+        <p className="mb-3 text-sm text-muted">No sections yet.</p>
       ) : (
         <ul className="mb-4 space-y-2">
           {page.sections.map((section) => (
             <li key={section.id} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/50">
               <div>
                 <span className="font-medium text-slate-800 dark:text-slate-200">{section.section_key}</span>
-                <pre className="mt-1 max-w-md overflow-x-auto text-xs text-slate-500 dark:text-slate-400">{JSON.stringify(section.content)}</pre>
+                <pre className="mt-1 max-w-md overflow-x-auto text-xs text-muted">{JSON.stringify(section.content)}</pre>
               </div>
               <Button variant="danger" onClick={() => handleDelete(section.section_key)}>
                 Delete
@@ -71,7 +71,7 @@ function SectionEditor({ page, onSaved }: { page: CmsPage; onSaved: () => void }
       <form onSubmit={handleSave} className="flex flex-col gap-3">
         <Input label="Section key" value={sectionKey} onChange={(e) => setSectionKey(e.target.value)} placeholder="hero, faq, pricing…" />
         <div>
-          <label htmlFor={`content-${page.id}`} className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label htmlFor={`content-${page.id}`} className="text-sm font-medium text-muted">
             Content (JSON)
           </label>
           <textarea
@@ -129,14 +129,14 @@ export function AdminCmsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">CMS</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <h1 className="text-2xl font-bold text-ink">CMS</h1>
+        <p className="mt-1 text-sm text-muted">
           Manage every dynamic content page (homepage, pricing, FAQ, etc). Sections use a free-text key, so you can add new ones without a code change.
         </p>
       </div>
 
       <Card>
-        <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">New page</h2>
+        <h2 className="mb-3 text-sm font-semibold text-ink">New page</h2>
         <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
           <Input label="Slug" required value={newSlug} onChange={(e) => setNewSlug(e.target.value)} placeholder="homepage" />
           <Input label="Title" required value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Homepage" />
@@ -155,8 +155,8 @@ export function AdminCmsPage() {
             <Card key={page.id}>
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="font-semibold text-slate-900 dark:text-white">{page.title}</h2>
-                  <p className="text-xs text-slate-400">/{page.slug}</p>
+                  <h2 className="font-semibold text-ink">{page.title}</h2>
+                  <p className="text-xs text-faint">/{page.slug}</p>
                 </div>
                 <Button variant="danger" onClick={() => handleDeletePage(page.id)}>
                   Delete page

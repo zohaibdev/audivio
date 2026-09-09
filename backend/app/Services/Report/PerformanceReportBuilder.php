@@ -7,7 +7,6 @@ use App\Enums\MetricStrategy;
 use App\Models\Audit;
 use App\Models\AuditPage;
 use App\Models\PagePerformanceMetric;
-use App\Models\Screenshot;
 
 /**
  * The performance-specific detail that sits alongside the standard
@@ -50,6 +49,9 @@ class PerformanceReportBuilder
             'mobile' => $this->strategyBlock($audit, MetricStrategy::Mobile),
             'desktop' => $this->strategyBlock($audit, MetricStrategy::Desktop),
             'resources' => $this->resourceTotals($audit),
+            // Every finding grouped under the twelve reported categories,
+            // whether it came from Lighthouse or from the crawler (§45).
+            'categories' => $this->categoryRollup($audit),
             'pages' => $this->pageDetails($audit),
         ];
     }
@@ -78,12 +80,25 @@ class PerformanceReportBuilder
             ];
         }
 
+        $opportunities = $lighthouse?->opportunities ?? [];
+        $diagnostics = $lighthouse?->diagnostics ?? [];
+
         return [
             'available' => true,
             'reason' => null,
             'score' => $lighthouse?->score,
             'score_source' => $lighthouse?->score !== null ? MetricSource::PageSpeed->value : null,
             'vitals' => $this->vitals($lighthouse, $crawler),
+            // Findings Lighthouse attached a measured saving to, and the
+            // failing audits it did not. Kept apart on purpose: a
+            // "potential saving" on a finding Lighthouse never quantified
+            // would be a number this product made up (§45).
+            'opportunities' => $opportunities,
+            'diagnostics' => $diagnostics,
+            'potential_savings' => $this->totalSavings($opportunities),
+            // What real visitors actually experienced, when Google has
+            // enough traffic for this URL. Null is common and correct.
+            'field' => $this->fieldBlock($lighthouse),
         ];
     }
 
@@ -231,6 +246,16 @@ class PerformanceReportBuilder
                 'dom_nodes' => $crawler?->dom_nodes,
                 'by_type' => $crawler?->by_type,
                 'screenshots' => $this->screenshotsFor($page),
+                // Nested per strategy rather than merged: mobile and
+                // desktop produce different findings with different
+                // savings, and flattening them would attribute one
+                // device's problems to the other.
+                'findings' => [
+                    'mobile' => $this->findingsBlock($mobile),
+                    'desktop' => $this->findingsBlock($desktop),
+                ],
+                'caching' => $crawler?->caching,
+                'compression' => $crawler?->compression,
             ];
         }
 
@@ -239,6 +264,116 @@ class PerformanceReportBuilder
         usort($rows, fn (array $a, array $b) => ($a['mobile_score'] ?? 101) <=> ($b['mobile_score'] ?? 101));
 
         return $rows;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $opportunities
+     * @return array<string, int|null>
+     */
+    private function totalSavings(array $opportunities): array
+    {
+        if ($opportunities === []) {
+            // Null, not zero: "Lighthouse found nothing to save" and
+            // "Lighthouse never ran" must not read the same.
+            return ['ms' => null, 'bytes' => null];
+        }
+
+        return [
+            'ms' => (int) collect($opportunities)->sum(fn (array $o) => $o['savings_ms'] ?? 0),
+            'bytes' => (int) collect($opportunities)->sum(fn (array $o) => $o['savings_bytes'] ?? 0),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function findingsBlock(?PagePerformanceMetric $metric): ?array
+    {
+        if ($metric === null) {
+            return null;
+        }
+
+        $opportunities = $metric->opportunities ?? [];
+
+        return [
+            'opportunities' => $opportunities,
+            'diagnostics' => $metric->diagnostics ?? [],
+            'potential_savings' => $this->totalSavings($opportunities),
+        ];
+    }
+
+    /**
+     * Real-user (CrUX) measurements, and the reason INP appears only
+     * here (§45).
+     *
+     * INP is measured from actual interactions, so a lab run cannot
+     * produce one. Rather than silently omitting a metric the report
+     * promises, this block states whether field data exists and why it
+     * might not — a site with little traffic has no CrUX record, which is
+     * a fact about the dataset, not about the site's speed.
+     *
+     * @return array<string, mixed>
+     */
+    private function fieldBlock(?PagePerformanceMetric $metric): array
+    {
+        $field = $metric?->field_metrics;
+
+        if (! is_array($field) || empty($field['metrics'])) {
+            return [
+                'available' => false,
+                'reason' => 'Google has no real-user (CrUX) data for this URL, which usually means it has not had enough recent traffic. INP can only be measured from real interactions, so it is not reported here rather than being estimated from the lab run.',
+                'metrics' => [],
+                'overall_category' => null,
+            ];
+        }
+
+        return [
+            'available' => true,
+            'reason' => null,
+            'metrics' => $field['metrics'],
+            'overall_category' => $field['overall_category'] ?? null,
+            'note' => 'Measured from real Chrome users over the trailing 28 days, not from this audit. Lab and field numbers describe different things and will not match.',
+        ];
+    }
+
+    /**
+     * Every finding grouped under the twelve reported categories.
+     *
+     * Built from the mobile run where one exists — mobile is the priority
+     * (§45) — falling back to desktop only when there is no mobile result
+     * at all, so the grouping never silently mixes the two.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function categoryRollup(Audit $audit): array
+    {
+        $labels = config('performance_categories.labels');
+
+        $metric = $this->metricFor($audit, MetricSource::PageSpeed, MetricStrategy::Mobile)
+            ?? $this->metricFor($audit, MetricSource::PageSpeed, MetricStrategy::Desktop);
+
+        $strategy = $metric?->strategy?->value;
+
+        $findings = collect(array_merge(
+            $metric?->opportunities ?? [],
+            $metric?->diagnostics ?? [],
+        ))->groupBy(fn (array $f) => $f['category'] ?? 'other');
+
+        return collect($labels)
+            ->map(function (string $label, string $key) use ($findings, $strategy) {
+                $group = $findings->get($key, collect());
+
+                return [
+                    'category' => $key,
+                    'label' => $label,
+                    'finding_count' => $group->count(),
+                    'savings_ms' => $group->sum(fn (array $f) => $f['savings_ms'] ?? 0) ?: null,
+                    'savings_bytes' => $group->sum(fn (array $f) => $f['savings_bytes'] ?? 0) ?: null,
+                    'strategy' => $strategy,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     private function metricFor(Audit $audit, MetricSource $source, MetricStrategy $strategy): ?PagePerformanceMetric
@@ -265,11 +400,10 @@ class PerformanceReportBuilder
      */
     private function screenshotsFor(AuditPage $page): array
     {
-        $byViewport = $page->screenshots->keyBy(fn (Screenshot $s) => $s->viewport->value);
-
-        return [
-            'desktop' => $byViewport->get('desktop')?->storage_path,
-            'mobile' => $byViewport->get('mobile')?->storage_path,
-        ];
+        // Signed and short-lived (§48). Emitting the raw storage path
+        // here is what made screenshots walkable: the path is derived
+        // from a sequential audit id, so anyone could guess their way
+        // into other people's captures.
+        return app(ScreenshotUrlSigner::class)->urlsFor($page->screenshots);
     }
 }

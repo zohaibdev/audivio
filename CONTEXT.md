@@ -120,9 +120,13 @@ frontend/src/
                 unwrap() — the one place that translates transport errors into
                 app-level ones), auth.ts, audits.ts, websites.ts, schedules.ts,
                 leads.ts, cms.ts, plans.ts, admin.ts (every /admin/* endpoint)
+  lib/          url.ts — client-side audit-URL checking for the error message
+                only; the backend re-validates everything (see section 26)
   contexts/     AuthContext.tsx — user/isLoading/login/register/logout,
                 token in localStorage, hydrates from GET /api/user on mount
   components/
+    website/    WebsiteCard (one card per domain), WebsiteDetail (the
+                nine detail sections + inline profile form), section 37
     layout/     PublicLayout (marketing header/footer + mobile menu),
                 SidebarLayout (shared shell for both /dashboard and /admin,
                 parameterized by title+navItems — one component, not two),
@@ -187,8 +191,8 @@ boilerplate. `Builder::defaultStringLength(191)` is set in
 | Table | Key columns | Relationships |
 |---|---|---|
 | `users` | name, email, password, is_admin (boolean, default false) | Sanctum `HasApiTokens`; `hasMany` websites, audits; `hasOne` subscription |
-| `websites` | user_id (nullable), url, domain, platform (enum string) | `belongsTo` user; `hasMany` audits |
-| `audits` | website_id, user_id (nullable), status, max_pages, pages_crawled, error_message, started_at, completed_at | `belongsTo` website/user; `hasOne` crawlJob; `hasMany` pages, issues, scores |
+| `websites` | user_id (nullable), name, primary_url, domain, normalized_domain, platform (enum string), category, description, products_or_services, aio_goal (§42), country (ISO-3166 alpha-2), budget, average_product_cost, competitors (json); unique `(user_id, normalized_domain)` | `belongsTo` user; `hasMany` audits, auditSchedules; `hasOne` latestAudit, latestCompletedAudit — **one row per domain per user**, §37 |
+| `audits` | website_id, user_id (nullable), status (8-state lifecycle, §38), max_pages, pages_crawled, error_message, failed_stage, started_at, completed_at, terminated_at, progress_at | `belongsTo` website/user; `hasOne` crawlJob, snapshot; `hasMany` pages, issues, scores; `scopeActive()` |
 | `crawl_jobs` | audit_id, status, total_urls, processed_urls, failed_urls | `belongsTo` audit; `hasMany` urls |
 | `crawl_urls` | crawl_job_id, url, status, http_status, depth, discovered_via | `belongsTo` crawlJob |
 | `audit_pages` | audit_id, crawl_url_id (nullable), url, http_status, title, meta_description, canonical_url, redirect_chain (json), headings/links/images/forms/structured_data/cta_elements (json), accessibility_violations (json), performance_metrics (json), html_size_bytes, load_time_ms | `belongsTo` audit, crawlUrl; `hasMany` issues (single-page only, see `issue_pages`), screenshots; `belongsToMany` issues (multi-page, via `issue_pages`) — see §34 |
@@ -198,17 +202,20 @@ boilerplate. `Builder::defaultStringLength(191)` is set in
 | `screenshots` | audit_id, audit_page_id, viewport (`desktop`\|`mobile`), width, height, storage_path; unique `(audit_page_id, viewport)` | `belongsTo` audit, auditPage — §34 |
 | `ai_analyses` | audit_id, category, provider, context_hash, context (json), prompt, response, prompt_tokens, completion_tokens, error | `belongsTo` audit; unique `(audit_id, category, context_hash)` — the cache key |
 | `reports` | audit_id (unique), content (json — always the FULL report; visibility is a read-time filter, not stored), generated_at | `belongsTo` audit |
-| `plans` | name, slug (unique), price_cents, max_pages, daily_audit_limit, full_recrawls, is_default, is_active, features (json — unrelated pdf_export/scheduled_audits/audit_history perks, see §33) | `hasMany` subscriptions; `belongsToMany` features (via `plan_features`), aiModels (via `plan_ai_models`) |
+| `audit_snapshots` | audit_id (unique), website_url, domain, crawler_version, scoring_version, prompt_version, ai_provider, ai_model, pages_analyzed, audited_at, content (json) | `belongsTo` audit — **immutable**: written once on completion, `updating`/`deleting` throw (§38). Distinct from `reports`, which is regenerable presentation |
+| `plans` | name, slug (unique), price_cents, max_pages, max_websites, daily_audit_limit, monthly_audit_limit, concurrent_audit_limit (§38), full_recrawls, max_audit_frequency, report_visibility_percent, issues_per_service, ai_analyses_per_audit, aio_prompt_limit, custom_aio_prompt_limit (§42) (all §40 — nullable numerics mean *unlimited*, never unset), is_default, is_active, features (json — unrelated pdf_export/scheduled_audits/audit_history perks, see §33) | `hasMany` subscriptions; `belongsToMany` features (via `plan_features`), aiModels (via `plan_ai_models`) |
 | `features` | key (unique: performance/accessibility/cro/seo/aio/ecommerce/product_auditor), name, description, is_enabled | `belongsToMany` plans (via `plan_features`) — the audit-category registry, §33; not admin-creatable, seeded once |
 | `plan_features` | plan_id, feature_id, is_enabled; unique `(plan_id, feature_id)` | `belongsTo` plan, feature — per-plan override of a feature |
 | `ai_models` | api_provider_id, model_id, display_name, description, is_enabled, input/output_cost_per_1k_tokens, context_window, capabilities (json); unique `(api_provider_id, model_id)` | `belongsTo` apiProvider; `belongsToMany` plans (via `plan_ai_models`) — catalog of individually addressable models per provider (§33), distinct from `api_providers.model` |
 | `plan_ai_models` | plan_id, ai_model_id; unique `(plan_id, ai_model_id)` | `belongsTo` plan, aiModel |
-| `subscriptions` | user_id (unique — one active plan per user, no history), plan_id, status, started_at, ends_at | `belongsTo` user, plan |
+| `subscriptions` | user_id (unique — one active plan per user, no history), plan_id, status, started_at, ends_at | `belongsTo` user, plan; `isActive()` checks status **and** `ends_at` — a lapsed subscription falls back to the default plan (§40), it does not deny everything |
 | `usage_logs` | user_id (nullable — anonymous tracked by IP instead), ip_address, action, website_id (nullable), audit_id (nullable) | `belongsTo` user, website, audit |
 | `leads` | audit_id (nullable), name, email, phone (nullable), website_url (nullable), message (nullable), source, status | `belongsTo` audit; `hasMany` activities |
 | `lead_activities` | lead_id, user_id (nullable — an activity can be system-generated, not just an admin's note), note | `belongsTo` lead, user |
 | `cms_pages` | slug (unique), title, meta_description (nullable) | `hasMany` sections (ordered by `sort_order`) |
 | `cms_sections` | cms_page_id, section_key (not an enum — admins add new named sections without a migration), content (json), sort_order; unique `(cms_page_id, section_key)` | `belongsTo` page |
+| `website_aio_prompts` | website_id, prompt, sort_order | `belongsTo` website — the owner's own AIO questions, on top of the ten defaults in `config/aio_prompts.php` (§42) |
+| `website_competitors` | website_id, name, url, normalized_domain, source (user\|discovered), reason, aio_score, pages_analyzed, topics (json), visibility (json), analysis_error, analyzed_at; unique `(website_id, normalized_domain)` | `belongsTo` website — every analysis column is null until a comparison run fills it, and **null is not zero**: an unreachable competitor must never read as one scoring badly (§42) |
 | `audit_schedules` | user_id, website_id, frequency (enum string: daily/weekly/monthly), is_active (default true), next_run_at, last_run_at (nullable); unique `(user_id, website_id)` — one schedule per website | `belongsTo` user, website |
 | `api_providers` | slug (unique: claude/openai/gemini/pagespeed), name, provider_type (ai/audit), is_enabled, api_key (text, `encrypted` cast — never serialized, see `$hidden`), model (nullable — the one model this provider is *currently actively calling*; see `ai_models` for the full catalog), config (json — max_tokens, temperature, request_timeout, daily/monthly limits, mobile/desktop toggles, cost-per-1k-token rates), last_success_at, last_failure_at, last_error | `hasMany` aiModels; otherwise referenced by slug string, not FK, from `api_usage_logs` |
 | `api_usage_logs` | provider (string, not FK'd — see §23), service, request_type (nullable), user_id (nullable), audit_id (nullable), model (nullable), success, http_status (nullable), response_time_ms (nullable), prompt_tokens/completion_tokens/total_tokens (nullable), estimated_cost (nullable), error_category (nullable) | `belongsTo` user, audit (both nullOnDelete) |
@@ -226,13 +233,19 @@ storage), `notifications`.
 | POST | `/api/login` | none | Issue a token for valid credentials. Same `subscription.plan` inclusion as register |
 | POST | `/api/logout` | required | Revoke the current token |
 | GET | `/api/user` | required | Current authenticated user, with `subscription.plan` eager-loaded |
-| GET | `/api/websites` | required | The caller's own websites, paginated, each with `audits_count` and `latestAudit.scores` — distinct from `/admin/websites` below, which lists every user's |
+| GET | `/api/websites` | required | The caller's own websites, paginated, one card per domain (§37) — screenshot, name, domain, last audit date, overall + per-service scores, pages analyzed, critical/high counts. Distinct from `/admin/websites` below, which lists every user's |
+| GET | `/api/websites/{website}` | required | One website's full detail (§37): overview, latest audit, audit history, score trends, service scores, issue trends, pages, recommendations, consultation context. `{website}` is an id **or** a normalized domain, resolved against the caller's own websites only — 404 (never 403) for anyone else's |
+| PUT | `/api/websites/{website}` | required | Update the website's profile fields only (name, category, description, products_or_services, country, budget, average_product_cost, competitors). `domain`, `normalized_domain`, `primary_url` and `user_id` are not writable — they are derived from what was audited |
 | GET | `/api/audits` | required | The caller's own audit history, paginated, with `website`+`scores` — distinct from `/admin/audits` below |
 | GET | `/api/plans` | none | Every *active* plan, ordered by price, with `auditFeatures` eager-loaded (filtered to globally+per-plan enabled) — the pricing page's data source, so paid tiers and their feature set appear automatically once an admin creates/configures them via `/admin/plans` |
+| GET/POST | `/api/websites/{website}/aio-prompts` | required | List (with the ten defaults) or add a custom AIO prompt; 403 with `errors.limit` past the plan's `custom_aio_prompt_limit` (§42) |
+| DELETE | `/api/websites/{website}/aio-prompts/{prompt}` | required | Remove one, scoped to the caller's own websites (§42) |
+| GET | `/api/me/entitlements` | **optional** | The caller's plan limits and on/off entitlements (§40). Descriptive only — every limit is enforced again server-side where it applies |
 | GET | `/api/me/features` | **optional** | The caller's (or, anonymously, the default plan's) resolved access to every globally-enabled feature, plus which *other* active plans include a locked one — §33 |
 | GET | `/api/me/ai-models` | **optional** | The caller's (or default plan's) currently-usable AI models (no cost fields — that's admin-only data) — §33. No `/api/me/plan`: `/api/user` already eager-loads `subscription.plan` (below), so this isn't duplicated |
-| POST | `/api/audits` | **optional** | Create a website + audit, dispatch the crawl. `throttle:10,1`. |
-| GET | `/api/audits/{audit}` | **optional** | Poll status/progress — no report data |
+| POST | `/api/audits` | **optional** | Resolve the website (§37) + create an audit under the caller's concurrent-audit limit, dispatch the crawl. 429 when at the limit. `throttle:10,1`. |
+| GET | `/api/audits/{audit}` | **optional** | Poll status/progress — no report data. Carries `status_label`, `is_active`, `is_cancellable` and `failed_stage` (§38) |
+| POST | `/api/audits/{audit}/cancel` | **optional** | Cancel a running audit, releasing its concurrent slot immediately; in-flight jobs stop at their next checkpoint. Owner-only (404 otherwise), 422 if already terminal (§38) |
 | GET | `/api/audits/{audit}/report` | **optional** | Fetch the report, filtered per viewer (§20) |
 | GET | `/api/audits/{audit}/report/pdf` | **optional** | Export the full report as a PDF — requires full access AND the owner's plan to have the `pdf_export` feature (403 otherwise); 404 if no report yet (§22) |
 | GET | `/api/audits/{audit}/report/services` | **optional** | Every per-service report plus the shared overview (§35), filtered by the same free-vs-full split as `/report` |
@@ -368,9 +381,12 @@ seeds `CrawlJob`/`CrawlUrl` rows from sitemap discovery
 (`RobotsTxtService` → `SitemapService`, sitemap-index aware, capped at 20
 sub-sitemaps / 5000 URLs), falls back to breadth-first same-domain link
 discovery from crawled pages (`expandFrontier`) when a site has no
-sitemap. Both `RobotsTxtService` and `SitemapService` send an explicit
-`crawler.user_agent` header — wordpress.org's WAF 403s Laravel's default
-Guzzle UA with none set (found during Phase 2 testing).
+sitemap. Both `RobotsTxtService` and `SitemapService` fetch through
+`SafeHttpClient` (§26) rather than the `Http` facade directly — it is
+what disables transport-level redirect following, re-validates every hop,
+caps the response body, and sends the explicit `crawler.user_agent`
+header that wordpress.org's WAF requires (it 403s Laravel's default
+Guzzle UA when none is set — found during Phase 2 testing).
 
 **Jobs**: `CrawlWebsiteJob` (seeds the crawl, dispatches `CrawlPageJob` per
 discovered URL) and `CrawlPageJob` (crawls one URL, expands the frontier,
@@ -811,7 +827,11 @@ when the viewer's plan lacks `pdf_export`.
 
 **User dashboard** (`RequireAuth`): Overview (latest audit's scores,
 website count, today's usage, quick audit form), My Websites
-(`GET /api/websites`, §8), Audits (`GET /api/audits`, §8 — **this one
+(`GET /api/websites`, §8 — one card per domain via `WebsiteCard`; adding
+`?website=<domain>` to the same route swaps the grid for that website's
+detail via `WebsiteDetail`, which is where audit history, score/issue
+trends, pages, recommendations, the editable profile form and the
+consultation CTA live, §37), Audits (`GET /api/audits`, §8 — **this one
 page deliberately serves the spec's "Audits," "Audit History," and
 "Reports" nav concepts**, since the backend has one audit-history
 dataset, not three; clicking a row goes straight to its report),
@@ -880,28 +900,141 @@ last → `CalculateScoreJob`.
 
 ## 26. Security requirements
 
-SSRF protection is layered, not single-point, because DNS can rebind
-between a check and the actual connection, and redirects can retarget
-anywhere:
-- **PHP layer** (`App\Services\Crawler\UrlSecurityValidator`): validates
-  scheme (http/https only) and port (80/443 only), rejects embedded
-  credentials and over-long query strings, resolves the hostname and
-  checks every IP via PHP's `FILTER_FLAG_NO_PRIV_RANGE|FILTER_FLAG_NO_RES_RANGE`
-  — before a URL is ever handed to the Node subprocess.
-- **Node layer** (`crawler/lib/ssrf.mjs`): independently re-resolves and
-  re-checks the hostname on the *initial navigation and every redirect
-  hop* via Playwright's `page.route()`, using its own IPv4/IPv6
-  private-range logic (mirrors the PHP checks; can't share code across
-  the language boundary).
-- Both layers block localhost/loopback, private ranges (10/8, 172.16/12,
-  192.168/16), link-local including cloud metadata (`169.254.169.254`),
-  and non-http(s) schemes.
-- Crawl depth limit, page-count limit, request/page/crawl timeouts,
-  redirect limit, response file-size limit, and rate limiting are all
-  config-driven (`config/crawler.php`), not hardcoded.
+### The audit entry point
 
-Frontend validation, if/when built, must never be the only validation —
-the backend re-validates everything.
+Every URL a user submits passes through three stages before anything is
+fetched, in this order, and **the string that comes out of stage 1 is the
+string stages 2 and 3 use** — validating one spelling and then storing or
+fetching another is the gap every SSRF filter bypass lives in:
+
+1. **Normalize** (`App\Services\Crawler\UrlNormalizer`). Lowercases the
+   scheme and host, applies the implied `https://` to a bare hostname,
+   strips the fragment and any default port, collapses an empty path to
+   `/`, removes the DNS root's trailing dot, and converts an IDN host to
+   punycode. Rejects — never rewrites — anything it can't reduce to an
+   unambiguous absolute http(s) URL: a non-http(s) scheme, embedded
+   credentials, control characters or raw CR/LF, an over-long URL or host.
+   A scheme it doesn't recognize is left intact so the allowlist gets to
+   reject it; quietly prefixing `javascript:alert(1)` with `https://`
+   would turn a rejected value into an accepted one.
+2. **Validate** (`App\Services\Crawler\UrlSecurityValidator`) — below.
+3. **Store and crawl the normalized URL**, and derive `websites.domain`
+   from it, so the crawler's same-domain comparisons are plain string
+   equality.
+
+`CreateAuditRequest` applies `url:http,https` and a length cap first, but
+the controller re-runs normalization and validation regardless: nothing
+downstream may assume form-request validation ran.
+
+### SSRF protection
+
+Layered, not single-point, because DNS can rebind between a check and the
+actual connection and redirects can retarget anywhere:
+
+- **PHP layer** (`UrlSecurityValidator`): scheme (http/https only), port
+  (80/443 only), no embedded credentials, bounded URL/query/host lengths,
+  no control characters, and a host that is either a valid IP literal or
+  a syntactically valid domain name. Every resolved address is checked
+  against PHP's `FILTER_FLAG_NO_PRIV_RANGE|FILTER_FLAG_NO_RES_RANGE`
+  **and** against `crawler.blocked_cidrs`, because those flags miss
+  several ranges that are internal in practice — carrier-grade NAT
+  (100.64/10), IETF protocol assignments (192.0.0.0/24), the benchmark
+  range (198.18/15), and NAT64 (`64:ff9b::/96`, which embeds an arbitrary
+  IPv4 destination). IPv4-mapped IPv6 is judged by the IPv4 rules, in
+  both its dotted and hex spellings. `assertSafe()` returns the resolved
+  addresses so a caller can pin rather than re-resolve.
+- **A host that fails the IP check is not thereby a domain.** Alternate
+  integer spellings — `2130706433`, `0177.0.0.1`, `0x7f.0.0.1`, `127.1` —
+  fail `filter_var()` as IPs but resolve to loopback in Chromium and
+  curl. A real TLD is never numeric, so a non-numeric last label is
+  required. The same check rejects shell/SQL/XSS payloads in the host
+  position before they reach a resolver, a subprocess argument, or a log
+  line.
+- **Node layer** (`crawler/lib/ssrf.mjs`): independently re-resolves and
+  re-checks **every** request Playwright makes — the initial navigation,
+  every redirect hop, every subresource, and every iframe — via
+  `page.route()`. Subresources are checked too because a hostile page can
+  point an `<img>` or an iframe at an internal address; the crawler never
+  reads those bodies back, but the request still reaches the internal
+  service. Blind SSRF is SSRF. Verdicts are memoized per hostname for the
+  lifetime of one page load, so hundreds of subresources across a handful
+  of hosts don't cost a DNS lookup each.
+- The Node blocked ranges mirror `config/crawler.php`'s `blocked_cidrs`.
+  The two lists can't share code across the language boundary, so they
+  are kept deliberately in sync — a range added to one belongs in the
+  other.
+
+### Redirect validation
+
+`App\Services\Crawler\SafeHttpClient` is the only way PHP makes an HTTP
+request to a user-supplied address (robots.txt and sitemap.xml).
+Validating a URL and handing it to a client that follows redirects itself
+is not SSRF protection: the check applies to the first hop, and the
+redirect chain is where the request actually ends up. So redirects are
+disabled at the transport (`allow_redirects => false`) and followed by
+hand — re-validating each hop, resolving relative and scheme-relative
+`Location` headers against their origin before checking them, and
+abandoning any chain longer than `crawler.max_redirects`. The concrete
+attack this closes: a site that passes every up-front check answering
+`/robots.txt` with a 302 into `169.254.169.254`.
+
+`SafeHttpClient` throws on an unsafe address but returns `null` for an
+unsuccessful, over-long, or over-budget response — so a caller can never
+mistake a blocked SSRF attempt for a missing robots.txt.
+
+### Limits
+
+All config-driven (`config/crawler.php`), never hardcoded:
+
+- **Response size**: `max_response_bytes` for PHP-side fetches, checked
+  against `Content-Length` *and* enforced while reading, because
+  Content-Length is absent on chunked responses and describes the
+  compressed size on encoded ones. `max_file_size_mb` bounds the crawled
+  document the same way — header first, then the transferred size CDP
+  actually measured.
+- **Redirects**: `max_redirects`, enforced in both `SafeHttpClient` and
+  `crawl.mjs` (Chromium's own ~20-hop default is far looser than the
+  crawler's budget).
+- **Time**: `request_timeout` per PHP fetch, `page_timeout` per page
+  navigation, and `crawl_timeout` as a wall-clock ceiling on a whole
+  crawl, enforced in `CrawlPageJob`. The per-request timeouts only bound
+  one fetch each — a site that answers every request slowly but
+  successfully, or that keeps yielding new links, would otherwise hold a
+  worker for hours. On timeout the crawl is *abandoned but still
+  analyzed*: the pages already fetched are valid findings, and a user who
+  waited out the timeout should not get nothing. The transition out of
+  `Running` is a conditional update, so of the several in-flight page
+  jobs that all reach the same conclusion, exactly one finalizes.
+- **Concurrency**: `max_concurrent_crawls`
+  (`App\Jobs\Middleware\LimitConcurrentCrawls` on `CrawlWebsiteJob`) caps
+  how many audits crawl at once. The `crawler` rate limiter bounds how
+  *fast* pages are fetched and says nothing about how many crawls run in
+  parallel — without this, a burst of submissions starts a Chromium
+  subprocess per audit and the box runs out of memory long before any
+  rate limit is reached. Counting `crawl_jobs` rows rather than using a
+  Redis semaphore keeps it working on every queue driver; an over-cap job
+  is *released*, not failed.
+
+### Sitemap parsing
+
+`simplexml_load_string` is called with `LIBXML_NONET` (so the parser
+can't become its own SSRF vector by fetching an external DTD) and
+deliberately **without** `LIBXML_NOENT` — leaving entity substitution off
+is what keeps a hostile sitemap from reading local files (XXE) or
+expanding into gigabytes (billion laughs). Sitemap seeds from a
+`Sitemap:` line in robots.txt are filtered by domain like every nested
+entry, not trusted because of where they came from: robots.txt is
+attacker-controlled content on the audited site and can name any host it
+likes.
+
+### Frontend validation
+
+`frontend/src/lib/url.ts` (`checkAuditUrl`) exists for the error message,
+not for the security — it decides what the user is told, never what the
+server does. Anyone can skip it by calling the API directly, and the
+backend re-normalizes and re-validates every submission regardless. Its
+internal-host list is deliberately short and obvious rather than a copy
+of the server's ranges: a partial copy that drifts is worse than none.
 
 **Rate limiting** (Phase 9 hardening pass — `/register`, `/login`, and
 `/leads` were previously unthrottled entirely; `LeadController` even had
@@ -915,6 +1048,15 @@ a stale comment claiming a "shared api throttle" that didn't exist):
 - `GET /api/cms/{slug}` stays unthrottled — public, read-only, cheap; no
   meaningful DoS surface to rate-limit differently from any other static
   content read.
+
+**Guest abuse protection**: the anonymous limit is a *lifetime* limit
+keyed on IP (§19), on top of the throttle above. Page limits, `user_id`
+and status are all server-derived — `AuditController::store()` reads only
+`url` from the payload, so a guest cannot raise its own page cap, claim
+an account, or pre-set an audit's status by adding fields to the request.
+A refused audit creates no `websites`, `audits` or `usage_logs` row, so a
+rejection leaves nothing behind to be picked up later and does not burn
+the caller's free audit.
 
 **Password policy** (`AppServiceProvider::boot()`, via
 `Password::defaults()`): minimum 8 characters, at least one letter and
@@ -937,7 +1079,6 @@ response is finalized either way (success or exception-rendered), so
 it's the one hook that actually covers both. Caught by writing the test
 for it (`AuthTest::test_exception_rendered_api_responses_also_include_security_headers`)
 before trusting the first (middleware) implementation.
-
 ## 27. Current development status
 
 Phases 1-9 complete and committed. See §28/29 for what's outstanding.
@@ -962,7 +1103,159 @@ phase to the frontend at all.
 
 ## 28. Known bugs
 
-None currently open. Three were found and fixed during development
+None currently open.
+
+**The failure path could not record a failure** (§49, found in
+production). `audits.error_message` was `varchar(191)` — a width every
+`string()` column inherits from `Builder::defaultStringLength(191)`, which
+exists so utf8mb4 *indexes* fit MySQL 5.7's 767-byte key limit and has
+nothing to do with prose. `AuditLifecycle::markFailed()` truncated to
+**250**.
+
+So any failure whose message ran past 191 characters made the write that
+*records* the failure throw. The job died mid-transition, and the audit
+was stranded in `crawling` holding its owner's concurrent slot forever —
+precisely the state §38 exists to make impossible, defeated by a column
+width. Worse, the message explaining the original failure was destroyed
+along with it, so the actual fault was invisible.
+
+Both columns and limit are fixed: `audits`, `crawl_urls` and `crawl_jobs`
+now use TEXT, and the truncation limit is a single named constant
+(`AuditLifecycle::MAX_ERROR_MESSAGE`) shared by both write sites, so the
+two can no longer drift from each other or from the schema. The limit is
+now editorial — a 50KB stack trace helps nobody reading a report — rather
+than structural.
+
+**Operational note, not a code bug:** the crawl failure this exposed was a
+**stale `queue:work` worker**. A worker boots the application once and
+holds it: it does not see code changes, and its environment is frozen at
+launch. The running worker could not resolve Playwright's browser while
+the identical crawl succeeded from a fresh process. `php artisan
+queue:restart` fixed it. Any deploy or dependency change needs the same.
+
+**Found and fixed in the Phase 1-11 review pass**, which for the first
+time ran the whole stack end to end — every migration applied to a fresh
+database, a seeded audit served over HTTP, and the report driven in a real
+browser:
+
+- **Screenshots were rationed like audit creation.** The signed screenshot
+  route sat inside the audit group's `throttle:10,1`. One report view
+  loads two screenshots per crawled page — fifty requests on a 25-page
+  audit — so all but the first ten returned 429 and rendered as
+  "Screenshot unavailable". The limit exists to bound audit *creation*;
+  serving a stored PNG is nothing like it. Now its own throttle, outside
+  that group.
+- **The site classification never reached a reader.** §46's classification
+  was added to `ReportOverviewCard`, which only the legacy combined view
+  uses. The report page users actually land on builds its own header, so
+  the thing that explains *why* Ecommerce and Product were skipped was
+  invisible on the page listing them as skipped.
+- **`ServiceKey` was missing `product_auditor`.** The API had returned
+  seven services since §36 and the TypeScript union listed six, so the
+  type could not catch anything that forgot the product report.
+- **New environment variables were undocumented.** Everything added in
+  §43-§48 — screenshot disk and URL TTL, branding disk and logo cap,
+  backlink driver and cache TTL, accessibility evidence limits — has
+  sensible defaults, so nothing broke, but a production deployment had no
+  way to discover them. Now in `.env.example`.
+- **The og:image preview loaded a third-party image bare.** It is the
+  audited site's own asset and a plain `<img>` is right, but it now sends
+  no referrer (keeping the reader's report URL out of that host's logs)
+  and hides on error, since an `http:` og:image on an https page is common
+  and would otherwise show a broken-image icon.
+
+**Found and fixed in the Phase 1-7 cross-phase review pass** (each pinned
+by a test that fails against the old code):
+
+- **A lapsed subscriber kept their paid plan's feature access, forever.**
+  `FeatureAccessResolver::planFor()` read `$user->plan()` — a bare
+  relation that says nothing about whether the subscription is still
+  active or the plan still on offer. That resolver decides which audit
+  modules run and which AI models an account reaches (§33), so an expired
+  subscription kept every paid capability indefinitely. Now resolved
+  through `EntitlementResolver` (§40), which is the whole reason that
+  class exists. Guests and users with no subscription still fall back to
+  the default plan, exactly as before.
+- **Scheduled audits crawled at the lapsed plan's page limit.** Same root
+  cause, in `AuditSchedulerService::runOne()`: `$user->plan()?->max_pages`.
+  A schedule fires forever, so this handed out paid crawl budget
+  indefinitely in a background job nobody watches. Now reads
+  `EntitlementResolver`, like the audit-creation endpoint already did.
+- **Every per-service PDF shipped with a blank site URL.**
+  `service-pdf.blade.php` rendered `$website->url`, a column renamed to
+  `primary_url` in §37. Blade renders a missing attribute as an empty
+  string, so nothing failed and the existing PDF test — which asserted
+  only that the bytes were a PDF — could not see it. The replacement
+  assertion targets the header block specifically, because the audited
+  domain appears throughout the body and a plain substring check passes
+  even when the header is empty.
+- **Eighteen of Phase 7's SEO issue codes fell into "Other SEO".**
+  `IssueTaxonomy` was not extended alongside the new checks — the exact
+  regression that had already happened once with the performance codes
+  (TEST_CASES item 19). Every SEO code is now mapped and covered by a
+  data-provider test, and schema codes (whose tail is the schema.org
+  type) are matched by prefix so adding a type to `config/seo_schema.php`
+  cannot silently drop its findings.
+- **Two mappings of axe rules had drifted apart.** `IssueTaxonomy` kept
+  its own ~22-rule copy of what `AccessibilityCheck` (§43) maps with ~90.
+  A rule known to one and not the other was grouped as "Contrast" in the
+  accessibility rollup and "Other Accessibility" in the issue list *of
+  the same report*. The taxonomy now delegates to `AccessibilityCheck`,
+  so there is one mapping.
+- **The backlink provider was called on every report render.**
+  `ServiceReportBuilder` asks for backlinks each time the SEO service
+  report is built — the web view, every PDF export, every refresh — which
+  with a real provider is one billed third-party call per page view.
+  `BacklinkService` now caches successful answers for
+  `config('backlinks.cache_ttl')`. Failures are deliberately **not**
+  cached: an outage must be able to clear the moment the provider
+  recovers, or "we could not find out" gets pinned in place for an hour.
+- **`AuditScheduleController::store()` looked a website up by bare id**
+  and checked ownership afterwards. Not exploitable — the check was
+  correct — but it violates §37's rule and confirmed the row existed to
+  someone who did not own it. Now scoped to `$user->websites()`.
+
+**Found and fixed in the Phase 1-3 review pass** (each pinned by a test in
+`AuditPipelineIntegrityTest`; several were cross-phase, where the §38
+lifecycle rework broke an assumption older code relied on):
+
+- **Terminal audits leaked the global crawl slot.** Nothing closed the
+  `crawl_jobs` row when an audit failed, was cancelled, or was recovered
+  as stuck, so each one stayed `running` forever. `LimitConcurrentCrawls`
+  counts exactly those rows, so after `max_concurrent_crawls` such audits
+  (default 5) **crawling would stop system-wide, permanently, with
+  nothing to explain why**. Now closed in `AuditLifecycle::transition()`,
+  the one place terminal transitions happen. Only *running* rows are
+  touched — a crawl that finished normally keeps its real `completed_at`.
+- **Every audit module could run twice.** `CrawlPageJob::finalizeIfComplete()`
+  updated the crawl job unconditionally, so two workers finishing the last
+  two pages at the same moment both saw "nothing pending" and each
+  dispatched a full round of module jobs. Now uses the same conditional
+  claim `abandon()` already had.
+- **Reports shipped `audit_date: null`.** §38 moved the completion stamp
+  to *after* report generation (so `completed` means "there is a report"),
+  but `ReportBuilder` read `completed_at`, which was still null at that
+  moment. Now falls back to `now()`, which on the first build is the same
+  instant.
+- **Scheduled audits bypassed the concurrent-audit limit.**
+  `AuditSchedulerService::runOne()` created audits directly, so a daily
+  schedule firing while yesterday's audit still ran would stack past the
+  plan's limit. Now goes through `ActiveAuditLimiter::withSlot()`. A
+  skipped run still advances `next_run_at` (or the scheduler would retry
+  it on every tick for as long as the blocking audit runs) but does not
+  set `last_run_at`, so the skip stays visible as a gap.
+- **Anyone could cancel an anonymous audit** by guessing its ID. Reading
+  one is an accepted gap (§28/§20) because reading changes nothing;
+  cancelling destroys a running audit. Anonymous cancellation is now
+  restricted to the IP that created it (recorded in `usage_logs`). Weak
+  identity, but it turns "anyone" into "the same network".
+- **`RunAuditModuleJob`'s `$tries = 2` was dead code.** The handler caught
+  the first throw and wrote the category off immediately, so a transient
+  failure permanently marked a category unassessable. It now rethrows
+  while attempts remain. Note `hasAttemptsLeft()` also has to exclude the
+  `sync` connection: sync runs jobs inline and **never retries**, yet
+  still reports `attempts() = 1`, so counting attempts alone would lose
+  the graceful degradation entirely under that driver. Three were found and fixed during development
 (kept here for history, not because they're still present):
 - `CalculateScoreJob` used `pluck('score', 'category')` where `category`
   is enum-cast — using an enum object as an array key throws "Illegal
@@ -1071,10 +1364,11 @@ authenticated actors in one method, use one of these two patterns.
 
 ## 29. Known limitations
 
-- **Redis is not installed** on this dev machine. All testing uses the
-  `database` queue/cache driver as a per-command env override.
-  Architecture (`.env`) still declares Redis; this is a local-environment
-  gap, not a design change.
+- **Redis is not installed** on this dev machine. `.env` now declares the
+  `database` queue and cache drivers outright rather than overriding
+  Redis per command, and `audit:crawl` reports the configured connection
+  instead of a hardcoded guess (§56). `.env.example` still shows Redis as
+  the intended production driver.
 - **No real AI API keys configured.** All AI-driven module testing
   exercises the graceful-degradation (deterministic-only) path, not
   actual model responses. Provider request/response *parsing* is unit-
@@ -1107,10 +1401,11 @@ authenticated actors in one method, use one of these two patterns.
   simple existence query with no locking. Fine for the current single-
   worker local setup; worth revisiting once Horizon/multi-worker queue
   processing is in play (production, Phase 10+).
-- **No "promote user to admin" endpoint** — deliberate (§9), but means
-  the very first admin has to be created via `tinker` or a direct DB
-  write. Fine for a single-operator MVP; would need a real bootstrapping
-  story before this could be handed to a team.
+- **No "promote user to admin" endpoint** — deliberate (§9): an HTTP
+  route that grants admin is a route that can be found. Bootstrapping is
+  now `php artisan make:admin <email>` rather than a hand-written DB row
+  (§59), which also rotates a password via `--password` — the only way to
+  change one, since there is still no self-service password change.
 - **No failed-job retry endpoint** — list and delete only (§21).
 - **No plans are seeded except the free default.** Paid tiers don't
   exist until an admin creates them via `POST /api/admin/plans` — no
@@ -1124,44 +1419,31 @@ authenticated actors in one method, use one of these two patterns.
   backend in a browser — not a substitute for real component/unit
   tests, but real functional verification, not a claim based on reading
   the code. Add a test runner before this frontend grows much further.
-- **A failed "Test Connection" attempt doesn't record a response
-  time** — `ClaudeProvider::testConnection()` (and its OpenAI/Gemini
-  equivalents) return `response_time_ms: null` on the caught-exception
-  path, even though the underlying HTTP call's elapsed time was
-  measured before the exception was thrown; `AiProviderException`
-  doesn't carry it. Minor telemetry completeness gap in the admin API
-  Usage page's average-response-time figure for failed test-connection
-  rows specifically — not a functional defect (success/failure and the
-  error message are still accurate).
+- ~~A failed "Test Connection" doesn't record a response time~~ —
+  **resolved in §56.** `AiProviderException` now carries
+  `responseTimeMs`, set on both failure paths (transport error and API
+  error) in all three providers, so the admin average-response-time
+  figure no longer silently excludes the calls most worth timing: a
+  provider that is timing out is slow before it is broken.
 - **PageSpeed's "Test Connection"** runs a real PageSpeed Insights
   call against a fixed test URL (`https://example.com`), which is slow
   (10-30s, per §14) — the admin UI has no separate longer timeout or
   "this may take a while" messaging for that one provider's test
   button specifically.
-- **`product_auditor` (the 7th feature, "AI Product Auditor") has no
-  backing `AuditModule`** — it's registered in the feature registry
-  (§33) so admins can toggle its future per-plan availability now, per
-  the product spec's explicit requirement, but enabling/disabling it
-  currently has zero effect on audit execution since no module exists
-  to gate. Building the actual product-page AI auditor is out of scope
-  for a plan/feature-*governance* task — it's a new audit engine, not an
-  access-control change.
-- **A plan can only ever "allow" a provider's one currently-active
-  model, not truly pick among several concurrently** — every provider
-  class (`ClaudeProvider`/etc.) always calls whatever
-  `ApiProvider::$model` is configured, with no per-request model
-  parameter (§12/§33). `PlanAiModelResolver` therefore treats a plan's
-  allowed-model row as usable only when its `model_id` matches the
-  provider's live `$model`; a plan permitted to use "Claude Opus" while
-  the provider is actively configured for "Claude Sonnet" simply has no
-  usable Claude model right now, not a silent substitution. Real
-  per-request model selection would need every provider class refactored
-  to accept a model override — a deeper AI-infrastructure change than
-  this task's access-control scope.
-- **No per-user website-count cap** — the pricing spec's example limits
-  included one, but the schema has no such column and nothing enforces
-  it; admins were told this in the Plan editor's Usage Limits tab rather
-  than having a fabricated field added for it (see §33's scope note).
+- ~~`product_auditor` has no backing `AuditModule`~~ — **resolved.**
+  `ProductAuditModule` exists, is registered in `AuditModuleRegistry`,
+  and produces real `product_auditor` scores (verified against live
+  audits in §56). The feature flag now gates something.
+- ~~A plan can only allow a provider's one currently-active model~~ —
+  **resolved in §53.** `AiProvider::analyze()` takes a model override,
+  threaded through all three provider classes, and `PlanAiModelResolver`
+  picks the cheapest plan-allowed model whose tier meets the task. The
+  old "model_id must match the provider's live `$model`" rule survives
+  only as the fallback for when nothing meets the required tier.
+- ~~No per-user website-count cap~~ — **resolved in §40.**
+  `plans.max_websites` exists and is enforced by
+  `UsageLimitService::websiteRefusalReason()` via `WebsiteResolver`,
+  covered by `EntitlementTest`.
 
 ## 30. Pending tasks
 
@@ -1504,10 +1786,10 @@ Crawler: `crawler/lib/*.test.mjs`, run via `npm test` (Node's built-in
 `node --test`, no added dependency). Covers the SSRF logic
 (`isPrivateAddress`, `assertHostnameIsPublic`) directly — the same
 defense-in-depth layer described in §26, tested independently of the PHP
-side since the two can't share code across the language boundary. 40
+side since the two can't share code across the language boundary. 62
 Node tests currently, all passing.
 
-**380 tests total** (340 PHP + 40 Node). See `tests/TEST_CASES.md` at the
+**760 tests total** (698 PHP + 62 Node). See `tests/TEST_CASES.md` at the
 repo root for the full registry mapped to test-requirement categories,
 coverage status, and any remaining gaps.
 
@@ -2035,11 +2317,10 @@ is reported once rather than cascading into separate
 price/availability/review findings for the same root cause.
 
 **Known limitations:**
-- Lighthouse opportunities are extracted and stored in the PageSpeed
-  result but are **not yet surfaced** as a separate "Opportunities vs
-  Diagnostics" UI section — the deterministic resource issues cover the
-  same ground for now, and splitting them is presentation work on data
-  that is already collected.
+- ~~Lighthouse opportunities are extracted but not surfaced as an
+  "Opportunities vs Diagnostics" section.~~ **Closed by §45**, which also
+  found that diagnostics were being discarded entirely rather than merely
+  not displayed.
 - PageSpeed still runs against a capped page subset (default: homepage),
   so most pages show crawler-measured metrics only and `—` for Lighthouse
   scores. That is a cost/rate-limit tradeoff, and the report shows the
@@ -2051,6 +2332,2018 @@ price/availability/review findings for the same root cause.
   for real-audit validation has no working cart element to exercise it.
 
 ---
+
+## 37. Website records, deduplication, and audit history
+
+A `websites` row used to be a byproduct of submitting an audit:
+`AuditController::store()` called `Website::create()` unconditionally, so
+auditing the same site twice produced two records and two cards in "My
+Websites". A website is now a durable thing a user owns and edits, and
+audits accumulate under it as history.
+
+### Identity: `domain` vs `normalized_domain` vs `primary_url`
+
+Three columns that look redundant and are not:
+
+- **`domain`** — the host exactly as the site serves it, `www` and all.
+  The crawler compares link and sitemap hosts against this for its
+  same-site checks, so normalizing it would break crawling.
+- **`normalized_domain`** — the dedup key: lowercased, punycode, DNS root
+  dot stripped, **and a leading `www.` removed**. `www.example.com` and
+  `example.com` are one website to a person deciding whether they have
+  already audited it. Produced by
+  `UrlNormalizer::normalizedDomain()`, which is deliberately more
+  aggressive than `normalize()` for exactly this reason.
+- **`primary_url`** — the URL the next crawl starts from (renamed from
+  `url`, which said nothing about which of the three it was). A repeat
+  audit updates it: re-auditing `example.com/pricing` after `example.com`
+  is the user saying that is the page they care about.
+
+### `WebsiteResolver` — one record per domain per user
+
+`App\Services\Website\WebsiteResolver` is the only place a website row is
+created or found for a submission. Two paths:
+
+- **Registered user**: find by `(user_id, normalized_domain)`, else
+  create. A `UniqueConstraintViolationException` on the insert is caught
+  and re-read rather than surfaced — two audits of the same new domain
+  submitted at once both see no existing row, and the unique index (not
+  the read-then-write) is what actually prevents the duplicate.
+- **Anonymous**: always a fresh row. There is no identity to attach a
+  durable record to, so the only thing a shared row could key on is the
+  domain — which would hand every anonymous visitor the audit history of
+  every other anonymous visitor who audited that site. Duplicate
+  anonymous rows are the correct trade: they are invisible (anonymous
+  users have no "My Websites" listing) and they leak nothing.
+
+The uniqueness is scoped to the user, not global. Two users auditing the
+same domain each get their own record, with their own profile fields and
+their own history.
+
+A repeat audit updates `primary_url` and `domain` but never the profile
+fields — a re-audit is not an edit of the record.
+
+### The migration is destructive, and tested as such
+
+`2026_08_31_000000_add_profile_and_normalized_domain_to_websites_table`
+renames `url` → `primary_url`, adds the profile fields, backfills
+`normalized_domain` and `name`, **merges pre-existing duplicates**, and
+only then adds the unique index. The merge collapses each
+`(user_id, normalized_domain)` group onto its earliest row — earliest so
+the website's `created_at` stays honest as "when the user first audited
+this domain" — repointing `audits` and `usage_logs` at the survivor.
+
+`audit_schedules` needs its own handling: it carries a unique
+`(user_id, website_id)`, so blindly repointing a duplicate's schedule
+would collide with the survivor's own. One schedule is moved only if the
+survivor has none; the rest are dropped, since one website has one
+schedule by definition and they were all for the same site.
+
+Anonymous rows are skipped by the merge for the same reason
+`WebsiteResolver` does not dedupe them.
+
+This is the only code in the project that deletes rows from a live
+database, and it is the only code the rest of the suite structurally
+cannot exercise — every other test starts from a fresh schema with no
+duplicates, so the merge path runs zero times.
+`WebsiteDeduplicationMigrationTest` therefore rolls the migration back,
+recreates the pre-migration state, and runs it forward again.
+
+### Reading the data back
+
+- `Website::latestCompletedAudit()` uses `ofMany(['id' => 'max'], …)`
+  with a constraint closure, **not** `where(...)->latestOfMany()`. The
+  latter filters the outer join but leaves the subquery picking MAX(id)
+  across all of the website's audits, so a website whose newest audit is
+  still running resolves to nothing at all.
+- `WebsiteCardBuilder` reads every number from the latest *completed*
+  audit and reports any in-flight or failed run separately as
+  `latest_audit`. A card must not blank out its scores the moment a
+  re-audit starts, and a failed run's partial scores are not a result.
+- `WebsiteDetailBuilder` composes the detail sections. `audit_history`
+  includes failed and in-flight runs; the trend sections exclude them,
+  because a failed run plotted on a score line reads as a real cliff. A
+  category no audit ever scored is **omitted** from `score_trends`
+  entirely rather than emitted as zeros — a flat line at zero reads as
+  "we measured this and it is terrible", not "this check never ran".
+
+**Enum-cast comparison trap** (bit this twice, once found only in the
+browser): `audit_issues.severity` and `audit_scores.category` are
+enum-cast, so `$score->category === 'overall'` is *always false* and
+`$rows->pluck('total', 'severity')` throws "Illegal offset type" on the
+enum key. Aggregates go through the query builder (`DB::table(...)`), and
+category comparisons go through `WebsiteDetailBuilder::categoryOf()`.
+Note that Collection `firstWhere('category', 'overall')` *does* match —
+its loose `==` coerces the backed enum — which is exactly why the strict
+`===` bug survived to the browser: most of the reads kept working.
+
+### Authorization: the query parameter is not the check
+
+The frontend addresses a website by domain
+(`/dashboard/websites?website=example.com`), and the API accepts a domain
+in the path (`GET /api/websites/example.com`). A domain is public
+knowledge, so it identifies **which** of the caller's websites to show and
+never grants access to it.
+
+Every lookup in `WebsiteController` starts from
+`$request->user()->websites()`. A website belonging to someone else is not
+"forbidden", it is simply not in the set being queried — so it 404s
+exactly as a domain the caller has never audited would. That is
+deliberate: a 403 would confirm the record exists, turning the endpoint
+into a way to discover which domains other users have audited.
+
+`UpdateWebsiteRequest` accepts only the profile fields. `domain`,
+`normalized_domain`, `primary_url` and `user_id` are absent from its
+rules by design: a writable `normalized_domain` would let one record claim
+another's identity and collide with a record the user already owns.
+
+## 38. Audit lifecycle, concurrency limits and snapshots
+
+### The lifecycle
+
+`App\Enums\AuditStatus`: `queued` → `validating` → `crawling` →
+`analyzing` → `generating_report` → `completed`, with `failed` and
+`cancelled` reachable from any of them. (`pending` was renamed to
+`queued` — it said nothing about what it was pending *on*, and the
+lifecycle now needs a name for "accepted, waiting for a worker" that is
+distinct from "a worker has it and is validating".)
+
+The split that matters is **active vs terminal**:
+
+- Active: `queued`, `validating`, `crawling`, `analyzing`,
+  `generating_report`.
+- Terminal: `completed`, `failed`, `cancelled`.
+
+`generating_report` exists because `CalculateScoreJob` used to mark an
+audit `completed` and *then* dispatch the report job — telling the user
+the audit was done while the thing they were about to open did not exist
+yet. `completed` now means "there is something to look at".
+
+### `AuditLifecycle` — the only place status changes
+
+Two rules have to hold on every path, and both were previously the
+caller's job to remember:
+
+1. A terminal transition stamps `terminated_at`, or the audit keeps its
+   concurrent slot forever in every query that reads it. (`completed_at`
+   keeps its narrower meaning of "finished successfully", so reports can
+   go on trusting it.)
+2. A terminal audit is never moved again. Every transition is a
+   *conditional* update (`WHERE status IN (active…)`), so a worker
+   finishing after a cancellation cannot resurrect the audit and
+   overwrite a real user decision. `transition()` returns false in that
+   case and the caller stops.
+
+`progress_at` is bumped by every job that does real work. It exists
+separately from `updated_at` because any unrelated write to the row
+refreshes `updated_at`, which would make an abandoned audit look alive.
+
+### Concurrent-audit limits (`ActiveAuditLimiter`)
+
+"In flight" is **derived from `audits.status`**, never tracked in a
+counter. That is the whole reason completed, failed and cancelled audits
+release their slot without a release step that some new failure path
+could forget to call — there is nothing to decrement.
+
+- Registered users: `plans.concurrent_audit_limit` (DB-configurable per
+  tier, editable through admin plan CRUD; the free plan seeds to 1). A
+  user with no subscription gets 0, consistent with `UsageLimitService`.
+- Guests: `audit_limits.anonymous_active_limit`. A guest's audits are
+  associated with them through `usage_logs.ip_address`, since the audit
+  row carries no IP.
+
+Distinct from `daily_audit_limit`, which caps volume over a day. This
+caps what is in flight at any instant, and is what stops one account
+queueing a thousand crawls.
+
+**The race.** Count-then-insert is a textbook race: two requests both
+count N-1 active audits, both decide there is room. `withSlot()` runs the
+check and the insert together under two guards:
+
+- A named `Cache::lock` per owner, acquired **non-blocking**. This is the
+  guard that matters in production (Redis, atomic cluster-wide) where two
+  PHP-FPM workers handle two requests at once. Non-blocking because
+  whoever holds the lock is about to consume the very slot a waiter would
+  be waiting for, so the honest answer is "you already have one starting",
+  returned immediately. It also sidesteps a real trap: **`Lock::block()`'s
+  timeout is not honoured by the array driver** — it waits out the
+  holder's full TTL instead of the timeout passed to it (measured: a
+  `block(1)` against a 30s lock returned after 30 seconds). A blocking
+  acquire would therefore hang requests for the lock TTL in any
+  environment not running Redis.
+- A `DB::transaction` with `lockForUpdate()` on the owning user row, so
+  the limit still holds if the cache is flushed or misconfigured. This is
+  a no-op on SQLite, which is exactly why the named lock is not optional.
+
+A guest has no row to lock, so the named lock is the only guard there — a
+deliberate, acceptable gap, since the anonymous limit is already
+best-effort (keyed on an IP address that one person can trivially change).
+
+### Cancellation
+
+`POST /api/audits/{audit}/cancel`, owner-only (404 for anyone else, so
+the endpoint cannot confirm which IDs exist). The slot frees immediately.
+
+Cancellation is **cooperative**: a job already executing is not killed. It
+finds the terminal status at its next checkpoint (`shouldStop()`, called
+at the top of every queued job) and stops. So cancellation takes effect at
+the next stage boundary, and an in-flight page fetch may take a few more
+seconds to wind down.
+
+### Reliability
+
+Every failure mode now has an owner:
+
+| Failure | Handled by |
+|---|---|
+| Crawler throws | `CrawlWebsiteJob`'s catch → `markFailed(stage: crawling)` |
+| One page fails | `CrawlOrchestrator` records the per-URL failure; the crawl continues. `CrawlPageJob::failed()` re-checks crawl completion, so a failure on the *last* outstanding page doesn't stall the pipeline |
+| One module throws | `RunAuditModuleJob` records the category as unassessable (`score: null, is_applicable: false, breakdown.error`) and continues. **A partial failure is not an audit failure** — six categories of real findings still ship |
+| A job exhausts `tries`, or the worker dies mid-job | Each job's `failed()` handler marks the audit failed (or, for a module, records the unassessable score). Without these the audit sits active forever, holding a slot nothing releases |
+| Worker OOM-killed / deploy mid-job (`failed()` never runs) | `audits:recover-stuck`, scheduled every five minutes |
+| Crawl runs too long | `crawler.crawl_timeout` in `CrawlPageJob` (§26) — abandons but still analyzes what was gathered |
+
+The unassessable-score shape is deliberate: it matches a genuinely
+Not Applicable category (§34) except for `breakdown.error`, so nothing
+downstream mistakes a crashed module for a clean result and no score is
+invented to fill the gap. It also has to exist at all — without a score
+row, `dispatchScoreCalculationIfReady()` waits forever for a category
+that will never report.
+
+`audits:recover-stuck` runs every five minutes rather than hourly because
+a stuck audit holds a slot, so until it runs the user simply cannot start
+another audit. It is a single indexed query when nothing is stuck. It
+takes `--minutes` and `--dry-run`, and is deliberately conservative:
+`stuck_after_minutes` (default 30) must stay well above
+`crawler.crawl_timeout` or recovery will kill audits that are merely slow.
+
+### The immutable snapshot (`audit_snapshots`)
+
+Distinct from `reports`, which is a *presentation* of current data and is
+regenerated whenever the report format changes. A snapshot is **evidence**:
+written once when an audit completes, never changed.
+
+It records the website, timestamp, crawler/scoring/prompt versions, AI
+provider and model, pages analyzed, service results, scores, issues,
+recommendations, screenshots and performance data — everything
+denormalized into `content` rather than referenced by id. That is the
+point: it has to keep meaning after the website is renamed, the scoring
+weights change, the AI model is swapped, or a re-audit re-derives the
+issue rows. A snapshot full of foreign keys would silently start telling
+a different story.
+
+- **Versions** (`config/audit_versions.php`) are what make an old score
+  comparable to a new one. Without them, a change in scoring weights is
+  indistinguishable from a change in the audited site. The scoring
+  *weights themselves* are stored too, so reading a two-year-old snapshot
+  does not require digging a matching config out of git history.
+- **AI provenance** is read from the audit's `ai_analyses` rows, not from
+  current config — config says what would be used *now*, which is not
+  what produced this result. A failed call is not reported as the
+  answering provider.
+- **Service results** include services that did *not* run. A snapshot
+  that silently omitted a disabled category would read as "this site had
+  no accessibility problems".
+- **Immutability is enforced in the model**, not left as convention:
+  `updating` and `deleting` throw `AuditSnapshotIsImmutable`. Deleting
+  matters as much as editing — drop the snapshot, re-run the audit, write
+  a new one is a subtler way to rewrite history. The FK cascade does not
+  fire model events, so snapshots still go when their audit does.
+  `AuditSnapshotBuilder::build()` returns the existing row untouched
+  rather than rewriting, because `GenerateReportJob` retries.
+
+A snapshot failure is logged loudly but does **not** fail the audit: the
+report is already saved and is what the user reads.
+
+## 40. Plan entitlements
+
+Everything a tier grants, in one place: `App\Services\Plan\Entitlements`,
+an immutable value object resolved by `EntitlementResolver` and read by
+every gate. Nothing should reach for `$user->plan()->max_pages` again.
+
+The indirection earns its keep because three cases have to be right
+everywhere and previously were not: a guest has no plan row, an expired
+subscriber's plan is not the plan they are entitled to, and "unlimited"
+has to be expressible. The website cap and monthly cap simply did not
+exist, and the guest branch was re-derived from config in three places.
+
+**Null means unlimited** in every numeric field. Zero is a real limit of
+none; the two are never interchangeable, from the admin request through
+to the column.
+
+### Where the numbers live
+
+| Control | Source |
+|---|---|
+| Max websites, pages per audit, daily/monthly audits, concurrent audits, audit frequency, report visibility %, issues per service, AI analyses per audit, AIO prompts | `plans` columns — admin-editable via `PUT /api/admin/plans/{plan}` |
+| PDF export, scheduled audits, audit history, report sharing, white label, custom AIO prompts, competitor discovery | `plans.features` (JSON), keyed by `App\Enums\PlanFeature` |
+| The whole guest tier | `config/entitlements.php` |
+
+`PlanFeature` exists so the JSON column is not free-form: `PlanRequest`
+rejects an unknown key, which used to save silently and disable nothing.
+
+The guest tier is deliberately *not* a `plans` row — a plans row is
+admin-editable and shows up in pricing listings, and neither is right for
+anonymous visitors. `config/audit_limits.php` used to hold some of these;
+they moved here, and its `anonymous_active_limit` was already dead (one
+key fed the resolver, the other fed nothing).
+
+### Which plan applies
+
+1. **Anonymous** → the guest tier.
+2. **Active subscription** → that plan. `Subscription::isActive()` checks
+   status *and* `ends_at`: a row can be marked Active but past its end
+   date (nothing sweeps them), or Cancelled but still inside a paid-up
+   period.
+3. **Lapsed subscription** — cancelled, expired, past `ends_at`, or
+   pointing at a plan an admin has deactivated → the **default plan**,
+   flagged `is_downgraded`. A subscription ending is a normal lifecycle
+   event; locking the account out of the product would be a worse answer
+   than dropping it to free.
+4. **No subscription row at all** → null, and callers deny. An anomaly,
+   not a lifecycle state: registration always creates one, so an account
+   without it came from a script or a partial failure, and the system
+   refuses to guess what they paid for. (Pre-existing behaviour, kept.)
+
+### Not cached, deliberately
+
+An earlier version memoized by user id, and it was wrong — provably so. A
+resolver instance outlived the state it cached: the same object served two
+requests and answered the second with the plan the user had during the
+first, so **a plan upgrade did not take effect**. The same hazard exists
+in any long-lived process (a queue worker, Octane) and for a resolver
+handed two different users.
+
+For the same reason `resolve()` queries `subscriptions` and `plans` by key
+rather than reading `$user->subscription->plan`: Eloquent caches a loaded
+relation on the model instance, so a `User` handed in after its plan
+changed answers with the old plan's limits, and the caller has no way to
+know its object is stale.
+
+Entitlements gate limits, so a stale answer is a wrong answer to a
+security question. Two small indexed queries per resolution is the right
+trade.
+
+### Report visibility
+
+`report_visibility_percent` scales how many findings survive the
+restricted view, and `issues_per_service` caps them per service. The
+*shape* of the split is still field-based (§20) — a percentage short of
+100 never reveals AI analysis or page-level findings, however high it is.
+Counts round **up**, so a plan showing "10%" of a single finding shows
+that finding: a restricted report exists to prove the audit found
+something real.
+
+**Ownership decides whose entitlements apply; the entitlements decide how
+much.** `AuditController::viewerEntitlements()` resolves that: an owner is
+filtered by their own plan, everyone else by the guest tier. Passing the
+*viewer's* entitlements unconditionally was a real hole caught in
+testing — a non-owner on a 100%-visibility plan read someone else's full
+report. An owner with no resolvable plan falls back to the guest tier
+rather than being denied, so an owner never sees *less* of their own audit
+than a passing stranger would.
+
+The seeded free plan is at 100%: "sign up to unlock the full report" is
+existing behaviour, and this phase adds the control without re-pricing the
+product. An admin can lower it per tier.
+
+### Enforcement points
+
+Every limit is checked server-side where it applies, never trusted because
+the client was told about it:
+
+| Limit | Enforced in |
+|---|---|
+| Max websites | `WebsiteResolver::resolve()` → `PlanLimitExceeded` → 403. Applies only to *adding* a site: re-auditing one already owned works at (or over) the cap, so lowering a plan's limit does not lock subscribers out of sites they already have |
+| Daily / monthly audits | `UsageLimitService::auditRefusalReason()` → 429, carrying `errors.limit` so the UI can say *which* allowance ran out |
+| Concurrent audits | `ActiveAuditLimiter` (§39), now reading its number from here |
+| Pages per audit | `AuditController::store()` — server-derived, never from the payload |
+| Audit frequency | `AuditScheduleController::store()` → 403, separate from the "no scheduled audits at all" refusal because the two need different actions |
+| Report visibility, issues per service | `ReportVisibilityFilter`, `ServiceReportVisibilityFilter` |
+| PDF export | `AuditController::reportPdf()` / `serviceReportPdf()` |
+| AI analyses, AIO prompts | `AiAnalysisService::exceedsPlanAiBudget()`, checked *after* the cache lookup so re-reading a result already paid for is free. A refusal is recorded as an `ai_analyses` row with an error, exactly as an unavailable provider is, so the report says the category was not analyzed rather than silently omitting AI findings |
+
+The monthly limit uses a **calendar** month, not a rolling 30 days: a plan
+sold as "20 audits a month" is understood to refill on the 1st, and a
+rolling window is impossible to reason about from a dashboard.
+
+### Entitlements for capabilities that do not exist
+
+White label and competitor analysis are explicit MVP exclusions
+(CLAUDE.md). Their flags are configurable and reported by the API so tiers
+can be priced ahead of the build, but `Entitlements::allows()` returns
+false for them **however the plan is configured** — answering true would
+make callers render a white-label report that no renderer produces.
+`isConfiguredFor()` still reports what the admin set, and the API exposes
+`available: false` alongside `enabled`, so the UI can distinguish "not in
+your plan" from "nobody has this yet". Phase 4 built the entitlement
+system; it did not build the excluded features.
+
+### API
+
+`GET /api/me/entitlements` (optional auth) returns the whole set — limits,
+features, and whether the caller is a guest or downgraded. It is
+*descriptive*: hiding a control based on it is a courtesy, never a
+security boundary.
+
+## 41. Database health: engine, indexes, snapshot backfill
+
+Findings from auditing the live MySQL database after Phases 1-4 landed,
+and what was done about each. Referential integrity, charset and collation
+were already clean — every issue below was either latent or a gap the new
+phases opened.
+
+### The storage engine was not pinned
+
+`config/database.php` had `'engine' => null` for both MySQL connections,
+which means **the server's default wins** — and this box's MySQL defaults
+to `MyISAM`. Every table happened to be InnoDB only because each migration
+sets `$table->engine = 'InnoDB'` by hand, a convention nothing enforced.
+One table had already slipped through (Laravel's own `migrations`).
+
+The consequence of forgetting that line in a future migration is not a
+visible error: MyISAM silently accepts a foreign key and ignores it, and
+silently ignores transactions. Every `cascadeOnDelete` and every
+`DB::transaction()` guard in the app would quietly do nothing on that
+table.
+
+Now pinned: `'engine' => env('DB_ENGINE', 'InnoDB')`. Individual
+migrations no longer depend on remembering, and `migrations` was converted
+to InnoDB so the schema is uniform.
+
+### Missing composite indexes on the new hot paths
+
+Phases 2-4 added query shapes that only had single-column indexes to work
+with, so MySQL picked one and filtered the rest by hand. Invisible on a
+dev database with twenty audits; not invisible later.
+
+| Query | Added index |
+|---|---|
+| `ActiveAuditLimiter::activeCount()` — `user_id = ? AND status IN (…)`, run on **every** audit creation inside the lock that serializes creation | `audits (user_id, status)` |
+| `Website::latestCompletedAudit()` — `website_id = ? AND status = 'completed'`, run per website on every "My Websites" listing | `audits (website_id, status)` |
+| Severity rollups in `WebsiteCardBuilder`/`WebsiteDetailBuilder` — `audit_id IN (…) GROUP BY audit_id, severity` | `audit_issues (audit_id, severity)` |
+
+`usage_logs` already had the composite indexes the daily/monthly counts
+need. Verified with `EXPLAIN`: all four hot queries now resolve through an
+index rather than a scan.
+
+### Audits that finished before snapshots existed
+
+`audit_snapshots` arrived in §38, so every audit completed before it had
+no provenance record — 19 on this database.
+
+`php artisan audits:backfill-snapshots` (with `--dry-run`) writes them. A
+**command, not a migration**, deliberately: a snapshot is evidence, and
+manufacturing evidence is an operational decision someone should make on
+purpose rather than something that happens while deploying a schema
+change. It is also re-runnable and never rewrites an existing snapshot.
+
+**What a backfilled snapshot can honestly claim.** The scores, issues,
+pages, screenshots and performance data are real — stored when the audit
+ran, merely collected now. The *version* stamps are read from current
+config, which is only truthful while no version has ever been bumped;
+every historical audit here ran under the same `1.0.0` the config still
+names. Each backfilled row carries `content.backfilled = true` and
+`content.backfilled_at`, so it cannot later be mistaken for a
+contemporaneous record once a version does move.
+
+One snapshot on this database (audit #23, written by the live pipeline
+before the marker existed) has no `backfilled` key at all. Absent reads as
+false, which is correct; it is immutable, so it stays that way.
+
+### The CMS had no seeded content
+
+`cms_pages` was empty on every fresh install, so `GET /api/cms/homepage`
+404'd on every homepage load and the admin CMS opened onto nothing to
+edit. It went unnoticed because `fetchCmsPage()` catches the failure and
+`sectionContent()` falls back to hardcoded copy — the page renders
+correctly either way, and the only symptom was a 404 in the console.
+
+`CmsSeeder` now creates the homepage and its `hero` section using those
+same fallback strings verbatim. Seeding must not change what a visitor
+sees, only make it editable; the frontend fallbacks stay as the answer to
+"what if the row is deleted", which is a different question from "what
+does this site say".
+
+**Note on running the stack:** `php artisan serve` is the API only — its
+root URL serves Laravel's default welcome page, not Audivio. The UI is the
+Vite dev server (`npm --prefix frontend run dev`, port 5173), which is
+what to open. Vite binds `localhost`, so `http://127.0.0.1:5173` does not
+answer even though `http://localhost:5173` does.
+
+## 42. Business onboarding, AIO context and competitor intelligence
+
+**Scope note:** CLAUDE.md listed "competitor analysis" among the MVP
+exclusions. Phase 5 explicitly commissioned it, so it is built and the
+exclusion is lifted. White-label reports remain excluded.
+
+### Onboarding
+
+The eight onboarding fields live on `websites`. Seven arrived with §37;
+`aio_goal` is the last, and the one that matters most — "is this page
+clear to a machine reader" is unanswerable without knowing what it is
+meant to be clear *about*.
+
+`AioContextBuilder` assembles the fields the owner actually filled in.
+Empty fields are **omitted**, never sent as null or `''`: a model handed
+`category: ""` will reason about it.
+
+### The AIO prompt set
+
+Ten default prompts in `config/aio_prompts.php`, not a table — they are
+part of what the product is, they change with the code that parses their
+output, and `audit_versions.prompt` already stamps which set produced a
+result.
+
+Ten narrow prompts beat one broad prompt: the model answers a specific
+question well and a sprawling one vaguely, and a failure isolates to one
+check instead of losing the category. `AioAuditModule` now runs the set
+and stops early if a provider refuses, rather than firing the rest at a
+provider that just said no.
+
+Three prompts are marked `needs_context`. Without an `aio_goal` they are
+**skipped, not asked blindly** — asking "does the content serve the stated
+goal" with no stated goal invites the model to invent one and then grade
+the site against its own invention. Which were skipped and why is recorded
+in the score `breakdown.context`, so a report says "3 checks need your
+business profile" rather than quietly running seven and presenting it as
+complete.
+
+Custom prompts (`website_aio_prompts`) are appended after the defaults and
+truncated **last**: a tight execution budget drops the owner's extra
+questions before the baseline, because the baseline is what makes one
+audit comparable to the next.
+
+Two limits, deliberately separate:
+
+| Column | Caps | Why separate |
+|---|---|---|
+| `aio_prompt_limit` | prompts one audit *executes* | cost control (§40) |
+| `custom_aio_prompt_limit` | prompts a website may *define* | a product feature |
+
+Overloading one column with both would make "give the free tier another
+custom prompt" also raise everyone's AI bill. The define-limit is enforced
+when saving, so a user is told at the point they add one rather than
+having it silently ignored at audit time.
+
+### Competitor intelligence
+
+`website_competitors` holds the analyzable set. It is distinct from the
+`websites.competitors` JSON column, which stays as the owner's raw
+declared list from the profile form: one is what they told us, the other
+is what we analyzed. `AnalyzeCompetitorsJob` syncs the former into the
+latter, skipping entries that cannot be reduced to a domain (they stay in
+the JSON — nothing the owner typed is lost, it simply is not something we
+can go and look at).
+
+**Discovery** runs only when all three hold: the plan includes it, the
+owner named *none* themselves, and there is business context to reason
+from. The middle condition is the point — discovery fills a gap, it does
+not second-guess the owner. The third matters just as much: a model asked
+to guess competitors for an unknown business in an unknown market returns
+plausible names with no basis, which is worse than no answer.
+
+Discovery only ever writes `source = discovered`. A row the owner named is
+never overwritten or re-labelled; doing so would misattribute their input
+to a model. Every suggested domain goes through `UrlNormalizer`, so a
+hallucinated "domain" is rejected at the door rather than becoming a row
+that later fails to crawl.
+
+**Comparison** (`CompetitorAnalysisService`) crawls at most three pages per
+competitor through the same `UrlSecurityValidator` and
+`PlaywrightCrawlerClient` a normal audit uses — a model-suggested domain
+is user-influenced input and gets exactly the SSRF protection a
+user-submitted one does (§26). The small budget is not a performance
+compromise: this crawls a third party who did not ask to be crawled, and a
+handful of pages is enough to judge structural clarity.
+
+**Null is not zero.** Every analysis column stays null until a run fills
+it, and a failed run clears them rather than leaving last week's numbers
+looking like today's. Reporting an unreachable competitor as scoring zero
+would be a false claim about a real company, made in the one place a
+reader would never think to question it. The UI renders a dash.
+
+The job runs **after** the audit completes and outside its lifecycle:
+competitor work is the slowest and most failure-prone part of the product,
+and an unreachable competitor must never turn a finished audit of the
+customer's own site into a failed one.
+
+### API
+
+- `GET|POST /api/websites/{website}/aio-prompts`,
+  `DELETE .../{prompt}` — scoped to the caller's own websites, same rule
+  as every other website route (§37).
+- The website detail payload gains `onboarding` (what is filled in, what
+  is missing, whether the context prompts are unlocked) and `competitors`.
+
+## 43. Deep accessibility and the ADA assessment
+
+The accessibility module was previously a thin wrapper over axe-core: it
+turned each violated rule into an issue with a message and a link. That is
+enough to score a site and nothing like enough to act on one, and — more
+seriously — it produced a number labelled "accessibility" with nothing
+attached saying what that number is not.
+
+### What the crawler now captures
+
+`crawl.mjs` records, per axe violation: the rule's `tags`, the total node
+count, and for the first 8 nodes the `target` selector, up to 400
+characters of the element's own `html`, and axe's `failureSummary` — its
+explanation of why *that element* failed. It also records the rule ids
+axe **passed** and the ones it returned as **incomplete**.
+
+Passes and incompletes are stored in two new `audit_pages` columns
+(`accessibility_passes`, `accessibility_incomplete`, both nullable — null
+means "not recorded", which is every audit from before this change).
+Without them, "how many checks passed" is unanswerable, and a page axe
+never managed to scan is indistinguishable from a page with no problems.
+Incomplete results are kept apart from passes on purpose: "a human needs
+to look at this" is not "fine".
+
+### The sixteen check areas
+
+`App\Enums\AccessibilityCheck` groups roughly 90 axe rules into the
+sixteen areas the product reports on — alt text, labels, buttons, links,
+ARIA, heading hierarchy, contrast, keyboard, forms, landmarks, semantic
+HTML, tables, iframes, language, skip links, focus — plus an `Other` case
+so an axe upgrade that adds a rule surfaces the finding instead of
+silently dropping it. Each area carries a human-authored
+`whyItMatters()`, written for a site owner rather than as a restatement of
+the rule id.
+
+### WCAG citations
+
+`WcagReference::fromAxeTags()` parses axe's tags: `wcag143` becomes 1.4.3,
+`wcag21aa` contributes conformance level AA, and the strictest level seen
+wins (satisfying a rule tagged both A and AA requires AA). A rule tagged
+only `best-practice` maps to **no** criterion, and the report says so
+rather than inventing a citation — a fabricated standards reference is a
+worse failure here than a missing one.
+
+### What a finding now carries
+
+Per issue: the check area and its label, why it matters, the description,
+the WCAG reference and display label, whether it is a best practice, the
+help URL, the affected page URLs and their count, the affected element
+count, and up to ten failing elements each with page URL, selector,
+markup and axe's own evidence. Aggregation is still by rule across pages
+(§34's rule, unchanged): one site-wide contrast problem is one issue, not
+one per page.
+
+### The report
+
+`AccessibilityReportBuilder` produces the accessibility service's detail
+block, the counterpart to `PerformanceReportBuilder`: the eight summary
+fields (score, critical/high/medium/low counts, passed checks, affected
+pages, affected elements), scan coverage, the per-area rollup including
+areas with no findings, and the WCAG criteria with failures.
+
+Two counting decisions worth keeping: `passed_checks` counts axe rules
+that actually ran and passed, never check areas with no finding (an area
+never tested is not an area that passed); and `affected_pages` is
+distinct pages across issues, floored at the largest single issue's own
+count, because the per-issue URL list is capped and would otherwise
+undercount a large crawl.
+
+`coverage.is_partial` is true whenever fewer pages were scanned than
+crawled. A partial scan presented as a complete one is the quietest way
+this product could mislead someone.
+
+### The disclaimer
+
+`config/accessibility.php` holds the wording, and it travels with every
+accessibility result the product emits: the module's score breakdown (so
+it is captured in the immutable snapshot), the per-service report, the
+combined report's `disclaimers` key, both PDF templates, and the web UI
+directly beneath the score.
+
+**It is not paid detail.** `ServiceReportVisibilityFilter` and
+`ReportVisibilityFilter` both keep it at every tier. The free view — a
+bare score and little else — is exactly where a number is most likely to
+be screenshotted as proof of compliance.
+
+The wording deliberately avoids "compliant", "compliance" as a claim,
+"certified", and any reference to legal standing. It states what was
+tested, that automated testing covers only a machine-checkable subset,
+that passing every automated check is not evidence of conformance with
+WCAG or the ADA, and that a conclusive answer requires manual testing and
+testing with assistive technology by people who use it. A test asserts
+the forbidden phrasings stay out of it. Areas with no findings are
+labelled "no automated issues found", never "accessible".
+
+## 44. Deep SEO audit
+
+The SEO module checked seven things: title, meta description, canonical,
+H1, image alt, redirect-chain length, and broken links to pages the crawl
+had already fetched. Phase 7 takes it to twenty-four checks, four
+dedicated report views, and a backlink abstraction that answers "no data"
+rather than guessing.
+
+### What the crawler now captures
+
+`lib/extract.mjs` additionally records `meta[name=robots]` and
+`meta[name=googlebot]` (kept apart — a page can be indexable generally and
+excluded for Google specifically), the full `og:*` and `twitter:*` maps as
+served, and each image's *declared* `width`/`height` attributes alongside
+the natural size already captured.
+
+`crawl.mjs` now records each redirect hop as `{url, status}` instead of a
+bare URL. A 301 and a 302 look identical to a browser and mean opposite
+things to a search engine, so a redirect report without the status is not
+a redirect report. Hops recorded before this are still read, and their
+type reads `unknown` rather than being guessed.
+
+`CrawlOrchestrator` persists the three response headers the audit reads —
+`x-robots-tag`, `content-type`, `link` — and nothing else. Storing the
+whole header set would persist cookies and auth-adjacent values for no
+purpose.
+
+### New schema
+
+`audit_pages` gains `meta_robots`, `meta_googlebot`, `open_graph`,
+`twitter_card`, `response_headers`, all nullable, all meaning "not
+recorded" when null.
+
+`audit_site_signals` is a new one-row-per-audit table holding what the
+crawl learned about robots.txt and the sitemap. The crawler had always
+fetched both to decide what to crawl and then thrown the result away.
+Re-fetching at analysis time would answer a different question — the site
+as it is now, not as it was when audited.
+
+Every `*_found` column is a **nullable boolean**, and this is the load-
+bearing decision in the whole phase: `false` means the fetch succeeded and
+there was nothing there; `null` means the fetch itself failed. Telling an
+owner they have no robots.txt when the request merely timed out sends them
+to fix something that is not broken.
+
+### The checks
+
+`PageSeoChecks` and `SiteSeoChecks` split by the only distinction that
+matters to them — questions about one page versus questions that only
+exist across pages. Per-page findings go through `PerPageIssueAggregator`
+(§34); site-wide ones carry their own affected pages and bypass it.
+
+Four collaborators do the analysis:
+
+- `IndexabilityResolver` — noindex in markup, noindex in `X-Robots-Tag`,
+  an error status, or a canonical pointing elsewhere. A robots.txt
+  `Disallow` is deliberately **not** folded in: it blocks crawling, not
+  indexing, and a disallowed URL can still be indexed from external links.
+  Self-referencing canonicals are correct and common, so only a canonical
+  naming a *different* page counts.
+- `SchemaAnalyzer` — flattens JSON-LD through `@graph`, nested arrays and
+  nested entities, resolves `@type` (including arrays, subtypes and full
+  schema.org URLs), and validates against `config/seo_schema.php`. Only
+  the six documented types are validated; an unrecognized type is neither
+  checked nor complained about, because inventing requirements for a type
+  we have no reference for produces confident nonsense.
+- `LinkGraph` — built once per audit and shared. Broken links, orphans,
+  nofollow and links-into-redirects are four questions about one
+  structure. `www.example.com` and `example.com` are the same site, and
+  the scheme is dropped entirely, so a site linking to itself over both
+  http and https is not reported as having an orphan and a duplicate.
+- `RedirectAnalyzer` — chains, loops, and permanent-vs-temporary.
+
+**A real bug this phase found:** the loop detector originally shared the
+link graph's normalization, which drops the scheme. That makes
+`http://example.com/x → https://example.com/x` — the single most common
+legitimate redirect on the web — look like a URL redirecting to itself,
+and would have reported a *critical* redirect loop on nearly every HTTPS
+site. `RedirectAnalyzer` keeps the scheme; `LinkGraph` drops it. The two
+normalizations answer different questions and must not be shared.
+
+### Coverage
+
+`SiteSeoCoverage` reports, for each of the twenty-four checks, whether it
+ran. A check that never ran — because the crawl predates the field it
+reads — produces no findings and therefore looks exactly like a check that
+passed. The breakdown says which, and why not.
+
+### The four report views
+
+`SeoReportBuilder` is the counterpart to `PerformanceReportBuilder` and
+`AccessibilityReportBuilder`:
+
+- **Redirect report** — every redirected URL with its hops, types, and
+  chain/loop status, plus a scope note: it covers redirects the crawl
+  encountered, and does not claim there are no others.
+- **Open Graph preview** — what a share of each page is expected to
+  render, and *where each field came from*. `is_fallback` marks a value
+  borrowed from a tag never written for sharing (`<title>`, meta
+  description, the page URL). `og:title` standing in for an absent
+  `twitter:title` is **not** a fallback: it is the tag the author wrote
+  for that purpose, and flagging it would send owners to duplicate every
+  Open Graph tag under a `twitter:` prefix for nothing. The preview is a
+  prediction from the tags, not a capture, and says so.
+- **Schema report** — which types are present and where, what properties
+  are missing, and the standing caveat that only JSON-LD is read.
+  Microdata and RDFa are not extracted, so a site using those would
+  otherwise read this as "you have no structured data".
+- **Page-by-page report** — one row per crawled page with its core
+  signals, so the site can be scanned rather than read issue by issue.
+
+### Backlinks
+
+Backlinks live on other people's websites and cannot be measured by
+crawling the audited site. `App\Contracts\BacklinkProvider` is the
+abstraction; `NullBacklinkProvider` is the default binding, and
+`config/backlinks.php` ships with `driver => null`.
+
+`BacklinkService` always returns one of three states —
+`not_configured`, `unavailable`, `available` — and **never synthesizes a
+figure**. There is no estimate, no model, and no zero standing in for
+unknown: "this domain has no backlinks" and "we could not find out" are
+opposite claims, and a plausible invented number is indistinguishable
+from a measured one to the reader. A provider outage reports
+`unavailable`; an unknown driver name in the env falls back to the null
+provider rather than throwing, because a typo must not take audits down.
+Real data is attributed to the provider by name and stamped with when it
+was retrieved, since backlink indexes disagree with each other
+substantially.
+
+## 45. Professional performance and PageSpeed audit
+
+§36 collected the measurements. This turns them into a report: the
+opportunity/diagnostic split it explicitly left open, the two categories
+that had no checks behind them, and the one metric the product could not
+honestly produce.
+
+### Opportunities vs diagnostics
+
+`PageSpeedService::splitFindings()` divides Lighthouse's failing audits
+using Lighthouse's own distinction. An audit carrying a measured
+`overallSavingsMs`/`Bytes` is an **opportunity** — fixing it saves a
+quantified amount. Every other failing audit is a **diagnostic**: a real
+problem with no number attached.
+
+Keeping them apart is not presentation. A "potential saving" shown against
+a finding Lighthouse never quantified would be the one figure a reader
+acts on, invented by us. Diagnostics therefore have no savings keys at
+all — not zeroed ones — so there is nowhere for a fabricated number to
+appear, in the API, the UI or the PDF.
+
+Passing audits (score 1) and informative ones (no score) are neither.
+Opportunities sort by measured time saving; diagnostics, having nothing to
+rank by, sort worst-score-first.
+
+### Affected resources
+
+Each finding carries the resources Lighthouse blamed, from its own details
+table: URL, total bytes, wasted bytes, wasted ms. Rows without a URL are
+summary rows and are dropped. Without these, a finding says "your images
+are too big" and leaves the owner to work out which ones.
+
+### INP, and why it is only ever field data
+
+INP is measured from real interactions. No lab run produces one, so
+§36 omitted it — but silently omitting a metric the report promises reads
+as "no INP problem here".
+
+`extractFieldMetrics()` now reads the CrUX block PageSpeed returns
+alongside the Lighthouse run: real Chrome users, trailing 28 days, INP
+included. When Google has too little traffic for a URL there is no CrUX
+record, and the report says exactly that, with the reason. It is never
+backfilled from the lab run, which measures a different thing — the two
+will not match and are not interchangeable.
+
+This is the only metric in the product sourced from outside the audit
+itself, so it is labelled as such wherever it appears.
+
+### Caching and compression
+
+Two of the twelve reported categories previously had no checks behind
+them. Both are decided entirely by response headers, so the crawler now
+records `cache-control` and `content-encoding` per response and
+summarizes them.
+
+- **Caching** counts static assets (js/css/image/font/media, 2xx only)
+  with no usable cache lifetime — no header, `no-store`, `no-cache`, or
+  `max-age=0`. HTML documents are excluded: they are usually meant not to
+  be cached, and flagging them would be advice to break the site.
+- **Compression** counts text resources (js/css/document) served with no
+  `content-encoding`, above 1KB. Images, fonts and media are excluded —
+  already-compressed formats, where gzip costs CPU to save nothing.
+
+Both findings name the actual files, largest first, with the header each
+one sent. Both are silent when the crawl recorded no summary at all,
+because an audit from before this was captured is not a site with no
+caching.
+
+### The twelve categories
+
+`config/performance_categories.php` maps every Lighthouse audit id onto
+one of the twelve, and `PerformanceReportBuilder::categoryRollup()` groups
+findings under them. An unrecognised audit id falls to `other` and is
+still reported — a Lighthouse release adding an audit surfaces it,
+ungrouped, which shows up as a category to extend rather than a finding
+that vanished.
+
+The rollup is built from the **mobile** run wherever one exists, falling
+back to desktop only when there is no mobile result at all, and it states
+which strategy it used. Grouping that silently mixed the two would be the
+same error the schema was shaped to prevent.
+
+### Mobile and desktop stay separate
+
+The `(audit_page_id, source, strategy)` unique key from §36 already made
+that a schema guarantee for metrics. The new columns —`opportunities`,
+`diagnostics`, `field_metrics` — hang off the same table for the same
+reason: mobile and desktop produce different findings with different
+savings, and storing them per page would collapse the distinction.
+
+Per-page rows nest findings as `findings.mobile` / `findings.desktop`,
+each **null** when that strategy was never measured. Null, not an empty
+list: an empty list says "measured, nothing found".
+
+### What the free view keeps
+
+Scores, Core Web Vitals, the finding *counts* and the savings *total*
+stay at every tier; the itemised lists are full-access detail. The total
+stays deliberately — withholding it would make the free report understate
+the problem, which is a different thing from withholding paid detail. The
+field block stays too, because a reader who cannot see why INP is absent
+reads the gap as an absence of the problem.
+
+## 46. Website classification, CRO and ecommerce signals
+
+### Classifying the site
+
+`SiteClassifier` decides which of eight types a site is — ecommerce,
+service business, SaaS, blog, portfolio, landing page, local business, or
+`Other` — from measured signals only. Deliberately deterministic and
+AI-free: this decides which services get reported at all, so it has to be
+repeatable and explainable, and the same crawl must always reach the same
+answer.
+
+Each type accumulates points from independent signals, weighted 3
+(near-conclusive alone), 2 (strong corroboration) or 1 (suggestive only,
+never enough to win by itself). The winner must hold a **strict majority**
+of the total evidence. Exactly 50% is a two-way tie — equal evidence for a
+shop and for a blog — and that is precisely the case where picking one is
+guessing, so it reports `Other`.
+
+`Other` is a real answer here, not a failure. A confident wrong label is
+worse than an honest "we could not tell", because the label silences whole
+services.
+
+Two rules worth keeping:
+
+- **A landing page needs more than a one-page crawl.** A single-page
+  result on a site with an unreachable sitemap is a crawl limitation, not
+  a one-page site, so the type also requires the *shape* of a landing
+  page: calls to action and almost no internal navigation.
+- **A pricing page is not a SaaS signal on its own.** Shops have them
+  too. The SaaS signal is a pricing page *plus* recurring-billing wording.
+
+Stored on the **audit**, not only the website: it decides what that audit
+reported, and a site that adds a shop next month must not retroactively
+change what last month's report says it skipped. The website row keeps a
+mirror as the latest known type, for listings.
+
+### Never scoring a service that does not apply
+
+`SiteType::canSellOnline()` vetoes the ecommerce and product modules for
+types where a store score would be a category error rather than a low
+score. A blog with a stray "checkout" link in its footer can clear the
+detector's confidence threshold; it still has no store.
+
+Local businesses and `Other` are **not** vetoed — plenty of local
+businesses sell online, so the type alone does not decide and the
+detector's own evidence still applies.
+
+### Explaining the skip — a bug this closed
+
+`AuditModuleResult` has carried `notApplicableReason` and
+`detectionEvidence` since §34, and **nothing ever stored them**. The
+report substituted one generic sentence for every skipped service. So a
+classifier that works out a site is a blog, and says so in terms its owner
+would recognise, had that explanation discarded on the way to the page it
+was written for.
+
+`audit_scores` now stores both, `ServiceReportBuilder` prefers the stored
+reason over its generic fallback, and both survive the visibility filter
+at every tier — a service that silently vanishes from a free report reads
+as one the site passed.
+
+### The countable half of CRO
+
+`ConversionSignalDetector` measures; `ConversionSignalChecks` decides what
+is worth reporting. They are separate so the report can show every CRO and
+ecommerce area — whether or not it produced a finding — without that
+display being tangled up in scoring.
+
+These are deterministic, which means they still land when the AI provider
+is unavailable, and that is exactly when a conversion report is otherwise
+at its thinnest. The AI keeps the judgement calls it is actually needed
+for; anything countable is answered here for free.
+
+Details worth keeping:
+
+- **Vague CTA matching is exact, not substring.** "Learn more" is vague;
+  "Learn more about pricing" is not. A substring match would flag both and
+  train readers to ignore the check.
+- **Hidden inputs are not form friction.** CSRF tokens cost a visitor
+  nothing.
+- **Navigation counts distinct destinations**, not links. A nav repeated
+  in a header and a footer is one route, and counting it twice would
+  report tidy navigation as sprawl.
+- **Policy pages are matched by URL *and* link text.** A returns policy
+  linked from the footer as `/p/17` is still a returns policy, and a
+  URL-only check would report that shop as having none.
+- **Mobile checks are type-aware.** A missing tap-to-call link is a real
+  omission for a local or service business and meaningless on a blog;
+  raising it everywhere would be advice about a business the site does not
+  run.
+- **Every "not found" finding says `scope: crawled pages only`.** A
+  returns policy on page 40 of a 25-page crawl is not absent, and the
+  finding must not claim it is.
+
+## 47. The report interface
+
+Most of what this phase asked for already existed — seven independently
+viewable service reports (§35), a page explorer with search, filter and
+sort, per-page screenshots, grouped categories and severity styling. Three
+things did not.
+
+### A page-level score
+
+The explorer could sort by issue count and by severity, but had no score,
+so "which pages are worst" could only be answered by counting. Pages now
+carry one, derived from that page's own issues using
+`audit_scoring.severity_points` — **the same weights the category scores
+use**, so a page scoring 68 means the same kind of thing as a category
+scoring 68.
+
+Explicitly **not** a Lighthouse score and never presented as one. It
+answers "how much is wrong with this page relative to the others", which
+is the question the explorer exists to sort by. It floors at zero: a
+negative score would sort a badly-broken page below one with nothing
+measured at all.
+
+### "Why does this matter?" for every finding
+
+The issue detail is specified as six parts — what is wrong, why it
+matters, the affected page, the evidence, how to fix it, and the technical
+detail. Five of them existed. The second only existed for accessibility
+(§43), so every other service handed the reader a complaint and an
+instruction with nothing in between.
+
+`IssueExplanations` supplies one per issue code, written in consequences
+rather than rules: what a visitor or a search engine does differently
+because of this. Accessibility **delegates** to
+`AccessibilityCheck::whyItMatters()` rather than duplicating those
+strings, so the issue list and the accessibility rollup cannot disagree.
+An unmapped code falls back to its category's general explanation, never
+to silence — a finding with no stated reason invites the reader to dismiss
+it.
+
+It survives the visibility filter at every tier. The fix is paid content;
+the reason is not. A free viewer who can see a finding but not why it
+matters has been handed a complaint.
+
+### Light, dark, and browser preference
+
+Tailwind v4 resolves `dark:` from `prefers-color-scheme` by default, which
+can express two states and not three. The site followed the browser and
+offered no override at all.
+
+`ThemeContext` holds `light | dark | system`, defaulting to `system`, and
+`index.css` switches Tailwind to a class variant so all three can be
+expressed. `system` is not "guess light": it reads the media query *and
+keeps listening*, so a visitor whose OS switches to dark at sunset sees
+the page follow without a reload. The root element also gets
+`color-scheme`, which classes alone do not cover — that is what themes
+scrollbars and form controls.
+
+Every storage access is wrapped: `localStorage` throws outright in some
+private-browsing modes, and a preference that cannot be saved should still
+apply for the session rather than take the page down.
+
+**Verified in a browser**, not by inspection: the browser preference
+resolves to dark and sets the class, `color-scheme` and body background
+together; an explicit light override survives a reload; and at 375px the
+header does not overflow, with the toggle collapsing to icons.
+
+### The consultation request
+
+Docked bottom-right on the report, always reachable. A report is long —
+seven services, a page explorer, dozens of findings — and the moment
+someone decides they want help is not predictable, so a CTA that only
+exists at the bottom is one most readers never reach. Deliberately a dock
+rather than a modal on arrival: always available, never in the way of the
+thing the visitor came to read. It posts to the existing `/api/leads`
+endpoint with the audit id attached, so the enquiry arrives with the
+report it is about.
+
+## 48. Screenshots, PDF visibility and white label
+
+### The screenshot hole
+
+Screenshots lived on Laravel's `public` disk and were served from
+`/storage/screenshots/{auditId}/{page}/desktop.png`. The audit id is a
+sequential integer, so that path is walkable: anyone could enumerate it
+and pull back rendered captures of other people's sites — pages that are
+not linked publicly, staging sites the crawler was given access to, or
+simply things not meant to be advertised. Nothing about the file said who
+it belonged to.
+
+Screenshots are now on a private disk and served through
+`ScreenshotController` behind **two independent gates**:
+
+1. **The signature** proves we issued the URL and that it has not expired.
+2. **The authorization check** proves this viewer may see that audit.
+
+The second is the one that matters. Report links get forwarded, and a
+signature alone would make a leaked URL a working credential for anyone
+holding it — time-limited, but a credential. With the ownership check, a
+forwarded URL is simply useless. It answers **404, not 403**: confirming a
+screenshot exists for an audit id is itself information about someone
+else's account.
+
+Captures taken before the move are still on `public`, and the controller
+reads from either — switching the disk did not break every screenshot in
+every existing report.
+
+**The frontend consequence, which is easy to miss:** an `<img src>` cannot
+send an Authorization header. Keeping the ownership check therefore meant
+screenshots could no longer be loaded by a plain image tag, so
+`AuthenticatedImage` fetches through the authenticated client and renders
+an object URL (revoked on unmount — otherwise browsing the page explorer
+leaks a blob per screenshot). The alternative was weakening the check to
+signature-only, which is exactly the property that makes a forwarded
+report link safe.
+
+### PDFs respect plan visibility
+
+`ReportPdfService` and `ServiceReportPdfService` rendered the **full**
+report unconditionally, on the reasoning that export was already behind a
+full-access check. But full access means "this is your audit", not "your
+plan shows you all of it". An owner on a plan that reveals 30% of a report
+on screen could download 100% of it as a PDF — the visibility limit was
+one button away from being bypassed.
+
+Both now apply the same visibility filter as the web report, with the
+owner's own entitlements: **ownership decides whose plan applies, the plan
+decides how much** (§40). The PDF also states how many findings are
+withheld, rather than quietly shipping a shorter document.
+
+A bug fell straight out of this and was caught by the first test:
+`pdf.blade.php` read `$content['pages']` unguarded, and the restricted
+payload has a *different shape* — page findings are full-access content,
+so the key is absent rather than empty. The export crashed the moment it
+started honouring visibility. Both report shapes are now handled.
+
+### White label
+
+`PlanFeature::WhiteLabel` had been settable and non-functional since §40,
+listed in `notYetBuilt()`. It is now built, and that list is empty.
+
+`branding_profiles` holds one row per user: brand name, logo, contact
+details, footer. Per user rather than per audit or per website, because it
+is the agency's own identity.
+
+**The row exists independently of the plan.** Branding is data the user
+entered; entitlement is a question asked at render time by
+`BrandingResolver`, never cached — a plan that lapsed yesterday must not
+still be re-branding reports today. Deleting someone's logo because they
+downgraded, and losing it if they upgrade again, would be destroying their
+input to enforce a limit that has a much cheaper enforcement point. The
+settings form says plainly when branding is saved but not active.
+
+`BrandingResolver` asks three questions in order — is there an owner, does
+their current plan allow it, have they actually filled anything in — and a
+"no" at any step falls back to the product's own branding. There is no
+state in which a report renders with no identity on it, and an *empty*
+profile counts as no profile: applying it would replace our branding with
+nothing.
+
+The logo is inlined into PDFs as a base64 data URI. dompdf cannot fetch
+remote assets, and the file sits on a private disk behind a signed route
+it has no session for — a URL would render as a broken image in the one
+place the branding matters most. A logo that is missing or oversized is
+dropped rather than failing the export: a missing image is cosmetic, a
+failed download is not.
+
+## 50. Password-protected report sharing
+
+A share hands a URL to someone with no account, so the design question is
+never "does it work" but "what else does it let them do".
+
+### Two secrets, two hashes, two reasons
+
+**The token** (in the URL) is 32 bytes of `random_bytes()` — a CSPRNG,
+hex-encoded to 64 characters — and stored as a **SHA-256 hash**. A read of
+`report_shares` therefore cannot be turned back into working links, which
+matters because a bearer credential in a database is a credential in every
+backup and every over-broad query. SHA-256 rather than bcrypt because
+lookup is an exact match on every request and must stay one indexed query;
+the input already carries 256 bits of entropy, so there is no dictionary
+to precompute and nothing a slow hash would defend.
+
+**The password** is bcrypt, because a human chose it. Opposite problem,
+opposite tool.
+
+The raw token exists in exactly one response — the one that created or
+regenerated it. Nothing can display it again, and the UI says so, because
+a system that can re-display a token can be made to.
+
+### The URL carries no audit id
+
+`/shared-report/{64-hex}`. A numeric id in a shared URL is an invitation
+to change it. The share view also uses its own score card rather than the
+owner's `ServiceScoreCard`, which renders `<Link to={/audits/${auditId}/…}>`
+— reusing it would have put the id into the DOM of the one page whose
+premise is that the id is not in it.
+
+### Token, then password, then permission — in that order
+
+`show()` returns only what a lock screen needs: that a password is wanted,
+and whose branding to wear. Not the domain, not the score. A URL that
+leaks the audited domain before authentication has already told a stranger
+who the owner's client is.
+
+After the password, the server issues an **encrypted, expiring access
+token** — encrypted rather than signed so the share id is not even
+readable by the browser holding it. It is stateless, but every request
+that presents one **re-loads the share and re-checks that it is active**.
+That is what makes revocation immediate: verified live, a revoked link
+kills an already-open session on the next request rather than when the
+token happens to expire.
+
+The access token is bound to the URL's own token. Without that binding, an
+access token minted for one share would unlock any other share whose URL
+the holder knew — a straightforward IDOR through a credential that looks
+entirely legitimate.
+
+### Lockout, and its honest limit
+
+Two limits at different heights: **per IP and token** (5) does the real
+work; **per token across all callers** (50) is the backstop against a
+distributed attempt.
+
+A determined attacker *can* trip the token-wide limit and lock the real
+recipient out for the window. Every global counter has that property, and
+the alternative is no defence against distributed guessing at all. It is
+mitigated rather than solved: the ceiling takes real effort to reach, the
+owner sees the failed-attempt count on the share, and revoking or
+regenerating is one click.
+
+A successful unlock clears the counters, so someone who mistyped twice is
+not carrying those toward a lockout for the rest of the window.
+
+### A share narrows, never widens
+
+Filtering runs in a fixed order: build → **the owner's plan visibility**
+(§40/§48) → **the share's permissions**. Running share permissions alone
+would let a link expose more of a report than the account that created it
+is entitled to see. The same rule holds for PDF: `allow_pdf` can only
+permit an export the owner's own plan already allows.
+
+Withheld content is **emptied, not removed** — a missing key crashes a
+consumer, an empty one renders as "nothing here" — and the count of what
+was withheld is kept so the page can say so.
+
+### Everything is 404
+
+Unknown token, revoked token, expired token, a screenshot belonging to
+another audit: one status, one message. Telling a holder of a leaked URL
+that their URL was *right* is the one thing token secrecy exists to
+withhold.
+
+### The audit log
+
+`report_share_events` records created, revoked, regenerated, password
+changed, permissions changed, viewed, PDF downloaded, password failed and
+locked out, with IP and user agent. `report_share_id` is **nullable on
+delete**: the events are the audit trail, and deleting the subject must
+not erase the record of what it did.
+
+Logging never throws. Losing an audit entry is bad; refusing a legitimate
+recipient because the log write failed is worse.
+
+### noindex
+
+Every shared response carries `X-Robots-Tag: noindex, nofollow`, the PDF
+included. An unguessable URL is no protection at all once a crawler has
+followed it out of an email preview or a chat unfurl.
+
+## 51. Audit progress, skeleton UI and estimated duration
+
+One rule shapes all of it: **never show fake progress.** No timer standing
+in for work, no bar creeping toward 90% because someone is waiting, no
+estimate before there is anything to estimate from. Where the honest
+answer is "not yet known", the API returns null and the UI says why — a
+missing estimate is a smaller betrayal than a wrong one, because a wrong
+one is still believed at the five-minute mark.
+
+### Stages are not statuses
+
+`AuditStage` has twelve cases; `AuditStatus` has eight. They are
+deliberately different sets: the states worth *enforcing* in a lifecycle
+(§38) and the states worth *showing someone waiting* are not the same
+question. One status covers several stages — `crawling` spans discovery,
+fetching and screenshots.
+
+Every stage is derived from something that happened, never from elapsed
+time:
+
+- **Discovering** vs **Crawling**: `crawl_jobs.total_urls > 1`. One URL is
+  the seed; calling that "1 of 1" would promise a finish line the crawler
+  has not found.
+- **Capturing screenshots**: a `screenshots` row exists. Screenshots are
+  taken during the same page load as the crawl, so this is not a later
+  phase — it is the part worth naming once it is visibly happening.
+- **The analysis stages**: which `audit_scores` rows have been written. A
+  service is done because its result exists.
+
+### The estimate is measured, or absent
+
+Seconds elapsed divided by pages completed is a real rate; remaining pages
+give a real projection. Before the first page finishes there is no rate,
+so `is_available` is false and the reason is shown instead of a number.
+
+The analysis tail is projected per outstanding service rather than from
+the page rate, because analysis is a roughly fixed cost per module, not a
+per-page one. That single number lives in `config/audit_progress.php`
+rather than a per-module table: the AI-calling modules vary far more with
+provider latency than with anything we could tabulate, and a table would
+look more precise than it is.
+
+`pages_discovered` is what the crawler actually found, never the plan's
+page cap — showing the cap would promise pages that may not exist on the
+site. The scale note tells a large-site owner plainly that it will take
+longer, rather than leaving them to infer it from a bar that is not
+moving.
+
+### The skeleton shows shape, never values
+
+The waiting view renders the report's layout as inert grey blocks. It
+never renders placeholder numbers: a skeleton showing "87" while the audit
+runs would be read as a result.
+
+### A quiet failure this made visible
+
+Building the progress panel surfaced an existing hazard: a plan with no
+`features` rows attached makes `FeatureAccessResolver` deny **every**
+category, so the audit runs zero modules and completes with an empty
+report — silently. `featureAllowed()` guards the "no plan at all" case but
+not "a plan with nothing ticked", which an admin can create through the
+plan UI.
+
+The gating policy is out of scope here and is a product decision (should a
+plan with nothing configured run everything, or nothing?). What §51 does
+is stop it being silent: an empty service list is stated on the progress
+panel — "no audit services are enabled for this plan, so this audit will
+not produce any findings" — rather than the card being hidden, which would
+be the same fake-progress failure in a different guise.
+
+## 52. Audit comparison, score trends and improvement tracking
+
+The output is one sentence — "Performance improved from 48 to 72 (+24
+points)." — and almost all of `AuditComparison` exists to refuse to say it
+when it would not be true. Two audits of the same site are not
+automatically comparable, and a diff that assumes they are produces
+confident, quotable, wrong numbers.
+
+### The number that must never be wrong
+
+**A finding whose page was not crawled again has not been fixed.** If the
+first audit crawled 25 pages and the second reached 5, every finding on
+the 20 pages nobody looked at simply vanishes from the second report. A
+naive diff calls those *resolved* — and "12 issues fixed" is exactly the
+figure someone forwards to their manager.
+
+So findings that disappeared split into two lists, never one:
+
+- `resolved` — the page **was** re-crawled and the finding is gone.
+- `not_rechecked` — the page was not re-crawled, with the reason attached.
+
+A site-wide finding (no page attached) can never fall into the second
+list: it was not tied to any page that could go missing, so its absence is
+real.
+
+Findings are keyed by issue **code**, not by row: the same code on a
+different page is one kind of problem recurring, and counting each page
+separately would report a site-wide fault as dozens of independent fixes.
+
+### Not Applicable is not a score
+
+An ecommerce assessment that stopped running because the site was
+reclassified (§46) has not "declined to zero". Every score row therefore
+carries `is_comparable`, and when it is false it carries the *reason* —
+the stored `not_applicable_reason` where there is one — in the place the
+delta would have gone. A dash alone would read as "no change", which is
+the one thing such a row does not mean. Incomparable services never become
+insight sentences.
+
+A service neither run scored is omitted from the table entirely rather
+than rendered as two dashes: it is not part of this site's story.
+
+### Like-for-like means the same pages, in both directions
+
+Dropped pages inflate `resolved`; added pages inflate `new` just as badly
+— a finding on a page the first run never visited is new to the
+*comparison*, not new to the *site*. Both make `is_like_for_like` false,
+and the resulting note is **prepended** to the insights rather than
+appended: a caveat that changes how every other line should be read
+belongs above them.
+
+Coverage is compared by URL set, not by count. Two 10-page crawls that
+happened to reach different pages are no more comparable than a 25-page
+and a 5-page one. URLs are normalized the same way the link graph does it
+(§44), so `/about` and `/about/` are one page here too.
+
+### Choosing what to compare against
+
+`previousFor()` returns the previous **completed** run of the same
+website. Failed and cancelled runs are skipped because they have no
+scores: comparing against one would report every service as incomparable
+and every finding as new — a report of total collapse produced entirely by
+the comparison's own choice of baseline.
+
+The endpoint's optional `previous` parameter is held to the same
+standard, scoped to the same `website_id` and to completed audits. An id
+that fails those checks is a **404**, not a silent fall-back to a
+different audit: quietly comparing against something other than what was
+asked for is the same class of unannounced substitution this whole class
+exists to prevent. (It was originally worse — it answered "this is the
+first completed audit for this website", which is false whenever earlier
+audits exist.)
+
+The endpoint is owner-only, like the page explorer: a comparison names
+which pages were and were not crawled, which is exactly the detail the
+preview view withholds.
+
+### Four things only real data showed
+
+The unit tests were green and the class still had four defects, every one
+of them found by running it against three real audit pairs in the
+development database:
+
+- **"did not apply to the site" was said about services nobody ran.**
+  An absent `audit_scores` row (an older audit, a plan without the
+  service, a module not yet registered) was reported with the same
+  sentence as a row the auditor deliberately marked Not Applicable. The
+  first states a finding about the site that was never made. Now: no row
+  at all reads "did not run", a row carrying `not_applicable_reason`
+  quotes it verbatim, a row with `breakdown.error` (§35) reads "could not
+  be assessed", and only a genuinely inapplicable row says so.
+- **Overall had no display name.** It maps to no service, so the taxonomy
+  handed back the raw enum value and the headline sentence read "overall
+  declined from 64 to 53" — lowercase, mid-sentence, in customer-facing
+  copy.
+- **Landing Page and Product were missing entirely.** Both were absent
+  from the comparison's category list, so two services that really scored
+  never appeared in the table. `LandingPage` also shares the CRO service
+  key with `Conversion`, so it needs its own label or the two rows come
+  out identical.
+- **A stored Not Applicable reason was discarded when neither run
+  scored.** Both sides N/A fell to a generic "neither audit produced a
+  score" instead of the auditor's own words ("There is no store to
+  assess").
+
+### Trends
+
+`GET /api/audits/{audit}/comparison` returns the two-run comparison.
+Longitudinal trends stay where they already were on the website detail
+payload (§37): `score_trends` per category and `issue_trends` per audit.
+Two changes here:
+
+- Overall score gets its own chart rather than a sparkline, with the
+  y-axis pinned to 0-100. Auto-fitting the axis to the data would turn a
+  3-point wobble into a cliff.
+- Each issue-trend point now carries `pages_analyzed`. An issue count only
+  means something next to how much of the site was crawled to find them:
+  40 issues across 25 pages and 40 across 5 are not the same result, and
+  the table said nothing about which one it was showing.
+
+## 53. AI provider management, usage tracking and token optimization
+
+Most of what Phase 15 asked for already existed — three providers, enable/
+disable, keys, model catalogue, per-provider daily and monthly request
+limits (config JSON keys, enforced in `AiAnalysisService` and
+`PageSpeedService`), token counts, estimated cost, failed requests,
+average response time, response caching, and structured-context extraction
+instead of raw HTML. What follows is only what was actually missing.
+
+### Tiering: the rule that could not previously be followed
+
+"Use smaller models for simple tasks, stronger models for complex
+analysis" was unimplementable, not merely unimplemented. `AiProvider::analyze()`
+took no model, and every provider called whatever single model its
+`api_providers` row was set to, so classifying a task had nothing to act
+on. `PlanAiModelResolver` even documented the consequence: a plan-allowed
+model only mattered if it happened to be the provider's live model.
+
+Three changes make the rule real:
+
+- `AiTaskComplexity` (Simple / Standard / Complex) describes the *task*;
+  `ai_models.tier` describes what a model is *fit for*.
+- `analyze()` takes an optional model override, threaded through all three
+  providers.
+- Resolution picks the **cheapest allowed model whose tier meets the
+  task**, and the check is one-directional: a Complex task is never handed
+  a Simple model. Saving tokens on open-ended reasoning buys a worse answer
+  at the same price.
+
+Two defaults matter. `ai_models.tier` defaults to **Standard**, not
+Simple — an admin who adds a model without thinking about tiers must not
+thereby volunteer it for every cheap task in the system. And a model with
+no cost rates recorded sorts **last**, not first: an unknown price is not
+a low one.
+
+The plan gate is unchanged and absolute. Tiering chooses *among* the models
+a plan already permits; it never widens the set. When nothing meets the
+required tier (every model Standard on an upgraded install, facing a
+Complex task) resolution falls back to the pre-§53 rule rather than
+returning null, so upgrading does not silently switch AI off.
+
+Which category needs which tier lives in `config/ai.php`, because it is a
+judgement about the work rather than about any provider's line-up.
+
+### Attribution: recording the call that happened
+
+Usage logging recorded `$provider->model` — the *configured* model. Once a
+request can override it, that would describe requests that never happened,
+so `logUsage()` now records the model actually called, and
+`ApiProvider::estimateCost()` takes the model id so a cheap call is priced
+at the cheap model's rate. Costing a Haiku call at Opus rates would corrupt
+the single number the dashboard exists to report.
+
+`prompt_version` is now stored on both `ai_analyses` and `api_usage_logs`.
+`audit_snapshots` already carried one per audit (§38), but an audit spans
+many calls and a cost report is per call. Old rows are deliberately not
+backfilled: they were produced by a prompt version nobody recorded, and
+inventing one would make guesses indistinguishable from measurements.
+
+New: `GET /admin/usage/by-model`, plus `requests_today` and
+`requests_this_month` on the summary — deliberately outside the dashboard's
+date filter, since "today" is a question about now and answering it from
+whatever range was selected gives a number that reads as absolute and isn't.
+
+### §49's bug, found twice more
+
+The switch to MySQL testing (§54) surfaced two more instances of the exact
+defect §49 fixed — `string()` columns capped at varchar(191) written by
+code truncating to 250:
+
+    AiAnalysisService   substr($e->getMessage(), 0, 250) -> ai_analyses.error
+    ProviderResolver    substr($message, 0, 250)         -> api_providers.last_error
+
+This server runs `STRICT_ALL_TABLES`, so the over-length write throws
+rather than truncating — and both sit inside the handler recording a
+provider failure. A provider returning a long error would have had its real
+error replaced by a database exception: the failure record destroyed by the
+act of writing it. Both columns are now TEXT and both writers use
+`AuditLifecycle::MAX_ERROR_MESSAGE`.
+
+**The lesson is about the test engine, not the columns.** This class of bug
+is structurally invisible on SQLite, which ignores varchar lengths. §49
+fixed the three columns someone happened to notice; these two sat there for
+another four phases.
+
+## 54. The test suite runs on MySQL
+
+Tests ran on in-memory SQLite: 1002 tests in 37 seconds, no running
+database required. They now run on MySQL 5.7 against `audivio_test`, and
+take about 22 minutes. That is a real cost, taken deliberately.
+
+SQLite silently ignores varchar lengths. Every column-width bug is
+therefore invisible to it — which is how §49's `error_message` overflow
+passed a green suite and then threw against the real database, killing the
+job that was recording an audit failure. The first MySQL run found two more
+instances of the same defect (§53) that had survived four further phases.
+
+Three SQLite fallbacks were also removed from the application config
+(`config/database.php`, and twice in `config/queue.php`). Laravel's stock
+`env('DB_CONNECTION', 'sqlite')` meant a process starting without a
+readable `.env` connected to a SQLite file instead of failing — which is
+exactly what happened: a dev server ran for an hour answering 500s against
+a scratch database path that no longer existed. **A wrong database is worse
+than no database, because the first looks like it works.**
+
+### What the switch immediately caught
+
+`migrate:reset` **failed on MySQL** with error 1553, and had presumably
+been failing since §41. Two migrations' `down()` methods dropped indexes
+that InnoDB was using to satisfy foreign keys —
+`audits_user_id_status_index` and `websites_user_id_normalized_domain_unique`
+are the only indexes covering those FK columns. Both now drop the
+constraint, drop the index, and put the constraint back, MySQL-only.
+
+The knock-on effect was worse than the broken rollback itself.
+`DatabaseMigrationTest` runs a reset mid-suite; it aborted half-way, and
+every later test inherited a schema missing `report_shares`,
+`branding_profiles` and `audit_site_signals`. That single defect accounted
+for most of the 62 failures in the first MySQL run — all 1002 pass once it
+is fixed.
+
+### What this costs, and what is lost
+
+A test run now needs MySQL up, so it cannot run in a sandbox with no
+database — including cloud agents. `DatabaseMigrationTest` also no longer
+double-checks that migrations work on SQLite, which is what caught a
+MySQL-only `LEFT()` in a `down()` during §49; that cross-engine check is
+gone, traded for catching the engine-specific bugs that actually reach
+production.
+
+## 55. Consultation requests and the sales workflow
+
+The lead table, the public endpoint, the admin screen, activity notes and
+a docked CTA all existed. Six things did not, and each is something a
+salesperson needs before the first call.
+
+### The association that was only ever a string
+
+`leads.website_url` was text somebody typed. It could not be joined, so
+"show me every lead about this site" was unanswerable. Leads now carry a
+real `website_id` — **taken from the audit, never from the request**. The
+endpoint is public and unauthenticated, so a `website_id` it accepted on
+trust is one anyone could forge, filing leads against a competitor's site.
+The URL column stays, because a request from the footer of a page nobody
+audited has nothing else to say which site it concerns.
+
+The same reasoning governs `issue_codes`. A request can name the findings
+the visitor was looking at, and those are filtered against the audit before
+storage: keeping the raw claim would let anyone hand the sales team a
+fabricated list of problems attributed to a real report. Codes that are not
+on that audit are dropped; with no audit named, all of them are.
+`requested_services` is filtered the same way against `IssueTaxonomy::SERVICES`.
+
+### The pipeline gained a stage and lost a metric
+
+`proposal` was missing. And `converted` became **`won`**: every other case
+names a stage the lead is sitting in, and `converted` was the one named
+after a number someone wanted to count — it read oddly beside `lost`. The
+migration renames existing rows both ways; rolling back puts `proposal`
+leads at `qualified`, the stage they passed through, rather than inventing
+a position or dropping them to `new`.
+
+### Notifying sales without risking the lead
+
+There was no mail or notification infrastructure at all. `NewConsultationRequest`
+is queued and sent to `config('leads.sales_recipients')`, and the send is
+wrapped and happens **after** the row is written. A mail transport that is
+misconfigured, throttled or down must never lose the request: losing the
+notification costs a delay, losing the row costs the customer. No
+recipients configured is a supported state — the lead still lands in the
+admin screen.
+
+### Four placements, and knowing which one worked
+
+The CTA was one dock. It is now one dialog with several triggers — audit
+header, score summary, critical issues (only when there are any), report
+footer — plus the dock, which still follows the reader down a long page.
+Each trigger reports its own `source`, so which placement actually earns
+requests is measurable rather than a matter of opinion. The trigger beside
+the critical findings passes those codes along, so the request arrives
+saying what the visitor was looking at when they asked.
+
+`useConsultation()` throws outside its provider rather than returning a
+no-op: a trigger that renders as a working button and silently does nothing
+is worse than one that is not there.
+
+## 56. QA, regression, security and code-quality verification
+
+A verification pass rather than a feature phase, so what follows is what
+it *found*. Most categories came back clean; the defects are listed with
+what each would have cost.
+
+### Defects found and fixed
+
+**Five unauthenticated endpoints had no rate limit** — `/cms/{slug}`,
+`/plans`, `/me/features`, `/me/ai-models`, `/me/entitlements`. The old
+comment justified this as "cheap, read-only, like static content", and
+none of that was true: each runs real queries per request, and
+`/me/entitlements` runs `EntitlementResolver`, which is deliberately never
+cached because a stale entitlement is a wrong answer to a security
+question (§40). They were the cheapest endpoints in the product to abuse —
+no account, no token, no cost to the caller. All five now sit in a
+`throttle:60,1` group; **verified live at 39 × 200 then 41 × 429**.
+
+`PublicSurfaceTest` guards this structurally rather than by example: it
+walks the router and asserts *every* unauthenticated route carries a
+throttle, plus a pinned list of the public surface so it cannot grow
+without someone noticing in a diff. A test of one endpoint would not have
+caught the five that were wrong.
+
+**Notes could be added to a lead but were never displayed.** `AdminLeadsPage`
+posted to the activity endpoint and rendered nothing, so a salesperson had
+no way to tell a saved note from a lost one. It also showed none of §55's
+data — the associated website, the linked audit, the requested services,
+the findings the visitor referenced. All of it was being stored and none
+of it was reachable. Now behind a per-lead Details panel.
+
+**The share event log had no viewer.** §50 records six event types per
+share, including failed password attempts and IP addresses. Nothing
+displayed them, which makes an audit log that exists and cannot be read.
+Now shown per share, with owner actions and recipient actions visually
+distinguished — reading those as the same thing is how a real intrusion
+gets lost in routine noise.
+
+**`audit:crawl` told the operator to run the wrong worker.** The hint was
+hardcoded to `queue:work redis` while the app runs the database driver, so
+anyone following it started a worker on a queue that would never receive
+the job. Now reads `config('queue.default')`.
+
+**Dead code**: `UsageLimitService::canCreateWebsite()`, a wrapper over
+`websiteRefusalReason()` that nothing called — two entry points to one
+limit is how the two drift apart. Plus two unused imports.
+
+### The flagged items, closed
+
+A second pass went through every "known limitation", "not fixed here" and
+"product decision" left in this document. Five of them were **stale** —
+already fixed by later phases, and still described as open, which is worse
+than no note at all: someone reads "`product_auditor` has no backing
+module" and builds a second one. Corrected in §29 with what actually
+resolved each (`ProductAuditModule` exists and scores; per-request model
+override landed in §53; `max_websites` is enforced; the queue driver is
+declared outright).
+
+Three were real and are now fixed:
+
+**An audit that could assess nothing reported a score of 0.** §51 flagged
+that a plan with no `features` rows denies every category, and left the
+gating policy as a product decision. The part that was never a product
+decision is what happened next: `dispatchAnalysis()` dispatched scoring
+anyway, `calculateOverall()` returns 0 for an empty set, and the audit
+**completed** with an overall score of **0** — a site nobody looked at,
+presented as catastrophically bad, in a report indistinguishable from a
+real one. That is the same fabrication the scoring rules forbid
+everywhere else, arrived at by omission.
+
+It now fails through `AuditLifecycle` with a message naming the cause,
+because `completed` means "there is something to look at" (§38) and here
+there is not. Failing through the lifecycle is also what releases the
+owner's concurrent slot. The test that asserted the old behaviour
+(`..._still_completes_the_audit_with_a_zero_overall_score`) asserted a
+bug; it now asserts the failure and that no score row is written at all.
+
+**A failed provider "Test Connection" discarded its own timing.** The
+elapsed time was measured and then thrown away, so the admin
+average-response-time figure silently excluded exactly the calls worth
+timing — a provider that is timing out is slow before it is broken.
+`AiProviderException` now carries `responseTimeMs` on both failure paths
+in all three providers.
+
+**There was no database backup and nothing to make one.** `db:backup`
+writes a timestamped `mysqldump` to `storage/backups`, prunes to the last
+N, and **deletes a failed or empty dump rather than leaving it** — a
+partial dump restores cleanly and silently loses everything after the
+point it stopped, which is worse than having none. `storage/backups` was
+added to `.gitignore` in the same change: a dump carries hashed
+passwords, encrypted provider keys and customer leads, so committing one
+would be a breach, not an untidy repository.
+
+Deliberately not built: scheduling, remote upload and encryption are
+deployment decisions, and a backup command that pretends to more than it
+does is worse than none.
+
+**A later review found three defects in it**, all fixed:
+
+- The database password was passed as `--password=` on mysqldump's
+  argument list, publishing it to every local process for the life of the
+  dump. It now goes through `MYSQL_PWD`. Verified by passing a deliberately
+  wrong value and confirming the dump is refused — a blank dev password
+  would otherwise have made the change untestable.
+- No `--default-character-set=utf8mb4`, so mysqldump 5.7 negotiated
+  three-byte `utf8` and would silently replace every 4-byte character
+  (emoji, some CJK) with `?`. A backup that restores cleanly having
+  quietly mangled rows is precisely the failure the command's own error
+  handling exists to prevent.
+- `fopen()`'s return was unchecked, so an unwritable backups directory
+  reached `fwrite(false, ...)` — a PHP 8 TypeError instead of a message.
+
+### Verified clean
+
+No TODO/FIXME markers, no `dd`/`dump`/`console.log`, no hardcoded secrets
+or score literals, no abandoned components, no broken class references, no
+raw SQL with interpolation, no shell execution (the crawler uses array-form
+`Symfony\Process`, so there is no shell to inject into), no
+`dangerouslySetInnerHTML`. Every `*_id` column has a foreign key except
+three that correctly cannot have one (a string model identifier, Sanctum's
+polymorphic `tokenable_id`, Laravel's `sessions.user_id`); 43 tables, 46
+foreign keys, all InnoDB. Zero light-only class strings missing a `dark:`
+variant.
+
+The project's own rules hold: no `$user->plan()->x` bypassing
+`EntitlementResolver`, no `audits.status` write outside `AuditLifecycle`,
+no `Http` facade in crawler paths, `failed()` on every queued job, and
+every website-scoped controller resolving from `$request->user()->websites()`.
+
+### Verified against reality, not fixtures
+
+Two real sites audited end to end. The scores **differentiate**, which is
+the point: wordpress.org scored 58 on performance (3.19 MB, 52 requests)
+against example.com's 95 (474 bytes); SEO 91 against 64. Ecommerce and
+Product came back Not Applicable on both, each carrying the stored reason
+rather than a zero, and the AI-dependent services reported "Incomplete —
+AI checks did not run" rather than presenting a clean score, because no
+provider is enabled. Performance rows carry a null Lighthouse score with
+real request and byte counts, because no PageSpeed key is configured and
+the rule is never to invent one.
+
+The full pipeline was driven through the **real database queue worker**
+(crawl → modules → score → report → competitors, zero failed jobs), not
+only the synchronous test driver. PDF rendered from real audit data at
+7.5 KB with the site URL, service names and overall score present. Live
+API checks: SSRF refused on both a disallowed port and the cloud-metadata
+address, admin 401 unauthenticated, comparison and page explorer 403 for a
+stranger, unsigned screenshot 403. Browser: dark mode, light mode, 375px
+with no horizontal overflow, and no console errors on any page visited.
+
+### A development database was lost
+
+Every `audivio` table was recreated at 13:20:28 on 2026-09-05 — a
+`migrate:fresh`, not a row deletion — taking 26 audits and their users and
+websites with it. No dump existed. The cause was not established: both
+mechanisms that looked responsible were tested and cleared (phpunit.xml's
+`<env>` overrides shell exports, and artisan honours them correctly), but
+the work in that window was mine. Only development data was lost; the
+schema was intact and every migration applied. It was regenerated by
+running the real audits above.
+
+**There is still no backup of this database and nothing that would detect
+the next occurrence.** That is the standing risk, not the lost rows.
+
+## 57. Public site: homepage and the required standing pages
+
+### Homepage
+
+Rebuilt with more of the substance a visitor needs before trusting an
+audit: how a run actually works, what the six services cover, what lands
+in the report, and the guarantees behind the numbers. The hero stays
+CMS-backed with a hardcoded fallback (§5's pattern — the fallback answers
+"what if the row is deleted", not "what does this site say").
+
+**No testimonials, customer counts, or client logos**, and none should be
+added until they are real. The entire pitch of this product is that it
+does not make numbers up; inventing social proof on the way in would
+undercut it more than an empty page ever could. The trust section instead
+describes behaviour that has tests behind it — N/A carries a reason, an
+unassessed service is never scored (§56), a missing measurement is never
+invented (§44/§45), and a finding on a page that was not re-crawled is
+never called resolved (§52).
+
+### Privacy, Terms, Accessibility
+
+Three standing pages a product that collects emails, IP addresses and
+crawled page content needs, reachable from the footer.
+
+The privacy policy was written **from the actual data flows** — read off
+the schema and services — rather than from a template: what the four data
+groups are, that AI providers receive extracted structured summaries and
+never raw HTML, that PageSpeed receives the URL, that share tokens and
+passwords are stored only as hashes, that screenshots are served through
+signed links. A policy describing a generic product is worse than none: it
+tells the reader nothing true and gives the operator false comfort.
+
+The terms state the limits the product really enforces (plan caps,
+concurrency, rate limits) and, more importantly, the boundary of what an
+automated audit can claim — that a clean accessibility score is not a
+statement of ADA or WCAG compliance. That boundary is the same one §43
+draws inside the report.
+
+The accessibility statement lists what has been done **and what has
+not** — no independent audit, no assistive-technology user testing,
+undescribed charts, untested PDF tagging. A conformance claim with no
+audit behind it is precisely the overclaim this product exists to catch,
+so making one here would be self-defeating.
+
+All three carry `[bracketed placeholders]` for company name, address and
+jurisdiction, and **need review by someone qualified before launch**.
+They are accurate about the software; they are not legal advice.
+
+### Where the content lives
+
+Only each page's `heading` (title, intro, last-updated) is seeded into the
+CMS, so an operator can change a policy date or company name without a
+deploy. The body prose stays in the frontend rather than being duplicated
+into the seeder: legal text kept in two places drifts, and legal text is
+exactly where drift does damage — a policy in the repository and a
+different one on the site, with nothing saying which is in force. An admin
+who wants to override a body can add a `body` section through the CMS and
+`sectionContent()` prefers it.
+
+Sections render as plain strings, never HTML, so CMS-editable content
+cannot inject markup into a public page.
+
+## 58. Visual design system
+
+A UI/UX pass. No business logic changed; the audit pipeline, auth, plan
+gating and report data paths are untouched.
+
+### Tokens, not `dark:` variants
+
+`src/index.css` now declares every semantic colour once — canvas, surface,
+surface-2, line, line-strong, ink, muted, faint, brand, brand-strong,
+brand-soft, on-brand — swapped wholesale under `.dark`, plus radius and
+shadow tokens. Components say `bg-surface` / `text-muted` instead of
+`bg-white dark:bg-slate-900`. That is the difference between a theme
+change being one edit and being a hunt through a hundred `dark:` variants,
+which is how two themes drift apart.
+
+527 utility pairs across 69 files were migrated mechanically (exact-pair
+matching only, so nothing ended up half-converted). **Some raw
+`bg-white dark:bg-slate-900` pairs remain** in report and dashboard
+internals where the classes were not adjacent; they render identically to
+the token and are an inconsistency, not a defect.
+
+`--color-on-brand` is the token worth naming: a brand-filled surface
+always has a legible foreground. Light mode puts white on indigo (6.29:1);
+dark mode **lightens** the brand so it reads as a colour against a dark
+page, which made white fail at 3.45:1 — so dark mode uses dark ink on it
+instead (5.49:1).
+
+### Two real defects contrast measurement caught
+
+**Every link ignored its text colour.** `a { color: inherit }` sat
+*unlayered*, and unlayered CSS outranks every Tailwind layer regardless of
+specificity — so `text-white` lost on every anchor, and the primary CTA
+was rendering near-black text on indigo at **3.01:1**. Moving the rule
+into `@layer base` fixed it. This was pre-existing, not introduced here.
+
+**The hero's score colours were unreadable in light mode.** Tailwind's
+500 steps measured 2.1-2.7:1 on a light card. They now use 700 (text) and
+600 (rings, which are graphics at a 3:1 floor) in light, 400 in dark.
+
+Both were found by measuring computed contrast in the browser rather than
+looking. Worth recording: the first three measuring attempts produced
+**false failures** — Tailwind v4 emits `oklch()` colours, which a naive RGB
+parser mangles into nonsense ratios, and gradients have no background
+*colour* to compare against. Converting through a canvas gave true values.
+Both themes now measure **zero** contrast failures on the homepage,
+pricing and login.
+
+### Chrome
+
+The header is sticky, frosted on scroll, and condenses (16px → 10px
+padding) once the page moves. Primary navigation is deliberately short —
+Pricing and Contact plus the audit CTA. Services, How It Works and FAQ
+moved to the footer; they remain routed and linked, because a header that
+lists everything makes the one action that matters compete with five links
+that do not.
+
+The footer is a five-group SaaS footer (Product, Services, Resources,
+Company, Legal) with a brand area and its own audit CTA.
+
+### Theme
+
+Light is now the default for a first-time visitor. `system` remains
+selectable — removing it would be a downgrade for anyone whose OS switches
+at sunset — but it is chosen, not assumed. An inline script in
+`index.html` applies the stored preference before first paint, using the
+same light-default rule as `ThemeContext`; if the two disagreed the page
+would repaint on mount, which is the flash the script exists to prevent.
+
+### Restraint
+
+Glass is used on the scrolled header, the mobile menu and the hero's
+floating cards — surfaces that actually sit over something. Blur is capped
+at 14px, with an opaque `@supports` fallback: past ~16px the content
+behind turns to soup and the foreground fights it, which is what makes
+glass look gimmicky rather than premium. Animation is two keyframes
+(a rise-in and a slow backdrop drift), both transform/opacity only, and a
+global `prefers-reduced-motion` block disables them for everyone who asked
+not to be moved. No chart library, no icon package, **no new
+dependencies** — the hero mock-up is inline SVG. CSS grew 2.6 kB gzipped.
+
+The hero mock-up is labelled "Example" and uses `example.com`, for the
+same reason §57 refuses testimonials: a product whose pitch is that it
+does not invent numbers cannot open with invented ones dressed as real.
+
+## 59. Admin bootstrapping
+
+`php artisan make:admin <email>` creates an admin, or grants admin to an
+existing account. Promotion never touches the password unless
+`--password` is passed explicitly — promoting someone must not lock them
+out of their own account. Since there is no self-service password change
+yet (§29), that flag is also the only way to rotate an admin password.
+
+There is still deliberately no HTTP endpoint for this (§9).
+
+**A bug worth remembering:** the first version printed the generated
+password with `$this->line()`, and Symfony Console parses `<...>` as
+formatting tags — so a password containing `<` was displayed with a chunk
+silently missing. The command reported a password that could not log
+anyone in, and the failure looked like bad hashing rather than bad
+output. Generated secrets printed to a console must go through
+`OutputFormatter::escape()`.
+
+Found because the credentials were tested against the real login endpoint
+instead of being handed over on the assumption they worked.
+
+**Passwords do not go on the command line.** `--ask-password` prompts
+without echoing; `--password` remains for scripted use and prints a
+warning at the point of use, because an argument is visible in shell
+history and in the process list to every other local process. The same
+reasoning moved the database password off `mysqldump`'s argument list
+(§56) — a review caught that one had been fixed and the other had not.
+
+The generated-password path also had to change its own advice: it told
+the operator to rotate with `--password`, which is the exact exposure the
+neighbouring branch warns about.
 
 ## Maintenance rule
 

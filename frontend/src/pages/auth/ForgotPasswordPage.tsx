@@ -9,8 +9,8 @@ import { Link } from 'react-router-dom';
 export function ForgotPasswordPage() {
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center px-4 py-16 text-center">
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Forgot your password?</h1>
-      <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+      <h1 className="text-2xl font-bold text-ink">Forgot your password?</h1>
+      <p className="mt-4 text-sm text-muted">
         Self-service password reset isn't available yet. Please{' '}
         <Link to="/contact" className="text-indigo-600 hover:underline dark:text-indigo-400">
           contact us

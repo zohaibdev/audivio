@@ -15,7 +15,7 @@ class ReportPdfServiceTest extends TestCase
 
     public function test_render_produces_a_valid_pdf_binary(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5, 'pages_crawled' => 1]);
         $report = Report::create([
             'audit_id' => $audit->id,
@@ -43,7 +43,7 @@ class ReportPdfServiceTest extends TestCase
             ],
         ]);
 
-        $pdf = (new ReportPdfService)->render($audit, $report);
+        $pdf = (app(ReportPdfService::class))->render($audit, $report);
 
         $this->assertIsString($pdf);
         $this->assertStringStartsWith('%PDF-', $pdf);
@@ -51,7 +51,7 @@ class ReportPdfServiceTest extends TestCase
 
     public function test_render_handles_a_report_with_no_issues_or_ai_analysis(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5, 'pages_crawled' => 1]);
         $report = Report::create([
             'audit_id' => $audit->id,
@@ -73,7 +73,7 @@ class ReportPdfServiceTest extends TestCase
             ],
         ]);
 
-        $pdf = (new ReportPdfService)->render($audit, $report);
+        $pdf = (app(ReportPdfService::class))->render($audit, $report);
 
         $this->assertStringStartsWith('%PDF-', $pdf);
     }

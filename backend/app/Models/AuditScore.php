@@ -14,6 +14,8 @@ class AuditScore extends Model
         'score',
         'is_applicable',
         'breakdown',
+        'not_applicable_reason',
+        'detection_evidence',
     ];
 
     protected function casts(): array
@@ -22,6 +24,7 @@ class AuditScore extends Model
             'category' => AuditCategory::class,
             'is_applicable' => 'boolean',
             'breakdown' => 'array',
+            'detection_evidence' => 'array',
         ];
     }
 

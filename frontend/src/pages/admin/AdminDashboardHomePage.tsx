@@ -36,7 +36,7 @@ export function AdminDashboardHomePage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
+      <h1 className="text-2xl font-bold text-ink">Dashboard</h1>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-7">
         <StatCard label="Total Users" value={summary.users.total} hint={`${summary.users.new_today} new today`} />
@@ -45,7 +45,7 @@ export function AdminDashboardHomePage() {
         <StatCard label="Audits This Month" value={summary.audits.this_month} />
         <StatCard label="Failed Jobs" value={summary.failed_jobs.total} />
         <StatCard label="Consultant Leads" value={summary.leads.total} />
-        <StatCard label="Conversions" value={summary.leads.by_status.converted ?? 0} />
+        <StatCard label="Won" value={summary.leads.by_status.won ?? 0} />
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

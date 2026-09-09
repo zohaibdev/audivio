@@ -15,6 +15,8 @@ use App\Models\Screenshot;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Models\Website;
+use App\Services\Report\BrandingResolver;
+use App\Services\Report\ServiceReportBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -31,7 +33,19 @@ class ServiceReportApiTest extends TestCase
         parent::setUp();
 
         $this->owner = User::create(['name' => 'Owner', 'email' => 'owner@example.com', 'password' => 'x']);
-        $website = Website::create(['user_id' => $this->owner->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        // Registration always creates a subscription in production, and
+        // since §40 an owner's own plan decides how much of their report
+        // they see — an owner with no plan row at all falls back to the
+        // guest view, which is not what this file is testing.
+        Subscription::create([
+            'user_id' => $this->owner->id,
+            'plan_id' => Plan::create([
+                'name' => 'Owner plan', 'slug' => 'owner-plan', 'price_cents' => 0,
+                'max_pages' => 25, 'daily_audit_limit' => 10, 'report_visibility_percent' => 100,
+            ])->id,
+            'started_at' => now(),
+        ]);
+        $website = Website::create(['user_id' => $this->owner->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
 
         $this->audit = Audit::create([
             'website_id' => $website->id, 'user_id' => $this->owner->id,
@@ -90,7 +104,11 @@ class ServiceReportApiTest extends TestCase
         $this->assertSame(70, $seo['score']);
         $this->assertCount(2, $seo['issues'], 'the owner sees every severity, not just major ones');
         $this->assertCount(1, $seo['pages']);
-        $this->assertSame('screenshots/a-desktop.png', $seo['pages'][0]['screenshots']['desktop']);
+        // A signed URL, not the raw storage path (§48): emitting the
+        // path is what made screenshots walkable from a sequential audit
+        // id.
+        $this->assertStringContainsString('/api/screenshots/', $seo['pages'][0]['screenshots']['desktop']);
+        $this->assertStringContainsString('signature=', $seo['pages'][0]['screenshots']['desktop']);
         $this->assertNull($seo['pages'][0]['screenshots']['mobile'], 'a missing screenshot reads as null, not a fabricated path');
     }
 
@@ -155,11 +173,13 @@ class ServiceReportApiTest extends TestCase
 
     public function test_service_pdf_renders_a_real_pdf_for_a_plan_with_pdf_export(): void
     {
-        $plan = Plan::create([
+        // Moves the owner onto a PDF-enabled plan. `subscriptions.user_id`
+        // is unique — one active plan per user — so an upgrade updates the
+        // existing row rather than adding a second.
+        $this->owner->subscription->update(['plan_id' => Plan::create([
             'name' => 'Pro', 'slug' => 'pro', 'max_pages' => 100, 'daily_audit_limit' => 10,
             'features' => ['pdf_export' => true],
-        ]);
-        Subscription::create(['user_id' => $this->owner->id, 'plan_id' => $plan->id, 'started_at' => now()]);
+        ])->id]);
 
         $response = $this->withHeader('Authorization', "Bearer {$this->ownerToken()}")
             ->get("/api/audits/{$this->audit->id}/report/services/seo/pdf");
@@ -173,6 +193,28 @@ class ServiceReportApiTest extends TestCase
         $this->assertStringStartsWith('%PDF-', $response->getContent());
     }
 
+    public function test_the_service_pdf_header_names_the_site_it_audited(): void
+    {
+        $html = view('reports.service-pdf', [
+            'audit' => $this->audit->fresh(),
+            'report' => app(ServiceReportBuilder::class)
+                ->buildAll($this->audit->fresh())['seo'],
+            'branding' => app(BrandingResolver::class)->forAudit($this->audit->fresh()),
+        ])->render();
+
+        // The header read `$website->url`, a column renamed to
+        // `primary_url` in §37. Blade renders a missing attribute as an
+        // empty string, so every per-service PDF shipped with a blank
+        // site URL and nothing failed.
+        // Asserted against the header block specifically: the audited
+        // domain appears all over the body, so a plain substring check
+        // passes even when the header is blank.
+        $this->assertMatchesRegularExpression(
+            '~<p class="muted">\s*https://example\.com~',
+            $html,
+        );
+    }
+
     public function test_service_pdf_is_refused_for_an_anonymous_viewer(): void
     {
         $this->get("/api/audits/{$this->audit->id}/report/services/seo/pdf")->assertStatus(403);
@@ -180,11 +222,13 @@ class ServiceReportApiTest extends TestCase
 
     public function test_service_pdf_404s_for_a_service_that_never_ran(): void
     {
-        $plan = Plan::create([
+        // Moves the owner onto a PDF-enabled plan. `subscriptions.user_id`
+        // is unique — one active plan per user — so an upgrade updates the
+        // existing row rather than adding a second.
+        $this->owner->subscription->update(['plan_id' => Plan::create([
             'name' => 'Pro', 'slug' => 'pro', 'max_pages' => 100, 'daily_audit_limit' => 10,
             'features' => ['pdf_export' => true],
-        ]);
-        Subscription::create(['user_id' => $this->owner->id, 'plan_id' => $plan->id, 'started_at' => now()]);
+        ])->id]);
 
         $this->withHeader('Authorization', "Bearer {$this->ownerToken()}")
             ->get("/api/audits/{$this->audit->id}/report/services/performance/pdf")

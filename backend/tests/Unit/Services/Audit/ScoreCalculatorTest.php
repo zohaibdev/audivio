@@ -55,7 +55,7 @@ class ScoreCalculatorTest extends TestCase
 
     public function test_overall_score_is_weighted_and_renormalized_over_present_categories(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'analyzing', 'max_pages' => 5]);
 
         // Only seo (weight 25) and accessibility (weight 20) ran — performance

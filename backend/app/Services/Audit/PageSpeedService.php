@@ -154,6 +154,7 @@ class PageSpeedService
 
         $audits = $response->json('lighthouseResult.audits', []);
         $performanceScore = $response->json('lighthouseResult.categories.performance.score');
+        [$opportunities, $diagnostics] = $this->splitFindings($audits);
 
         return [[
             // A missing category score stays null rather than becoming 0 —
@@ -167,48 +168,201 @@ class PageSpeedService
             'fcpMs' => $audits['first-contentful-paint']['numericValue'] ?? null,
             'ttfbMs' => $audits['server-response-time']['numericValue'] ?? null,
             'speedIndexMs' => $audits['speed-index']['numericValue'] ?? null,
-            // Lighthouse "opportunities" carry a measured millisecond
-            // saving; anything without one is a diagnostic, not an
-            // opportunity. Both are passed through as-is — we never invent
-            // a saving Lighthouse didn't compute.
-            'opportunities' => $this->extractOpportunities($audits),
+            // Lighthouse "opportunities" carry a measured saving; a
+            // failing audit without one is a diagnostic. Both are passed
+            // through as-is — we never invent a saving Lighthouse didn't
+            // compute (section 45).
+            'opportunities' => $opportunities,
+            'diagnostics' => $diagnostics,
+            // Real-user (CrUX) measurements for this URL, when Google has
+            // enough traffic to report them. This is the only place INP
+            // can come from: it is a field metric, and a lab run cannot
+            // produce one.
+            'fieldMetrics' => $this->extractFieldMetrics($response->json('loadingExperience')),
         ], $elapsedMs, $response->status()];
     }
 
     /**
+     * Split Lighthouse's failing audits into opportunities and
+     * diagnostics (§45).
+     *
+     * The distinction is Lighthouse's own, not ours: an audit carrying a
+     * measured `overallSavingsMs`/`Bytes` is an opportunity — fixing it
+     * saves a quantified amount. Everything else that failed is a
+     * diagnostic: a real problem with no number attached. Keeping them
+     * apart matters because showing "potential savings" on a finding
+     * Lighthouse never quantified would invent the one figure a reader
+     * would act on.
+     *
+     * Passing audits (score 1) are skipped, and so are informative ones
+     * with no score at all — neither is a finding.
+     *
      * @param  array<string, mixed>  $audits
-     * @return array<int, array<string, mixed>>
+     * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>}
      */
-    private function extractOpportunities(array $audits): array
+    private function splitFindings(array $audits): array
     {
+        $max = (int) config('performance_categories.max_items');
         $opportunities = [];
+        $diagnostics = [];
 
         foreach ($audits as $id => $audit) {
+            if (! is_array($audit)) {
+                continue;
+            }
+
+            $score = $audit['score'] ?? null;
+
+            // score === 1 is already passing; a null score is an
+            // informative audit with no pass/fail judgement.
+            if ($score === null || $score >= 1) {
+                continue;
+            }
+
             $savingsMs = $audit['details']['overallSavingsMs'] ?? null;
             $savingsBytes = $audit['details']['overallSavingsBytes'] ?? null;
 
-            if ($savingsMs === null && $savingsBytes === null) {
-                continue;
-            }
-
-            // score === 1 means Lighthouse considers this already passing;
-            // surfacing it as an "opportunity" would be noise.
-            if (($audit['score'] ?? null) === 1) {
-                continue;
-            }
-
-            $opportunities[] = [
+            $entry = [
                 'id' => $id,
                 'title' => $audit['title'] ?? $id,
                 'description' => $audit['description'] ?? null,
+                'category' => $this->categoryFor($id),
+                'score' => $score,
+                // Lighthouse's own human-readable summary ("Potential
+                // savings of 320 KiB"), kept verbatim rather than
+                // recomputed from the raw numbers.
+                'display_value' => $audit['displayValue'] ?? null,
+                'resources' => $this->extractResources($audit),
+            ];
+
+            if ($savingsMs === null && $savingsBytes === null) {
+                $diagnostics[] = $entry;
+
+                continue;
+            }
+
+            $opportunities[] = $entry + [
                 'savings_ms' => $savingsMs !== null ? (int) round($savingsMs) : null,
                 'savings_bytes' => $savingsBytes !== null ? (int) round($savingsBytes) : null,
             ];
         }
 
+        // Biggest measured time saving first — the order a reader should
+        // work in. Diagnostics have no savings to rank by, so the worst
+        // score leads instead.
         usort($opportunities, fn ($a, $b) => ($b['savings_ms'] ?? 0) <=> ($a['savings_ms'] ?? 0));
+        usort($diagnostics, fn ($a, $b) => ($a['score'] ?? 1) <=> ($b['score'] ?? 1));
 
-        return array_slice($opportunities, 0, 15);
+        return [array_slice($opportunities, 0, $max), array_slice($diagnostics, 0, $max)];
+    }
+
+    /**
+     * The specific resources an audit blames, from its details table.
+     *
+     * Lighthouse names the URL, and usually a size and a saving, per row.
+     * Without these a finding says "your images are too big" and leaves
+     * the owner to work out which ones.
+     *
+     * @param  array<string, mixed>  $audit
+     * @return array<int, array<string, mixed>>
+     */
+    private function extractResources(array $audit): array
+    {
+        $items = $audit['details']['items'] ?? null;
+
+        if (! is_array($items)) {
+            return [];
+        }
+
+        $max = (int) config('performance_categories.max_resources_per_item');
+        $resources = [];
+
+        foreach ($items as $item) {
+            if (count($resources) >= $max) {
+                break;
+            }
+
+            if (! is_array($item)) {
+                continue;
+            }
+
+            // Rows without a URL are summary rows (totals, group headers).
+            $url = $item['url'] ?? ($item['source']['url'] ?? null);
+
+            if (! is_string($url) || $url === '') {
+                continue;
+            }
+
+            $resources[] = array_filter([
+                'url' => substr($url, 0, 500),
+                'total_bytes' => isset($item['totalBytes']) ? (int) round($item['totalBytes']) : null,
+                'wasted_bytes' => isset($item['wastedBytes']) ? (int) round($item['wastedBytes']) : null,
+                'wasted_ms' => isset($item['wastedMs']) ? (int) round($item['wastedMs']) : null,
+            ], fn ($value) => $value !== null);
+        }
+
+        return $resources;
+    }
+
+    /**
+     * CrUX field data for this URL — what real visitors actually
+     * experienced over the trailing 28 days (§45).
+     *
+     * This is the only honest source of INP: it is measured from real
+     * interactions, and no lab run can produce one. When Google has too
+     * little traffic for a URL there is no field data at all, and the
+     * report says so rather than substituting the lab numbers, which
+     * describe a different thing entirely.
+     *
+     * @param  array<string, mixed>|null  $loadingExperience
+     * @return array<string, mixed>|null
+     */
+    private function extractFieldMetrics(?array $loadingExperience): ?array
+    {
+        $metrics = $loadingExperience['metrics'] ?? null;
+
+        if (! is_array($metrics) || $metrics === []) {
+            return null;
+        }
+
+        $map = [
+            'lcp_ms' => 'LARGEST_CONTENTFUL_PAINT_MS',
+            'inp_ms' => 'INTERACTION_TO_NEXT_PAINT',
+            'cls' => 'CUMULATIVE_LAYOUT_SHIFT_SCORE',
+            'fcp_ms' => 'FIRST_CONTENTFUL_PAINT_MS',
+            'ttfb_ms' => 'EXPERIMENTAL_TIME_TO_FIRST_BYTE',
+        ];
+
+        $extracted = [];
+
+        foreach ($map as $key => $cruxKey) {
+            $percentile = $metrics[$cruxKey]['percentile'] ?? null;
+
+            if ($percentile === null) {
+                continue;
+            }
+
+            $extracted[$key] = [
+                // CrUX reports CLS multiplied by 100 as an integer.
+                'value' => $key === 'cls' ? $percentile / 100 : (int) $percentile,
+                'category' => $metrics[$cruxKey]['category'] ?? null,
+            ];
+        }
+
+        if ($extracted === []) {
+            return null;
+        }
+
+        return [
+            'source' => 'crux',
+            'overall_category' => $loadingExperience['overall_category'] ?? null,
+            'metrics' => $extracted,
+        ];
+    }
+
+    private function categoryFor(string $auditId): string
+    {
+        return config("performance_categories.audits.{$auditId}", 'other');
     }
 
     private function exceedsConfiguredLimits(ApiProvider $provider): bool

@@ -37,7 +37,9 @@ class ProductAuditModule implements AuditModule
                 category: $this->category(),
                 score: null,
                 isApplicable: false,
-                notApplicableReason: 'No product pages were found among the crawled pages, so there was nothing to audit.',
+                notApplicableReason: $audit->site_type !== null && ! $audit->site_type->canSellOnline()
+                    ? $audit->site_type->ecommerceSkipReason()
+                    : 'No product pages were found among the crawled pages, so there was nothing to audit.',
             );
         }
 

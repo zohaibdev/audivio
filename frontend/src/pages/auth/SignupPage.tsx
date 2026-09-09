@@ -34,7 +34,7 @@ export function SignupPage() {
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center px-4 py-16">
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Create your account</h1>
+      <h1 className="text-2xl font-bold text-ink">Create your account</h1>
       <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
         <Input
           label="Name"
@@ -69,7 +69,7 @@ export function SignupPage() {
           value={form.password_confirmation}
           onChange={(e) => setForm({ ...form, password_confirmation: e.target.value })}
         />
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-muted">
           Password must be at least 8 characters and include letters and numbers.
         </p>
         {error && (

@@ -2,7 +2,6 @@
 
 namespace App\Services\Crawler;
 
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class SitemapService
@@ -12,7 +11,8 @@ class SitemapService
     private const MAX_URLS = 5000;
 
     public function __construct(
-        private readonly UrlSecurityValidator $validator,
+        private readonly SafeHttpClient $http,
+        private readonly UrlNormalizer $normalizer,
     ) {}
 
     /**
@@ -23,7 +23,17 @@ class SitemapService
     {
         $urls = [];
         $sitemapsFetched = 0;
-        $queue = $sitemapUrls;
+
+        // The seeds are filtered by domain like every nested entry, not
+        // trusted because of where they came from: a `Sitemap:` line in
+        // robots.txt is attacker-controlled content on the audited site,
+        // so it can name any host it likes. Off-domain seeds are dropped
+        // rather than fetched, which keeps the crawl to the site the user
+        // actually asked to audit.
+        $queue = array_values(array_filter(
+            $sitemapUrls,
+            fn ($url) => is_string($url) && $this->isSameDomain($url, $domain),
+        ));
 
         while ($queue !== [] && $sitemapsFetched < self::MAX_SUB_SITEMAPS && count($urls) < self::MAX_URLS) {
             $sitemapUrl = array_shift($queue);
@@ -64,22 +74,24 @@ class SitemapService
     private function fetchXml(string $url): ?\SimpleXMLElement
     {
         try {
-            $this->validator->assertSafe($url);
-            $response = Http::withUserAgent(config('crawler.user_agent'))
-                ->timeout(config('crawler.request_timeout'))
-                ->get($url);
+            $result = $this->http->get($url);
         } catch (\Throwable $e) {
             Log::channel('crawler')->info('Sitemap fetch failed', ['url' => $url, 'error' => $e->getMessage()]);
 
             return null;
         }
 
-        if (! $response->successful()) {
+        if ($result === null) {
             return null;
         }
 
         libxml_use_internal_errors(true);
-        $xml = simplexml_load_string($response->body());
+        // LIBXML_NONET stops the parser itself from becoming an SSRF
+        // vector by fetching an external DTD or schema the document names.
+        // LIBXML_NOENT is deliberately *not* passed: leaving entity
+        // substitution off is what keeps a hostile sitemap from reading
+        // local files (XXE) or expanding into gigabytes (billion laughs).
+        $xml = simplexml_load_string($result['body'], 'SimpleXMLElement', LIBXML_NONET | LIBXML_NOCDATA);
         libxml_clear_errors();
 
         return $xml ?: null;
@@ -89,15 +101,15 @@ class SitemapService
     {
         $host = parse_url($url, PHP_URL_HOST);
 
-        return $host !== null && strtolower($host) === strtolower($domain);
+        if ($host === null || $host === false) {
+            return false;
+        }
+
+        return rtrim(strtolower($host), '.') === rtrim(strtolower($domain), '.');
     }
 
     public function defaultSitemapUrl(string $baseUrl): string
     {
-        $parts = parse_url($baseUrl);
-        $scheme = $parts['scheme'] ?? 'https';
-        $host = $parts['host'] ?? '';
-
-        return "{$scheme}://{$host}/sitemap.xml";
+        return $this->normalizer->origin($baseUrl).'/sitemap.xml';
     }
 }

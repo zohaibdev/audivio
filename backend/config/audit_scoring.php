@@ -84,6 +84,14 @@ return [
         'max_ttfb_ms' => 800,
         'max_dom_nodes' => 1500,
 
+        // Caching and compression (§45). Both are measured from response
+        // headers, so a finding here names the exact files responsible.
+        // A handful of uncached assets is normal (a cache-busting build
+        // artefact, a tracking pixel); these are the counts at which it
+        // stops being incidental.
+        'max_uncached_assets' => 3,
+        'max_uncompressed_bytes' => 50 * 1024,
+
         // Core Web Vitals thresholds (good / needs-improvement boundary),
         // per web.dev's published guidance. Used to label a metric
         // Good / Needs Improvement / Poor in the performance report.
@@ -107,6 +115,17 @@ return [
         'title_max_length' => 60,
         'meta_description_min_length' => 50,
         'meta_description_max_length' => 160,
+
+        // Deep SEO audit (§44). A page with almost no internal links is
+        // hard for a crawler to reach and reads as unimportant to it;
+        // this is the threshold below which that is worth saying.
+        'min_internal_links_per_page' => 3,
+        // Redirect hops before a chain is called a chain. One redirect is
+        // normal and often correct (http->https, trailing slash); two is
+        // where the cost starts being real.
+        'max_redirect_hops' => 1,
+        // How many affected pages/URLs to list on any one issue.
+        'max_items_listed_per_issue' => 10,
     ],
 
     /*

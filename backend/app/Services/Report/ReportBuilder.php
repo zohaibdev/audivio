@@ -30,6 +30,36 @@ class ReportBuilder
             'recommendations' => $this->buildRecommendations($issues),
             'ai_analysis' => $this->buildAiAnalysis($audit),
             'pages' => $this->buildPageFindings($audit),
+            // The combined report shows an accessibility score alongside
+            // the others, so it carries the same caveat the per-service
+            // report does (§43): a number labelled "accessibility" must
+            // never travel without it.
+            'disclaimers' => $this->buildDisclaimers($audit),
+        ];
+    }
+
+    /**
+     * Caveats that apply to this audit's results, keyed by the service
+     * they qualify. Present only when that service actually ran — an
+     * audit with no accessibility score has nothing to disclaim.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildDisclaimers(Audit $audit): array
+    {
+        $accessibility = $audit->scores->first(
+            fn ($s) => $s->category === AuditCategory::Accessibility
+        );
+
+        if ($accessibility === null) {
+            return [];
+        }
+
+        return [
+            // Prefer what the module stored, so a report re-rendered years
+            // later shows the wording that audit was actually issued with.
+            'accessibility' => $accessibility->breakdown['disclaimer']
+                ?? config('accessibility.disclaimer'),
         ];
     }
 
@@ -41,7 +71,7 @@ class ReportBuilder
         $scores = $audit->scores->keyBy(fn ($s) => $s->category->value);
 
         return [
-            'website_url' => $audit->website->url,
+            'website_url' => $audit->website->primary_url,
             'domain' => $audit->website->domain,
             'platform' => $audit->website->platform->value,
             'overall_score' => $scores->get(AuditCategory::Overall->value)?->score,
@@ -50,7 +80,21 @@ class ReportBuilder
                 ->mapWithKeys(fn ($s) => [$s->category->value => $s->score])
                 ->all(),
             'pages_crawled' => $audit->pages_crawled,
-            'audit_date' => $audit->completed_at?->toIso8601String(),
+            // What kind of site this audit concluded it was looking at,
+            // and why (§46). It decides which services were reported at
+            // all, so it is stated up front rather than left implicit in
+            // a set of missing scores.
+            'site_type' => $audit->site_type?->value,
+            'site_type_label' => $audit->site_type?->label(),
+            'site_type_description' => $audit->site_type?->description(),
+            'site_type_confidence' => $audit->site_type_confidence,
+            'site_type_signals' => $audit->site_type_signals ?? [],
+            // Falls back to now() because the report is built *before*
+            // the audit is flipped to completed — deliberately, so that
+            // `completed` means "there is a report to read" (§38). On this
+            // first build the two are milliseconds apart; on a later
+            // regeneration `completed_at` is set and wins.
+            'audit_date' => ($audit->completed_at ?? now())->toIso8601String(),
         ];
     }
 

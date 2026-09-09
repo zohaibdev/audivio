@@ -38,7 +38,12 @@ class PerformanceAuditModule implements AuditModule
         }
 
         foreach ($pages as $page) {
-            $perPageIssues = array_merge($perPageIssues, $this->checkResourceBreakdown($page));
+            $perPageIssues = array_merge(
+                $perPageIssues,
+                $this->checkResourceBreakdown($page),
+                $this->checkCaching($page),
+                $this->checkCompression($page),
+            );
         }
 
         $pagespeedPageCount = config('audit_scoring.performance.pagespeed_pages');
@@ -125,6 +130,103 @@ class PerformanceAuditModule implements AuditModule
      *
      * @return AuditIssueData[]
      */
+    /**
+     * Static assets served without a usable cache lifetime (§45).
+     *
+     * Measured from the `Cache-Control` header of every response the
+     * crawler saw, so the finding names the exact files. Repeat visitors
+     * re-download every one of these.
+     *
+     * Silent when the crawl recorded no caching summary: that is an audit
+     * from before this was captured, not a site with no caching.
+     *
+     * @return AuditIssueData[]
+     */
+    private function checkCaching(AuditPage $page): array
+    {
+        $caching = $this->crawlerMetric($page)?->caching;
+
+        if (! is_array($caching) || ($caching['consideredCount'] ?? 0) === 0) {
+            return [];
+        }
+
+        $uncached = (int) ($caching['uncachedCount'] ?? 0);
+        $budget = (int) config('audit_scoring.performance.max_uncached_assets');
+
+        if ($uncached <= $budget) {
+            return [];
+        }
+
+        $bytes = (int) ($caching['uncachedBytes'] ?? 0);
+
+        return [new AuditIssueData(
+            severity: IssueSeverity::Medium,
+            code: 'performance.no_cache_headers',
+            message: "{$uncached} static asset(s) totalling ".$this->kb($bytes).' are served without a cache lifetime: '.$page->url,
+            recommendation: 'Set a long Cache-Control max-age on versioned static assets. Without one, every returning visitor downloads these files again even though they have not changed.',
+            auditPageId: $page->id,
+            meta: [
+                'url' => $page->url,
+                'uncached_count' => $uncached,
+                'cached_count' => (int) ($caching['cachedCount'] ?? 0),
+                'considered_count' => (int) ($caching['consideredCount'] ?? 0),
+                'uncached_bytes' => $bytes,
+                'budget_count' => $budget,
+                // The actual files, with the header each one sent.
+                'resources' => $caching['uncachedSamples'] ?? [],
+            ],
+        )];
+    }
+
+    /**
+     * Text resources served uncompressed (§45).
+     *
+     * Images, fonts and media are excluded upstream — they are already
+     * compressed formats, and gzipping a JPEG costs CPU to save nothing.
+     *
+     * @return AuditIssueData[]
+     */
+    private function checkCompression(AuditPage $page): array
+    {
+        $compression = $this->crawlerMetric($page)?->compression;
+
+        if (! is_array($compression) || ($compression['consideredCount'] ?? 0) === 0) {
+            return [];
+        }
+
+        $bytes = (int) ($compression['uncompressedBytes'] ?? 0);
+        $budget = (int) config('audit_scoring.performance.max_uncompressed_bytes');
+
+        if ($bytes <= $budget) {
+            return [];
+        }
+
+        $count = (int) ($compression['uncompressedCount'] ?? 0);
+
+        return [new AuditIssueData(
+            severity: IssueSeverity::High,
+            code: 'performance.no_compression',
+            message: "{$count} text resource(s) totalling ".$this->kb($bytes).' are served without compression: '.$page->url,
+            recommendation: 'Enable gzip or Brotli compression for HTML, CSS and JavaScript. This is usually one server setting and typically cuts these files by 60-80% with no change to the site itself.',
+            auditPageId: $page->id,
+            meta: [
+                'url' => $page->url,
+                'uncompressed_count' => $count,
+                'compressed_count' => (int) ($compression['compressedCount'] ?? 0),
+                'considered_count' => (int) ($compression['consideredCount'] ?? 0),
+                'uncompressed_bytes' => $bytes,
+                'budget_bytes' => $budget,
+                'resources' => $compression['uncompressedSamples'] ?? [],
+            ],
+        )];
+    }
+
+    private function crawlerMetric(AuditPage $page): ?PagePerformanceMetric
+    {
+        return $page->performanceMetrics
+            ->firstWhere(fn ($m) => $m->source === MetricSource::Crawler);
+    }
+
     private function checkResourceBreakdown(AuditPage $page): array
     {
         $metric = $page->performanceMetrics
@@ -345,6 +447,14 @@ class PerformanceAuditModule implements AuditModule
                 'fcp_ms' => $this->intOrNull($result['fcpMs'] ?? null),
                 'ttfb_ms' => $this->intOrNull($result['ttfbMs'] ?? null),
                 'speed_index_ms' => $this->intOrNull($result['speedIndexMs'] ?? null),
+                // Stored per strategy, because mobile and desktop produce
+                // different findings with different savings (§45).
+                'opportunities' => $result['opportunities'] ?? null,
+                'diagnostics' => $result['diagnostics'] ?? null,
+                // Null whenever CrUX has too little traffic for this URL —
+                // never backfilled from the lab run, which measures a
+                // different thing.
+                'field_metrics' => $result['fieldMetrics'] ?? null,
             ],
         );
     }

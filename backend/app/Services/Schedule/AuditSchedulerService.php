@@ -3,6 +3,7 @@
 namespace App\Services\Schedule;
 
 use App\Enums\AuditStatus;
+use App\Enums\PlanFeature;
 use App\Enums\ScheduleFrequency;
 use App\Jobs\Crawl\CrawlWebsiteJob;
 use App\Models\Audit;
@@ -10,6 +11,9 @@ use App\Models\AuditSchedule;
 use App\Models\UsageLog;
 use App\Models\User;
 use App\Models\Website;
+use App\Services\Audit\ActiveAuditLimiter;
+use App\Services\Plan\EntitlementResolver;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Recurring audits, gated by the plan's `scheduled_audits` feature flag
@@ -21,15 +25,40 @@ use App\Models\Website;
  */
 class AuditSchedulerService
 {
+    public function __construct(
+        private readonly ActiveAuditLimiter $activeAudits,
+        private readonly EntitlementResolver $entitlements,
+    ) {}
+
     public function canCreateSchedule(User $user): bool
     {
-        $plan = $user->plan();
+        $entitlements = $this->entitlements->for($user);
 
-        if ($plan === null || ! $plan->hasFeature('scheduled_audits')) {
+        if ($entitlements === null || ! $entitlements->allows(PlanFeature::ScheduledAudits)) {
             return false;
         }
 
-        return $user->auditSchedules()->where('is_active', true)->count() < $plan->full_recrawls;
+        $plan = $entitlements->plan;
+
+        return $user->auditSchedules()->where('is_active', true)->count() < (int) ($plan?->full_recrawls ?? 0);
+    }
+
+    /**
+     * Whether this user's plan permits a schedule this frequent.
+     *
+     * Separate from canCreateSchedule() because the two fail for different
+     * reasons and deserve different messages: "your plan has no scheduled
+     * audits" and "your plan allows weekly at most" are not the same
+     * problem (section 40).
+     */
+    public function allowsFrequency(User $user, ScheduleFrequency $frequency): bool
+    {
+        return (bool) $this->entitlements->for($user)?->allowsFrequency($frequency);
+    }
+
+    public function maxFrequencyFor(User $user): ScheduleFrequency
+    {
+        return $this->entitlements->for($user)?->maxAuditFrequency ?? ScheduleFrequency::Monthly;
     }
 
     public function create(User $user, Website $website, ScheduleFrequency $frequency): AuditSchedule
@@ -74,25 +103,53 @@ class AuditSchedulerService
         $website = $schedule->website;
         $user = $schedule->user;
 
-        $audit = Audit::create([
-            'website_id' => $website->id,
-            'user_id' => $user->id,
-            'status' => AuditStatus::Pending,
-            'max_pages' => $user->plan()?->max_pages ?? config('audit_limits.anonymous_max_pages'),
-        ]);
+        // Through the limiter, like every other way an audit gets created
+        // (§38). The concurrent-audit limit is a property of the account,
+        // not of the endpoint that happens to create the audit — without
+        // this, a daily schedule firing while yesterday's audit is still
+        // running would stack audits past the plan's limit, and a user on
+        // several schedules could bypass it entirely.
+        $audit = $this->activeAudits->withSlot($user, null, function () use ($user, $website) {
+            $audit = Audit::create([
+                'website_id' => $website->id,
+                'user_id' => $user->id,
+                'status' => AuditStatus::Queued,
+                // Through the resolver, not `$user->plan()`: the raw
+                // relation ignores whether the subscription is still
+                // active, so a lapsed subscriber's schedule would keep
+                // crawling at the paid page limit forever — in a
+                // background job nobody is watching.
+                'max_pages' => $this->entitlements->for($user)?->maxPages
+                    ?? config('entitlements.guest.max_pages'),
+                'progress_at' => now(),
+            ]);
 
-        UsageLog::create([
-            'user_id' => $user->id,
-            'action' => 'recrawl',
-            'website_id' => $website->id,
-            'audit_id' => $audit->id,
-        ]);
+            UsageLog::create([
+                'user_id' => $user->id,
+                'action' => 'recrawl',
+                'website_id' => $website->id,
+                'audit_id' => $audit->id,
+            ]);
 
-        CrawlWebsiteJob::dispatch($audit);
+            return $audit;
+        });
 
-        $schedule->update([
-            'last_run_at' => now(),
-            'next_run_at' => $schedule->frequency->nextRunFrom(now()),
-        ]);
+        if ($audit === null) {
+            Log::channel('crawler')->info('Scheduled audit skipped: owner is at their concurrent-audit limit', [
+                'schedule_id' => $schedule->id,
+                'user_id' => $user->id,
+            ]);
+        } else {
+            CrawlWebsiteJob::dispatch($audit);
+        }
+
+        // Advanced either way. A skipped run must still move on, or the
+        // scheduler retries this schedule on every tick for as long as the
+        // blocking audit runs. `last_run_at` records only runs that
+        // actually started, so a skip stays visible as a gap.
+        $schedule->update(array_merge(
+            $audit === null ? [] : ['last_run_at' => now()],
+            ['next_run_at' => $schedule->frequency->nextRunFrom(now())],
+        ));
     }
 }

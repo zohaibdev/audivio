@@ -71,8 +71,8 @@ class AuditModuleRegistryFeatureGatingTest extends TestCase
         $user = User::create(['name' => 'User', 'email' => 'user@example.com', 'password' => 'x']);
         Subscription::create(['user_id' => $user->id, 'plan_id' => $plan->id, 'started_at' => now()]);
 
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
-        $audit = Audit::create(['website_id' => $website->id, 'user_id' => $user->id, 'status' => AuditStatus::Pending, 'max_pages' => 5]);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
+        $audit = Audit::create(['website_id' => $website->id, 'user_id' => $user->id, 'status' => AuditStatus::Queued, 'max_pages' => 5]);
 
         CrawlWebsiteJob::dispatch($audit->fresh());
 
@@ -101,16 +101,43 @@ class AuditModuleRegistryFeatureGatingTest extends TestCase
         $this->assertSame(AuditStatus::Completed, $audit->status);
     }
 
-    public function test_a_plan_with_every_feature_disabled_still_completes_the_audit_with_a_zero_overall_score(): void
+    public function test_a_plan_with_every_feature_disabled_fails_the_audit_instead_of_scoring_it_zero(): void
     {
         $this->seedFeatures();
         $plan = Plan::create(['name' => 'Bare', 'slug' => 'bare', 'max_pages' => 25, 'daily_audit_limit' => 5]);
-        // No auditFeatures attached at all — every category denied.
+        // No auditFeatures attached at all — every category denied. This is
+        // what an admin gets by creating a plan through the plan UI and not
+        // ticking anything (§51).
 
         $audit = $this->runFlawlessPipelineAudit($plan);
 
-        $this->assertSame(AuditStatus::Completed, $audit->status);
-        $this->assertSame(0, AuditScore::where('audit_id', $audit->id)->where('category', 'overall')->first()->score);
-        $this->assertSame(0, AuditScore::where('audit_id', $audit->id)->where('category', '!=', 'overall')->count());
+        // This test previously asserted the opposite: completed, with an
+        // overall score of 0. That 0 was pure fabrication — nothing
+        // assessed the site, and `calculateOverall()` returns 0 for an
+        // empty set — so a site nobody looked at was reported as
+        // catastrophically bad, in a report indistinguishable from a real
+        // one (§56).
+        $this->assertSame(AuditStatus::Failed, $audit->status);
+
+        // No score at all, rather than a number standing in for one.
+        $this->assertSame(0, AuditScore::where('audit_id', $audit->id)->count());
+
+        // And the reason names the cause, because "failed" normally reads
+        // as "the site broke the crawler" and this is a configuration
+        // problem an admin can fix.
+        $this->assertStringContainsString('No audit services are enabled', (string) $audit->error_message);
+    }
+
+    public function test_a_failed_empty_audit_still_releases_its_owners_slot(): void
+    {
+        $this->seedFeatures();
+        $plan = Plan::create(['name' => 'Bare', 'slug' => 'bare2', 'max_pages' => 25, 'daily_audit_limit' => 5]);
+
+        $audit = $this->runFlawlessPipelineAudit($plan);
+
+        // Failing through the lifecycle is what guarantees this; ending the
+        // audit any other way would strand the slot forever (§38).
+        $this->assertTrue($audit->status->isTerminal());
+        $this->assertNotNull($audit->terminated_at);
     }
 }

@@ -9,13 +9,21 @@ import { Spinner } from '../../components/ui/Spinner';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
-import type { ApiUsageLogEntry, Paginated, UsageByProviderRow, UsageDailyRow, UsageSummary } from '../../types';
+import type {
+  ApiUsageLogEntry,
+  Paginated,
+  UsageByModelRow,
+  UsageByProviderRow,
+  UsageDailyRow,
+  UsageSummary,
+} from '../../types';
 
 export function AdminApiUsagePage() {
   const [filters, setFilters] = useState<UsageLogFilters>({});
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [daily, setDaily] = useState<UsageDailyRow[] | null>(null);
   const [byProvider, setByProvider] = useState<UsageByProviderRow[] | null>(null);
+  const [byModel, setByModel] = useState<UsageByModelRow[] | null>(null);
   const [logs, setLogs] = useState<Paginated<ApiUsageLogEntry> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,12 +33,14 @@ export function AdminApiUsagePage() {
       adminApi.fetchUsageSummary(filters),
       adminApi.fetchUsageDaily(filters),
       adminApi.fetchUsageByProvider(filters),
+      adminApi.fetchUsageByModel(filters),
       adminApi.fetchUsageLogs(filters),
     ])
-      .then(([summaryData, dailyData, byProviderData, logsData]) => {
+      .then(([summaryData, dailyData, byProviderData, byModelData, logsData]) => {
         setSummary(summaryData);
         setDaily(dailyData);
         setByProvider(byProviderData);
+        setByModel(byModelData);
         setLogs(logsData);
       })
       .catch((err) => setError(apiErrorMessage(err)));
@@ -41,11 +51,11 @@ export function AdminApiUsagePage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">API Usage</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Cross-provider request and cost telemetry.</p>
+        <h1 className="text-2xl font-bold text-ink">API Usage</h1>
+        <p className="mt-1 text-sm text-muted">Cross-provider request and cost telemetry.</p>
       </div>
 
-      <div className="flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-wrap gap-3 rounded-xl border border-line bg-white p-4 dark:border-line dark:bg-slate-900">
         <select
           value={filters.provider ?? ''}
           onChange={(e) => setFilters({ ...filters, provider: e.target.value || undefined })}
@@ -83,9 +93,9 @@ export function AdminApiUsagePage() {
       </div>
 
       {error && <ErrorState message={error} onRetry={load} />}
-      {!error && (!summary || !daily || !byProvider || !logs) && <Spinner />}
+      {!error && (!summary || !daily || !byProvider || !byModel || !logs) && <Spinner />}
 
-      {summary && daily && byProvider && logs && (
+      {summary && daily && byProvider && byModel && logs && (
         <>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
             <StatCard label="Total Requests" value={summary.total_requests} />
@@ -94,6 +104,9 @@ export function AdminApiUsagePage() {
             <StatCard label="Total Tokens" value={summary.total_tokens.toLocaleString()} />
             <StatCard label="Estimated Cost" value={`$${summary.estimated_cost.toFixed(4)}`} />
             <StatCard label="Avg Response Time" value={summary.average_response_time_ms ? `${summary.average_response_time_ms}ms` : '—'} />
+            {/* Always "now", never the selected range — see UsageSummary. */}
+            <StatCard label="Requests Today" value={summary.requests_today} />
+            <StatCard label="Requests This Month" value={summary.requests_this_month} />
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -115,6 +128,12 @@ export function AdminApiUsagePage() {
               xKey="date"
               lines={[{ key: 'total_tokens', color: '#8b5cf6', name: 'Tokens' }]}
             />
+            <BarChartCard
+              title="Requests By Model"
+              data={byModel as unknown as Record<string, unknown>[]}
+              xKey="model"
+              bars={[{ key: 'requests', color: '#10b981', name: 'Requests' }]}
+            />
             <LineChartCard
               title="Estimated Cost Per Day"
               data={daily as unknown as Record<string, unknown>[]}
@@ -124,40 +143,40 @@ export function AdminApiUsagePage() {
           </div>
 
           <div>
-            <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Recent requests</h2>
+            <h2 className="mb-3 text-lg font-semibold text-ink">Recent requests</h2>
             {logs.data.length === 0 ? (
               <EmptyState title="No requests logged yet" />
             ) : (
-              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
-                <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
-                  <thead className="bg-slate-50 dark:bg-slate-800/50">
+              <div className="overflow-x-auto rounded-xl border border-line">
+                <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-line">
+                  <thead className="bg-surface-2">
                     <tr>
                       {['Date/Time', 'Provider', 'Model', 'Service', 'User', 'Status', 'Tokens', 'Response Time', 'Est. Cost'].map((h) => (
-                        <th key={h} scope="col" className="px-4 py-2 text-left font-medium text-slate-500 dark:text-slate-400">
+                        <th key={h} scope="col" className="px-4 py-2 text-left font-medium text-muted">
                           {h}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+                  <tbody className="divide-y divide-line bg-white dark:divide-line dark:bg-slate-900">
                     {logs.data.map((log) => (
                       <tr key={log.id}>
-                        <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{new Date(log.created_at).toLocaleString()}</td>
-                        <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{log.provider}</td>
-                        <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{log.model ?? '—'}</td>
-                        <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{log.service}</td>
-                        <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{log.user?.name ?? '—'}</td>
+                        <td className="px-4 py-2 text-muted">{new Date(log.created_at).toLocaleString()}</td>
+                        <td className="px-4 py-2 text-muted">{log.provider}</td>
+                        <td className="px-4 py-2 text-muted">{log.model ?? '—'}</td>
+                        <td className="px-4 py-2 text-muted">{log.service}</td>
+                        <td className="px-4 py-2 text-muted">{log.user?.name ?? '—'}</td>
                         <td className="px-4 py-2">
                           <Badge tone={log.success ? 'green' : 'red'}>{log.success ? 'Success' : 'Failed'}</Badge>
                         </td>
-                        <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{log.total_tokens ?? '—'}</td>
-                        <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{log.response_time_ms ? `${log.response_time_ms}ms` : '—'}</td>
-                        <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{log.estimated_cost ? `$${log.estimated_cost.toFixed(4)}` : '—'}</td>
+                        <td className="px-4 py-2 text-muted">{log.total_tokens ?? '—'}</td>
+                        <td className="px-4 py-2 text-muted">{log.response_time_ms ? `${log.response_time_ms}ms` : '—'}</td>
+                        <td className="px-4 py-2 text-muted">{log.estimated_cost ? `$${log.estimated_cost.toFixed(4)}` : '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400 dark:border-slate-800">
+                <p className="border-t border-slate-100 px-4 py-2 text-xs text-faint dark:border-line">
                   Page {logs.current_page} of {logs.last_page} — {logs.total} total
                 </p>
               </div>

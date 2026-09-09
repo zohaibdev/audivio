@@ -24,7 +24,19 @@ class CreateLeadRequest extends FormRequest
             'website_url' => ['sometimes', 'nullable', 'string', 'url', 'max:2048'],
             'message' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'audit_id' => ['sometimes', 'nullable', 'integer', 'exists:audits,id'],
-            'source' => ['required', Rule::in(['talk_to_consultant', 'request_audit_review'])],
+
+            // Accepted, then filtered server-side against the audit and
+            // the service catalogue (§55). Validating the shape here keeps
+            // junk out; validating the *content* is the service's job,
+            // because only it knows which audit these are claimed against.
+            'issue_codes' => ['sometimes', 'nullable', 'array', 'max:50'],
+            'issue_codes.*' => ['string', 'max:191'],
+            'requested_services' => ['sometimes', 'nullable', 'array', 'max:10'],
+            'requested_services.*' => ['string', 'max:50'],
+
+            // No website_id: a public endpoint that accepted one would let
+            // anyone file leads against someone else's site.
+            'source' => ['required', Rule::in(config('leads.sources'))],
         ];
     }
 }

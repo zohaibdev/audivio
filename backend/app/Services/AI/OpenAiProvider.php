@@ -18,7 +18,7 @@ class OpenAiProvider implements AiProvider
         return AiProviderName::OpenAi->value;
     }
 
-    public function analyze(string $prompt, array $context = []): AiResponse
+    public function analyze(string $prompt, array $context = [], ?string $model = null): AiResponse
     {
         $resolver = new ProviderResolver;
         $provider = $resolver->resolve($this->name());
@@ -27,7 +27,7 @@ class OpenAiProvider implements AiProvider
             ? $prompt
             : $prompt."\n\nContext (JSON):\n".json_encode($context, JSON_PRETTY_PRINT);
 
-        return $this->performRequest($resolver, $provider, $userMessage);
+        return $this->performRequest($resolver, $provider, $userMessage, $model);
     }
 
     public function testConnection(): array
@@ -40,14 +40,19 @@ class OpenAiProvider implements AiProvider
 
             return ['success' => true, 'response_time_ms' => $response->responseTimeMs, 'message' => 'Connected successfully.'];
         } catch (AiProviderException $e) {
-            return ['success' => false, 'response_time_ms' => null, 'message' => $e->getMessage()];
+            // The failed call's own elapsed time, not null — see
+            // AiProviderException (§56).
+            return ['success' => false, 'response_time_ms' => $e->responseTimeMs, 'message' => $e->getMessage()];
         }
     }
 
-    private function performRequest(ProviderResolver $resolver, ApiProvider $provider, string $userMessage): AiResponse
+    private function performRequest(ProviderResolver $resolver, ApiProvider $provider, string $userMessage, ?string $model = null): AiResponse
     {
+        // The plan-approved model for this task, falling back to the one
+        // the provider row is configured with (§53).
+        $model ??= $provider->model;
         $payload = [
-            'model' => $provider->model,
+            'model' => $model,
             'max_completion_tokens' => $provider->getConfigValue('max_tokens', 2048),
             'messages' => [
                 ['role' => 'user', 'content' => $userMessage],
@@ -67,7 +72,10 @@ class OpenAiProvider implements AiProvider
         } catch (\Throwable $e) {
             $resolver->recordFailure($provider, $e->getMessage());
 
-            throw new AiProviderException("OpenAI request failed: {$e->getMessage()}");
+            throw new AiProviderException(
+                "OpenAI request failed: {$e->getMessage()}",
+                responseTimeMs: (int) round((microtime(true) - $startedAt) * 1000),
+            );
         }
 
         $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
@@ -75,7 +83,11 @@ class OpenAiProvider implements AiProvider
         if (! $response->successful()) {
             $resolver->recordFailure($provider, "HTTP {$response->status()}: {$response->body()}");
 
-            throw new AiProviderException("OpenAI API error ({$response->status()}): ".$response->body(), $response->status());
+            throw new AiProviderException(
+                "OpenAI API error ({$response->status()}): ".$response->body(),
+                $response->status(),
+                $elapsedMs,
+            );
         }
 
         $resolver->recordSuccess($provider);

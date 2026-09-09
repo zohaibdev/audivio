@@ -21,6 +21,7 @@ class PlaywrightCrawlerClient
             "--url={$url}",
             '--timeout='.config('crawler.page_timeout'),
             '--max-file-size-mb='.config('crawler.max_file_size_mb'),
+            '--max-redirects='.config('crawler.max_redirects'),
             '--user-agent='.config('crawler.user_agent'),
         ];
 

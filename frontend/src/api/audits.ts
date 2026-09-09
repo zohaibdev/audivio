@@ -10,6 +10,17 @@ export function fetchAuditStatus(auditId: number) {
   return unwrap<AuditSummary>(apiClient.get(`/audits/${auditId}`));
 }
 
+/**
+ * Cancel a running audit, freeing the owner's concurrent slot.
+ *
+ * Cooperative on the backend: jobs already executing stop at their next
+ * checkpoint, so the slot frees immediately while an in-flight page fetch
+ * may take a few more seconds to wind down.
+ */
+export function cancelAudit(auditId: number) {
+  return unwrap<{ audit_id: number; status: string }>(apiClient.post(`/audits/${auditId}/cancel`));
+}
+
 export function fetchReport(auditId: number) {
   return unwrap<Report>(apiClient.get(`/audits/${auditId}/report`));
 }

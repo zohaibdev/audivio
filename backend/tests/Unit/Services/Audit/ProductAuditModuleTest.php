@@ -16,7 +16,7 @@ class ProductAuditModuleTest extends TestCase
 
     private function makeAudit(): Audit
     {
-        $website = Website::create(['url' => 'https://shop.example', 'domain' => 'shop.example']);
+        $website = Website::create(['primary_url' => 'https://shop.example', 'domain' => 'shop.example', 'normalized_domain' => 'shop.example']);
 
         return Audit::create(['website_id' => $website->id, 'status' => 'analyzing', 'max_pages' => 10]);
     }

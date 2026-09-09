@@ -15,7 +15,7 @@ class SeoAuditModuleTest extends TestCase
 
     private function makeAudit(): Audit
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
 
         return Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
     }
@@ -35,9 +35,12 @@ class SeoAuditModuleTest extends TestCase
             'images' => [['src' => 'a.png', 'alt' => 'A picture']],
             'links' => [],
             'redirect_chain' => [],
+            // §44 reports a site with no Organization schema; these
+            // fixtures isolate one check each, so they carry a valid one.
+            'structured_data' => [['@context' => 'https://schema.org', '@type' => 'Organization', 'name' => 'Example', 'url' => 'https://example.com', 'logo' => 'https://example.com/logo.png', 'sameAs' => ['https://x.com/example']]],
         ]);
 
-        $result = (new SeoAuditModule)->run($audit->fresh());
+        $result = app(SeoAuditModule::class)->run($audit->fresh());
 
         $this->assertSame(100, $result->score);
         $this->assertCount(0, $result->issues);
@@ -58,9 +61,12 @@ class SeoAuditModuleTest extends TestCase
             'images' => [],
             'links' => [],
             'redirect_chain' => [],
+            // §44 reports a site with no Organization schema; these
+            // fixtures isolate one check each, so they carry a valid one.
+            'structured_data' => [['@context' => 'https://schema.org', '@type' => 'Organization', 'name' => 'Example', 'url' => 'https://example.com', 'logo' => 'https://example.com/logo.png', 'sameAs' => ['https://x.com/example']]],
         ]);
 
-        $result = (new SeoAuditModule)->run($audit->fresh());
+        $result = app(SeoAuditModule::class)->run($audit->fresh());
 
         $codes = collect($result->issues)->pluck('code');
         $this->assertTrue($codes->contains('seo.missing_title'));
@@ -83,9 +89,12 @@ class SeoAuditModuleTest extends TestCase
             'images' => [],
             'links' => [],
             'redirect_chain' => [],
+            // §44 reports a site with no Organization schema; these
+            // fixtures isolate one check each, so they carry a valid one.
+            'structured_data' => [['@context' => 'https://schema.org', '@type' => 'Organization', 'name' => 'Example', 'url' => 'https://example.com', 'logo' => 'https://example.com/logo.png', 'sameAs' => ['https://x.com/example']]],
         ]);
 
-        $result = (new SeoAuditModule)->run($audit->fresh());
+        $result = app(SeoAuditModule::class)->run($audit->fresh());
 
         $codes = collect($result->issues)->pluck('code');
         $this->assertTrue($codes->contains('seo.missing_meta_description'));
@@ -108,9 +117,12 @@ class SeoAuditModuleTest extends TestCase
             'images' => [],
             'links' => [],
             'redirect_chain' => [],
+            // §44 reports a site with no Organization schema; these
+            // fixtures isolate one check each, so they carry a valid one.
+            'structured_data' => [['@context' => 'https://schema.org', '@type' => 'Organization', 'name' => 'Example', 'url' => 'https://example.com', 'logo' => 'https://example.com/logo.png', 'sameAs' => ['https://x.com/example']]],
         ]);
 
-        $result = (new SeoAuditModule)->run($audit->fresh());
+        $result = app(SeoAuditModule::class)->run($audit->fresh());
         $this->assertTrue(collect($result->issues)->pluck('code')->contains('seo.missing_h1'));
 
         $page->update(['headings' => [
@@ -118,7 +130,7 @@ class SeoAuditModuleTest extends TestCase
             ['level' => 1, 'text' => 'Second'],
         ]]);
 
-        $result = (new SeoAuditModule)->run($audit->fresh());
+        $result = app(SeoAuditModule::class)->run($audit->fresh());
         $this->assertTrue(collect($result->issues)->pluck('code')->contains('seo.multiple_h1'));
     }
 
@@ -141,9 +153,12 @@ class SeoAuditModuleTest extends TestCase
             ],
             'links' => [],
             'redirect_chain' => [],
+            // §44 reports a site with no Organization schema; these
+            // fixtures isolate one check each, so they carry a valid one.
+            'structured_data' => [['@context' => 'https://schema.org', '@type' => 'Organization', 'name' => 'Example', 'url' => 'https://example.com', 'logo' => 'https://example.com/logo.png', 'sameAs' => ['https://x.com/example']]],
         ]);
 
-        $result = (new SeoAuditModule)->run($audit->fresh());
+        $result = app(SeoAuditModule::class)->run($audit->fresh());
 
         $issue = collect($result->issues)->firstWhere('code', 'seo.missing_image_alt');
         $this->assertNotNull($issue);
@@ -169,11 +184,14 @@ class SeoAuditModuleTest extends TestCase
             ]);
         }
 
-        $result = (new SeoAuditModule)->run($audit->fresh());
+        $result = app(SeoAuditModule::class)->run($audit->fresh());
 
         $duplicateIssues = collect($result->issues)->where('code', 'seo.duplicate_title');
         $this->assertCount(1, $duplicateIssues);
-        $this->assertSame(2, $duplicateIssues->first()->meta['urls'] ? count($duplicateIssues->first()->meta['urls']) : 0);
+        // `affected_pages` is the shape every module uses for a
+        // multi-page finding; the old `urls` key was SEO-only.
+        $this->assertSame(2, count($duplicateIssues->first()->meta['affected_pages']));
+        $this->assertSame(2, $duplicateIssues->first()->meta['affected_page_count']);
     }
 
     public function test_the_same_issue_on_every_page_is_aggregated_into_one_and_does_not_zero_the_score(): void
@@ -200,13 +218,18 @@ class SeoAuditModuleTest extends TestCase
             ]);
         }
 
-        $result = (new SeoAuditModule)->run($audit->fresh());
+        $result = app(SeoAuditModule::class)->run($audit->fresh());
 
         $missingMetaIssues = collect($result->issues)->where('code', 'seo.missing_meta_description');
         $this->assertCount(1, $missingMetaIssues, 'the 25 per-page findings must collapse into one site-wide issue');
         $this->assertSame(25, $missingMetaIssues->first()->meta['affected_page_count']);
         $this->assertNull($missingMetaIssues->first()->auditPageId, 'a multi-page issue must not point at a single arbitrary page');
-        $this->assertSame(90, $result->score); // 100 - 10 (one High deduction, not 25)
+        // 100 - 10 for the one aggregated High, not 250 for 25 of them.
+        // The other 10 is two site-wide Mediums this fixture genuinely
+        // earns: none of its 25 pages links to another, so all 25 are
+        // orphans, and it declares no Organization schema.
+        $this->assertSame(80, $result->score);
+        $this->assertNotNull(collect($result->issues)->firstWhere('code', 'seo.orphan_pages'));
     }
 
     public function test_broken_internal_link_detected_only_for_crawled_targets(): void
@@ -224,6 +247,9 @@ class SeoAuditModuleTest extends TestCase
             'images' => [],
             'links' => [],
             'redirect_chain' => [],
+            // §44 reports a site with no Organization schema; these
+            // fixtures isolate one check each, so they carry a valid one.
+            'structured_data' => [['@context' => 'https://schema.org', '@type' => 'Organization', 'name' => 'Example', 'url' => 'https://example.com', 'logo' => 'https://example.com/logo.png', 'sameAs' => ['https://x.com/example']]],
         ]);
 
         AuditPage::create([
@@ -237,12 +263,20 @@ class SeoAuditModuleTest extends TestCase
             'images' => [],
             'links' => [['href' => 'https://example.com/broken-target', 'text' => 'Broken'], ['href' => 'https://external.example/x', 'text' => 'External']],
             'redirect_chain' => [],
+            'structured_data' => [['@context' => 'https://schema.org', '@type' => 'Organization', 'name' => 'Example', 'url' => 'https://example.com', 'logo' => 'https://example.com/logo.png', 'sameAs' => ['https://x.com/example']]],
         ]);
 
-        $result = (new SeoAuditModule)->run($audit->fresh());
+        $result = app(SeoAuditModule::class)->run($audit->fresh());
 
         $issue = collect($result->issues)->firstWhere('code', 'seo.broken_internal_links');
         $this->assertNotNull($issue);
-        $this->assertSame(['https://example.com/broken-target'], $issue->meta['broken_links']);
+        // Each broken link carries where it was found and what the target
+        // returned — a bare URL list cannot tell an owner which page to fix.
+        $this->assertSame([[
+            'from' => 'https://example.com/',
+            'to' => 'https://example.com/broken-target',
+            'status' => 404,
+            'anchor_text' => 'Broken',
+        ]], $issue->meta['broken_links']);
     }
 }

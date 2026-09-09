@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
+import { ThemeToggle } from '../ui/ThemeToggle';
 import { useAuth } from '../../contexts/AuthContext';
 
 export interface SidebarNavItem {
@@ -20,16 +21,16 @@ export function SidebarLayout({ title, navItems }: { title: string; navItems: Si
     }`;
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="flex min-h-screen bg-canvas">
       <aside
-        className={`fixed inset-y-0 left-0 z-20 w-64 transform border-r border-slate-200 bg-white p-4 transition-transform dark:border-slate-800 dark:bg-slate-900 md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-20 w-64 transform border-r border-line bg-white p-4 transition-transform dark:border-line dark:bg-slate-900 md:static md:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <Link to="/" className="mb-6 block text-lg font-bold text-slate-900 dark:text-white">
+        <Link to="/" className="mb-6 block text-lg font-bold text-ink">
           Audivio
         </Link>
-        <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</p>
+        <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-faint">{title}</p>
         <nav className="flex flex-col gap-1" aria-label={`${title} navigation`}>
           {navItems.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={navLinkClass} onClick={() => setMobileOpen(false)}>
@@ -49,7 +50,7 @@ export function SidebarLayout({ title, navItems }: { title: string; navItems: Si
       )}
 
       <div className="flex flex-1 flex-col md:pl-0">
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+        <header className="flex items-center justify-between border-b border-line bg-white px-4 py-3 dark:border-line dark:bg-slate-900">
           <button
             type="button"
             className="rounded-md p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 md:hidden"
@@ -59,11 +60,12 @@ export function SidebarLayout({ title, navItems }: { title: string; navItems: Si
             ☰
           </button>
           <div className="ml-auto flex items-center gap-4">
-            <span className="text-sm text-slate-600 dark:text-slate-300">{user?.name}</span>
+            <ThemeToggle />
+            <span className="hidden text-sm text-slate-600 sm:inline dark:text-slate-300">{user?.name}</span>
             <button
               type="button"
               onClick={() => void logout()}
-              className="text-sm font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+              className="text-sm font-medium text-muted hover:text-slate-800 dark:text-faint dark:hover:text-white"
             >
               Log out
             </button>

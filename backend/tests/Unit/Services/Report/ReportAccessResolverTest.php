@@ -20,7 +20,7 @@ class ReportAccessResolverTest extends TestCase
 
     public function test_anonymous_audit_grants_no_one_full_access_even_a_logged_in_viewer(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         $viewer = $this->makeUser();
 
@@ -31,7 +31,7 @@ class ReportAccessResolverTest extends TestCase
     public function test_owner_viewing_their_own_audit_has_full_access(): void
     {
         $owner = $this->makeUser('owner@example.com');
-        $website = Website::create(['user_id' => $owner->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $owner->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'user_id' => $owner->id, 'status' => 'completed', 'max_pages' => 25]);
 
         $this->assertTrue((new ReportAccessResolver)->hasFullAccess($audit, $owner));
@@ -41,7 +41,7 @@ class ReportAccessResolverTest extends TestCase
     {
         $owner = $this->makeUser('owner@example.com');
         $someoneElse = $this->makeUser('someone-else@example.com');
-        $website = Website::create(['user_id' => $owner->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $owner->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'user_id' => $owner->id, 'status' => 'completed', 'max_pages' => 25]);
 
         $this->assertFalse((new ReportAccessResolver)->hasFullAccess($audit, $someoneElse));
@@ -50,7 +50,7 @@ class ReportAccessResolverTest extends TestCase
     public function test_anonymous_viewer_of_a_registered_users_audit_has_no_full_access(): void
     {
         $owner = $this->makeUser('owner@example.com');
-        $website = Website::create(['user_id' => $owner->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $owner->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'user_id' => $owner->id, 'status' => 'completed', 'max_pages' => 25]);
 
         $this->assertFalse((new ReportAccessResolver)->hasFullAccess($audit, null));

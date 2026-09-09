@@ -45,7 +45,13 @@ export function extractPageData() {
       alt: el.getAttribute('alt'),
       width: el.naturalWidth || null,
       height: el.naturalHeight || null,
+      // The *declared* dimensions, which are what reserve layout space.
+      // Distinct from the natural size above: an image can render fine and
+      // still shift the page because the markup never said how big it is.
+      declaredWidth: el.getAttribute('width'),
+      declaredHeight: el.getAttribute('height'),
       loading: el.getAttribute('loading'),
+      hasSrcset: el.hasAttribute('srcset'),
     });
   });
 
@@ -92,12 +98,51 @@ export function extractPageData() {
 
   const metaDescription = document.querySelector('meta[name="description"]')?.getAttribute('content') ?? null;
   const canonical = document.querySelector('link[rel="canonical"]')?.getAttribute('href');
+
+  // Indexability directives (section 44). `robots` is the generic
+  // directive; `googlebot` overrides it for Google specifically, so both
+  // are captured rather than merged — a page that is `index` generally
+  // and `noindex` for googlebot is a real and reportable state.
+  const metaRobots = document.querySelector('meta[name="robots" i]')?.getAttribute('content') ?? null;
+  const metaGooglebot = document.querySelector('meta[name="googlebot" i]')?.getAttribute('content') ?? null;
+
+  // Social cards. Collected as whole maps rather than a fixed handful of
+  // properties: which tags a page *should* carry depends on its og:type,
+  // and that is a judgement for the audit module, not the extractor.
+  const openGraph = {};
+  document.querySelectorAll('meta[property^="og:" i]').forEach((el) => {
+    const property = el.getAttribute('property')?.toLowerCase();
+    const content = el.getAttribute('content');
+    if (!property || content === null) return;
+    // First occurrence wins, matching how crawlers read repeated tags.
+    if (!(property in openGraph)) openGraph[property] = content.slice(0, 1000);
+  });
+
+  const twitterCard = {};
+  document.querySelectorAll('meta[name^="twitter:" i]').forEach((el) => {
+    const name = el.getAttribute('name')?.toLowerCase();
+    const content = el.getAttribute('content');
+    if (!name || content === null) return;
+    if (!(name in twitterCard)) twitterCard[name] = content.slice(0, 1000);
+  });
+
+  // og:image and twitter:image are URLs that may be relative in the
+  // markup; a preview renderer needs the absolute form.
+  if (openGraph['og:image']) openGraph['og:image'] = abs(openGraph['og:image']) ?? openGraph['og:image'];
+  if (twitterCard['twitter:image']) {
+    twitterCard['twitter:image'] = abs(twitterCard['twitter:image']) ?? twitterCard['twitter:image'];
+  }
+
   const html = document.documentElement.outerHTML;
 
   return {
     title: document.title || null,
     metaDescription,
     canonicalUrl: canonical ? abs(canonical) : null,
+    metaRobots,
+    metaGooglebot,
+    openGraph,
+    twitterCard,
     headings,
     links,
     images,

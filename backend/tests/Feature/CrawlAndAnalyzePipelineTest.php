@@ -38,11 +38,27 @@ class CrawlAndAnalyzePipelineTest extends TestCase
 
     public function test_full_pipeline_produces_a_completed_audit_with_all_category_scores(): void
     {
-        Storage::fake('public');
+        Storage::fake(config('crawler.screenshot_disk'));
 
-        // No robots.txt / sitemap.xml on this fake site — crawl stays to
-        // just the homepage, keeping the test deterministic.
-        Http::fake(['*' => Http::response('', 404)]);
+        // A robots.txt declaring a sitemap that lists only the homepage.
+        // The crawl still stays on one page, so the test is as
+        // deterministic as it was — but since §44 the SEO audit reports a
+        // missing robots.txt and a missing sitemap as real findings, and a
+        // fixture asserting "every category scores 100" has to be a site
+        // that genuinely has nothing wrong with it.
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response(
+                'User-agent: *
+Sitemap: https://example.com/sitemap.xml
+',
+                200,
+            ),
+            'https://example.com/sitemap.xml' => Http::response(
+                '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://example.com/</loc></url></urlset>',
+                200,
+            ),
+            '*' => Http::response('', 404),
+        ]);
 
         $this->mock(PlaywrightCrawlerClient::class, function ($mock) {
             $mock->shouldReceive('crawl')->once()->andReturn(new CrawledPageData(
@@ -55,12 +71,29 @@ class CrawlAndAnalyzePipelineTest extends TestCase
                 title: 'A Perfectly Fine Page Title',
                 metaDescription: str_repeat('a', 100),
                 canonicalUrl: 'https://example.com/',
-                headings: [['level' => 1, 'text' => 'Welcome']],
-                links: [],
+                headings: [
+                    ['level' => 1, 'text' => 'Welcome'],
+                    // §46 reports a site with no visible social proof; a
+                    // fixture asserting "every category scores 100" has to
+                    // be a page that genuinely has nothing wrong with it.
+                    ['level' => 2, 'text' => 'What our customers say'],
+                ],
+                links: [
+                    ['href' => 'https://example.com/about', 'text' => 'About'],
+                    ['href' => 'https://example.com/contact', 'text' => 'Contact'],
+                    ['href' => 'https://example.com/privacy', 'text' => 'Privacy policy'],
+                ],
                 images: [['src' => 'a.png', 'alt' => 'A picture', 'width' => 100, 'height' => 100]],
                 forms: [],
-                structuredData: [['@type' => 'Article']],
-                ctaElements: [['text' => 'Learn more', 'href' => 'https://example.com/more']],
+                // A complete Organization node: since §44 the SEO audit
+                // reports a site with no Organization schema, so a fixture
+                // meant to represent a clean page has to actually have one.
+                structuredData: [
+                    ['@context' => 'https://schema.org', '@type' => 'Organization', 'name' => 'Example', 'url' => 'https://example.com', 'logo' => 'https://example.com/logo.png', 'sameAs' => ['https://x.com/example']],
+                ],
+                // "Learn more" on its own is exactly the vague wording
+                // §46 now reports, so the fixture says what it does.
+                ctaElements: [['text' => 'Book a free consultation', 'href' => 'https://example.com/book']],
                 htmlSizeBytes: 5000,
                 headers: [],
                 htmlSample: '<html><head></head><body>Welcome</body></html>',
@@ -68,8 +101,8 @@ class CrawlAndAnalyzePipelineTest extends TestCase
             ));
         });
 
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
-        $audit = Audit::create(['website_id' => $website->id, 'status' => AuditStatus::Pending, 'max_pages' => 5]);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
+        $audit = Audit::create(['website_id' => $website->id, 'status' => AuditStatus::Queued, 'max_pages' => 5]);
 
         CrawlWebsiteJob::dispatch($audit->fresh());
 
@@ -127,12 +160,15 @@ class CrawlAndAnalyzePipelineTest extends TestCase
      * live audit; every other test fakes the disk with a consistent
      * separator throughout and never exercised the mismatch.
      */
-    public function test_screenshot_storage_paths_are_stored_relative_to_the_public_disk_not_as_absolute_paths(): void
+    public function test_screenshot_storage_paths_are_stored_relative_to_the_disk_not_as_absolute_paths(): void
     {
-        Storage::fake('public');
+        Storage::fake(config('crawler.screenshot_disk'));
         Http::fake(['*' => Http::response('', 404)]);
 
-        $disk = Storage::disk('public');
+        // The same disk the orchestrator resolves paths against. Writing
+        // the fixture to `public` while the crawler reads `local` was
+        // making this test fail for a reason production would not have.
+        $disk = Storage::disk(config('crawler.screenshot_disk'));
         $desktopAbsolute = $disk->path('screenshots/1/homepage/desktop.png');
         $mobileAbsolute = $disk->path('screenshots/1/homepage/mobile.png');
         @mkdir(dirname($desktopAbsolute), 0777, true);
@@ -163,14 +199,17 @@ class CrawlAndAnalyzePipelineTest extends TestCase
             ));
         });
 
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
-        $audit = Audit::create(['website_id' => $website->id, 'status' => AuditStatus::Pending, 'max_pages' => 5]);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
+        $audit = Audit::create(['website_id' => $website->id, 'status' => AuditStatus::Queued, 'max_pages' => 5]);
 
         CrawlWebsiteJob::dispatch($audit->fresh());
 
         $screenshots = Screenshot::where('audit_id', $audit->id)->get()->keyBy(fn ($s) => $s->viewport->value);
 
         $this->assertCount(2, $screenshots);
+        // Still relative to the disk root, whichever disk that is — §48
+        // moved screenshots off `public`, and an absolute Windows path
+        // here is the regression this test exists for.
         $this->assertSame('screenshots/1/homepage/desktop.png', $screenshots['desktop']->storage_path);
         $this->assertSame('screenshots/1/homepage/mobile.png', $screenshots['mobile']->storage_path);
         $this->assertStringNotContainsString(':', $screenshots['desktop']->storage_path, 'must not be a Windows absolute path (e.g. C:\\...)');
@@ -184,8 +223,8 @@ class CrawlAndAnalyzePipelineTest extends TestCase
             $mock->shouldReceive('crawl')->once()->andThrow(new CrawlerException('Navigation timed out'));
         });
 
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
-        $audit = Audit::create(['website_id' => $website->id, 'status' => AuditStatus::Pending, 'max_pages' => 5]);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
+        $audit = Audit::create(['website_id' => $website->id, 'status' => AuditStatus::Queued, 'max_pages' => 5]);
 
         CrawlWebsiteJob::dispatch($audit->fresh());
 

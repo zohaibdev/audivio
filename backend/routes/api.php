@@ -20,10 +20,15 @@ use App\Http\Controllers\Api\Admin\AdminWebsiteController;
 use App\Http\Controllers\Api\AuditController;
 use App\Http\Controllers\Api\AuditScheduleController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BrandingController;
 use App\Http\Controllers\Api\CmsController;
 use App\Http\Controllers\Api\LeadController;
 use App\Http\Controllers\Api\MeController;
 use App\Http\Controllers\Api\PlanController;
+use App\Http\Controllers\Api\ReportShareController;
+use App\Http\Controllers\Api\ScreenshotController;
+use App\Http\Controllers\Api\SharedReportController;
+use App\Http\Controllers\Api\WebsiteAioPromptController;
 use App\Http\Controllers\Api\WebsiteController;
 use Illuminate\Support\Facades\Route;
 
@@ -52,7 +57,37 @@ Route::middleware('auth:sanctum')->group(function () {
     // auth:sanctum rather than the optional-auth pattern audits/report
     // use below.
     Route::get('/websites', [WebsiteController::class, 'index']);
+    // `{website}` is an id *or* a normalized domain, resolved against the
+    // caller's own websites only (§8). The segment picks which of your
+    // websites to load; auth:sanctum plus that scoping is what authorizes
+    // it — a domain in a URL never grants access to anything.
+    Route::get('/websites/{website}', [WebsiteController::class, 'show']);
+    Route::put('/websites/{website}', [WebsiteController::class, 'update']);
+
+    // Custom AIO prompts (section 42) — plan-limited, scoped to the
+    // caller's own websites exactly as the routes above are.
+    Route::get('/websites/{website}/aio-prompts', [WebsiteAioPromptController::class, 'index']);
+    Route::post('/websites/{website}/aio-prompts', [WebsiteAioPromptController::class, 'store']);
+    Route::delete('/websites/{website}/aio-prompts/{prompt}', [WebsiteAioPromptController::class, 'destroy']);
     Route::get('/audits', [AuditController::class, 'index']);
+
+    // Report sharing (§50) — the owner's side. Fully authenticated, and
+    // every route resolves the audit from the caller's own records
+    // rather than a bare id: creating a share on an audit you do not own
+    // would be the entire vulnerability in one request.
+    Route::get('/audits/{audit}/shares', [ReportShareController::class, 'index']);
+    Route::post('/audits/{audit}/shares', [ReportShareController::class, 'store']);
+    Route::put('/audits/{audit}/shares/{share}', [ReportShareController::class, 'update']);
+    Route::delete('/audits/{audit}/shares/{share}', [ReportShareController::class, 'destroy']);
+    Route::post('/audits/{audit}/shares/{share}/regenerate', [ReportShareController::class, 'regenerate']);
+    Route::get('/audits/{audit}/shares/{share}/events', [ReportShareController::class, 'events']);
+
+    // White-label branding (§48). Account settings, so fully
+    // authenticated — unlike the report routes below, there is no
+    // anonymous case to support. Readable and writable on any plan; only
+    // *applied* to exports when the plan allows it.
+    Route::get('/me/branding', [BrandingController::class, 'show']);
+    Route::post('/me/branding', [BrandingController::class, 'update']);
 });
 
 // Anonymous-friendly: auth is optional here, resolved manually via
@@ -63,6 +98,9 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware('throttle:10,1')->group(function () {
     Route::post('/audits', [AuditController::class, 'store']);
     Route::get('/audits/{audit}', [AuditController::class, 'show']);
+    // Releases the audit's concurrent slot immediately; in-flight jobs
+    // stop at their next checkpoint (§39). Same ownership rule as show().
+    Route::post('/audits/{audit}/cancel', [AuditController::class, 'cancel']);
     Route::get('/audits/{audit}/report', [AuditController::class, 'report']);
     Route::get('/audits/{audit}/report/pdf', [AuditController::class, 'reportPdf']);
 
@@ -72,24 +110,74 @@ Route::middleware('throttle:10,1')->group(function () {
     Route::get('/audits/{audit}/report/services', [AuditController::class, 'serviceReports']);
     Route::get('/audits/{audit}/report/services/{service}', [AuditController::class, 'serviceReport']);
     Route::get('/audits/{audit}/pages', [AuditController::class, 'pages']);
+    // What changed since the previous run (§52). Owner-only.
+    Route::get('/audits/{audit}/comparison', [AuditController::class, 'comparison']);
     Route::get('/audits/{audit}/report/services/{service}/pdf', [AuditController::class, 'serviceReportPdf']);
+
+});
+
+// Shared reports (§50) — the recipient's side. No authentication: the
+// token in the URL identifies the share and the password authorizes it.
+//
+// Rate-limited as a group because `show` is the only endpoint in the
+// system that reveals whether a token exists, and `unlock` is the only
+// one that accepts a password. The per-share lockout in
+// ShareUnlockService is the real defence; this bounds the noise.
+Route::middleware('throttle:'.config('report_sharing.lookup_rate_limit'))->group(function () {
+    Route::get('/shared-reports/{token}', [SharedReportController::class, 'show']);
+    Route::post('/shared-reports/{token}/unlock', [SharedReportController::class, 'unlock']);
+    Route::get('/shared-reports/{token}/report', [SharedReportController::class, 'report']);
+    Route::get('/shared-reports/{token}/pages', [SharedReportController::class, 'pages']);
+    Route::get('/shared-reports/{token}/pdf/{service}', [SharedReportController::class, 'pdf']);
+});
+
+// Screenshots (§48). Signed *and* authorized: the signature proves we
+// issued the URL, the controller proves this viewer may see the audit it
+// belongs to. Report links get forwarded, so a valid URL must not be
+// useful to a stranger.
+//
+// Deliberately outside the audit group's `throttle:10,1`. That limit
+// exists to ration audit *creation*; one report view loads two
+// screenshots per crawled page — fifty requests on a 25-page audit — so
+// inheriting it made all but the first ten fail, which is most of them.
+Route::middleware(['throttle:240,1', 'signed'])->group(function () {
+    Route::get('/screenshots/{screenshot}', [ScreenshotController::class, 'show'])
+        ->name('screenshots.show');
 });
 
 // Public — lead capture CTAs and CMS content for the (future) frontend.
 // Leads are throttled like audit creation (Phase 9 — LeadController's
 // old comment claimed a "shared api throttle" that didn't actually
-// exist; this route was unthrottled until now). CMS reads are cheap,
-// public, and read-only, so left unthrottled like any static content.
+// exist; this route was unthrottled until now).
 Route::post('/leads', [LeadController::class, 'store'])->middleware('throttle:10,1');
-Route::get('/cms/{slug}', [CmsController::class, 'show']);
-Route::get('/plans', [PlanController::class, 'index']);
 
-// Plan-derived, optional-auth self-service reads (§8/§31) — anonymous
-// visitors are resolved to the default plan by FeatureAccessResolver, so
-// the public audit-submission page can show the same locked/unlocked
-// feature state a logged-in user would see.
-Route::get('/me/features', [MeController::class, 'features']);
-Route::get('/me/ai-models', [MeController::class, 'aiModels']);
+// The public read surface. These were left unthrottled on the grounds
+// that they are "cheap, read-only, like static content" — but none of
+// them are static: each runs real queries per request, and
+// /me/entitlements runs EntitlementResolver, which is deliberately never
+// cached because a stale entitlement is a wrong answer to a security
+// question (§40). That makes them the cheapest endpoints in the app to
+// abuse (§56).
+//
+// 60/minute per IP is far above what any real page load needs — a
+// visitor hitting the audit page touches three of these once — while
+// putting a ceiling on an unauthenticated request flood.
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('/cms/{slug}', [CmsController::class, 'show']);
+    Route::get('/plans', [PlanController::class, 'index']);
+
+    // Plan-derived, optional-auth self-service reads (§8/§31) — anonymous
+    // visitors are resolved to the default plan by FeatureAccessResolver, so
+    // the public audit-submission page can show the same locked/unlocked
+    // feature state a logged-in user would see.
+    Route::get('/me/features', [MeController::class, 'features']);
+    Route::get('/me/ai-models', [MeController::class, 'aiModels']);
+
+    // The caller's plan limits and on/off entitlements (section 40). Purely
+    // descriptive — every limit here is enforced again server-side where it
+    // applies, never trusted because the client was told about it.
+    Route::get('/me/entitlements', [MeController::class, 'entitlements']);
+});
 
 Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index']);
@@ -126,6 +214,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::get('/usage/summary', [AdminApiUsageController::class, 'summary']);
     Route::get('/usage/daily', [AdminApiUsageController::class, 'daily']);
     Route::get('/usage/by-provider', [AdminApiUsageController::class, 'byProvider']);
+    Route::get('/usage/by-model', [AdminApiUsageController::class, 'byModel']);
     Route::get('/usage/logs', [AdminApiUsageController::class, 'logs']);
 
     Route::apiResource('plans', AdminPlanController::class)->except(['show']);

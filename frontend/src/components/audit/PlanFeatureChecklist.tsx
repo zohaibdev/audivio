@@ -25,12 +25,12 @@ export function PlanFeatureChecklist() {
   return (
     <ul className="mt-6 flex flex-col gap-2 text-left text-sm">
       {features.map((feature) => (
-        <li key={feature.key} className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 dark:border-slate-800">
-          <span className="text-slate-700 dark:text-slate-300">{feature.name}</span>
+        <li key={feature.key} className="flex items-center justify-between rounded-md border border-line px-3 py-2 dark:border-line">
+          <span className="text-muted">{feature.name}</span>
           {feature.enabled ? (
             <span className="text-emerald-600 dark:text-emerald-400">✓ Included</span>
           ) : (
-            <span className="flex items-center gap-2 text-slate-400">
+            <span className="flex items-center gap-2 text-faint">
               🔒
               {feature.plans_with_access.length > 0 ? (
                 <Link to="/pricing" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">

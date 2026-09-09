@@ -25,6 +25,16 @@ return Application::configure(basePath: dirname(__DIR__))
             ->hourly()
             ->name('audit-schedules:run-due')
             ->withoutOverlapping();
+
+        // Every five minutes, not hourly: a stuck audit holds one of its
+        // owner's concurrent slots, so until this runs the user simply
+        // cannot start another audit. The command is a single indexed
+        // query when nothing is stuck, which is the overwhelmingly common
+        // case, so running it often is cheap.
+        $schedule->command('audits:recover-stuck')
+            ->everyFiveMinutes()
+            ->name('audits:recover-stuck')
+            ->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

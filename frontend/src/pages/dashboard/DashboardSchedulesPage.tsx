@@ -67,8 +67,8 @@ export function DashboardSchedulesPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Scheduled Audits</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <h1 className="text-2xl font-bold text-ink">Scheduled Audits</h1>
+        <p className="mt-1 text-sm text-muted">
           Recurring audits require a plan with the scheduled-audits feature enabled.
         </p>
       </div>
@@ -76,7 +76,7 @@ export function DashboardSchedulesPage() {
       <Card>
         <form onSubmit={handleCreate} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex flex-1 flex-col gap-1">
-            <label htmlFor="schedule-website" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            <label htmlFor="schedule-website" className="text-sm font-medium text-muted">
               Website
             </label>
             <select
@@ -94,7 +94,7 @@ export function DashboardSchedulesPage() {
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label htmlFor="schedule-frequency" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            <label htmlFor="schedule-frequency" className="text-sm font-medium text-muted">
               Frequency
             </label>
             <select
@@ -122,8 +122,8 @@ export function DashboardSchedulesPage() {
           {schedules.map((schedule) => (
             <Card key={schedule.id} className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-slate-900 dark:text-white">{schedule.website?.domain ?? `Website #${schedule.website_id}`}</p>
-                <p className="text-xs text-slate-400">
+                <p className="font-medium text-ink">{schedule.website?.domain ?? `Website #${schedule.website_id}`}</p>
+                <p className="text-xs text-faint">
                   {schedule.frequency} · next run {new Date(schedule.next_run_at).toLocaleDateString()}
                 </p>
               </div>

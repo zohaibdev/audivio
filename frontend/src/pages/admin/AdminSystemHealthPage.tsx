@@ -10,7 +10,7 @@ import type { ApiProviderSummary, AdminDashboardSummary } from '../../types';
 function StatusRow({ label, status, message }: { label: string; status: 'ok' | 'error' | 'unknown'; message?: string | null }) {
   const tone = status === 'ok' ? 'green' : status === 'error' ? 'red' : 'gray';
   return (
-    <div className="flex items-center justify-between border-b border-slate-100 py-3 last:border-0 dark:border-slate-800">
+    <div className="flex items-center justify-between border-b border-slate-100 py-3 last:border-0 dark:border-line">
       <div>
         <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{label}</p>
         {message && <p className="text-xs text-red-500">{message}</p>}
@@ -44,24 +44,24 @@ export function AdminSystemHealthPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-white">System Health</h1>
+      <h1 className="text-2xl font-bold text-ink">System Health</h1>
 
       <Card>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Core infrastructure</h2>
+        <h2 className="mb-2 text-sm font-semibold text-ink">Core infrastructure</h2>
         <StatusRow label="Database" status={health.database.status} message={health.database.message} />
         <StatusRow label="Cache" status={health.cache.status} message={health.cache.message} />
-        <div className="flex items-center justify-between border-b border-slate-100 py-3 last:border-0 dark:border-slate-800">
+        <div className="flex items-center justify-between border-b border-slate-100 py-3 last:border-0 dark:border-line">
           <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Queue connection (configured)</p>
           <Badge tone="blue">{health.queue_connection}</Badge>
         </div>
-        <p className="mt-2 text-xs text-slate-400">
+        <p className="mt-2 text-xs text-faint">
           Live queue/worker/Horizon status isn't checkable from a single request — this shows the configured connection
           name only, not a real-time heartbeat.
         </p>
       </Card>
 
       <Card>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Provider health</h2>
+        <h2 className="mb-2 text-sm font-semibold text-ink">Provider health</h2>
         {providers.map((provider) => (
           <StatusRow
             key={provider.slug}
@@ -73,9 +73,9 @@ export function AdminSystemHealthPage() {
       </Card>
 
       <Card>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Recent failed jobs</h2>
-        <p className="text-2xl font-semibold text-slate-900 dark:text-white">{summary.failed_jobs.total}</p>
-        <p className="text-xs text-slate-400">See the Failed Jobs page for details.</p>
+        <h2 className="mb-2 text-sm font-semibold text-ink">Recent failed jobs</h2>
+        <p className="text-2xl font-semibold text-ink">{summary.failed_jobs.total}</p>
+        <p className="text-xs text-faint">See the Failed Jobs page for details.</p>
       </Card>
     </div>
   );

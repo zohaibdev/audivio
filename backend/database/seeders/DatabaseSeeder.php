@@ -18,5 +18,6 @@ class DatabaseSeeder extends Seeder
         $this->call(ProviderSeeder::class);
         $this->call(FeatureSeeder::class);
         $this->call(AiModelSeeder::class);
+        $this->call(CmsSeeder::class);
     }
 }

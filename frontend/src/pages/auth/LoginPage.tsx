@@ -32,7 +32,7 @@ export function LoginPage() {
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center px-4 py-16">
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Log in</h1>
+      <h1 className="text-2xl font-bold text-ink">Log in</h1>
       <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
         <Input label="Email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <Input

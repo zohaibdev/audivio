@@ -35,9 +35,24 @@ class FeatureAccessResolver
         'product_auditor' => 'product_auditor',
     ];
 
+    public function __construct(private readonly EntitlementResolver $entitlements) {}
+
+    /**
+     * Resolved through EntitlementResolver (§40), not `$user->plan()`.
+     *
+     * `$user->plan()` is a bare relation read: it ignores whether the
+     * subscription is still active and whether the plan is still on
+     * offer. Reading it here meant a lapsed subscriber kept their paid
+     * plan's *feature* access — which audit modules run, which AI models
+     * they reach — indefinitely, in the one resolver whose whole job is
+     * to answer that question.
+     *
+     * Guests and users with no subscription still fall back to the
+     * default plan, exactly as before.
+     */
     public function planFor(?User $user): ?Plan
     {
-        return $user?->plan() ?? Plan::where('is_default', true)->where('is_active', true)->first();
+        return $this->entitlements->for($user)?->plan ?? $this->entitlements->defaultPlan();
     }
 
     public function categoryAllowed(?User $user, AuditCategory $category): bool

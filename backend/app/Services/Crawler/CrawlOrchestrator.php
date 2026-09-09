@@ -10,10 +10,12 @@ use App\Enums\MetricStrategy;
 use App\Enums\ScreenshotViewport;
 use App\Models\Audit;
 use App\Models\AuditPage;
+use App\Models\AuditSiteSignals;
 use App\Models\CrawlJob;
 use App\Models\CrawlUrl;
 use App\Models\PagePerformanceMetric;
 use App\Models\Screenshot;
+use App\Services\Audit\AuditLifecycle;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -37,10 +39,10 @@ class CrawlOrchestrator
     public function startCrawl(Audit $audit): CrawlJob
     {
         $website = $audit->website;
-        $this->validator->assertSafe($website->url);
+        $this->validator->assertSafe($website->primary_url);
 
         $homepage = $this->crawlerClient->crawl(
-            $website->url,
+            $website->primary_url,
             $this->screenshotAbsoluteDir($audit->id, 'homepage'),
         );
 
@@ -56,7 +58,7 @@ class CrawlOrchestrator
 
         $homepageCrawlUrl = CrawlUrl::create([
             'crawl_job_id' => $crawlJob->id,
-            'url' => $website->url,
+            'url' => $website->primary_url,
             'status' => CrawlUrlStatus::Completed,
             'http_status' => $homepage->httpStatus,
             'depth' => 0,
@@ -66,8 +68,8 @@ class CrawlOrchestrator
 
         $this->storeAuditPage($audit, $homepageCrawlUrl, $homepage);
 
-        $discovered = $this->discoverUrls($website->url, $website->domain, $audit->max_pages);
-        $normalizedHomepage = $this->normalizeUrl($website->url);
+        $discovered = $this->discoverUrls($audit, $website->primary_url, $website->domain, $audit->max_pages);
+        $normalizedHomepage = $this->normalizeUrl($website->primary_url);
 
         $pendingCrawlUrls = [];
         foreach ($discovered as $url) {
@@ -122,7 +124,13 @@ class CrawlOrchestrator
                 'error' => $e->getMessage(),
             ]);
 
-            $crawlUrl->update(['status' => CrawlUrlStatus::Failed, 'error_message' => Str::limit($e->getMessage(), 250)]);
+            $crawlUrl->update([
+                'status' => CrawlUrlStatus::Failed,
+                // Same limit as the audit's own failure message (§49):
+                // one number, so the two cannot drift apart from each
+                // other or from the column.
+                'error_message' => Str::limit($e->getMessage(), AuditLifecycle::MAX_ERROR_MESSAGE),
+            ]);
             $crawlJob->increment('failed_urls');
 
             return [];
@@ -183,15 +191,22 @@ class CrawlOrchestrator
     /**
      * @return string[]
      */
-    private function discoverUrls(string $baseUrl, string $domain, int $maxPages): array
+    private function discoverUrls(Audit $audit, string $baseUrl, string $domain, int $maxPages): array
     {
         $robots = $this->robotsTxt->fetch($baseUrl);
 
-        $sitemapSeeds = $robots['sitemaps'] !== []
+        $declaredInRobots = $robots['sitemaps'] !== [];
+
+        $sitemapSeeds = $declaredInRobots
             ? $robots['sitemaps']
             : [$this->sitemap->defaultSitemapUrl($baseUrl)];
 
         $urls = $this->sitemap->discoverUrls($sitemapSeeds, $domain);
+
+        // Recorded here rather than re-fetched at analysis time: the SEO
+        // audit must report what this crawl saw, not what the site serves
+        // minutes later (§44).
+        $this->recordSiteSignals($audit, $robots, $urls, $declaredInRobots);
 
         $normalizedHomepage = $this->normalizeUrl($baseUrl);
 
@@ -204,6 +219,32 @@ class CrawlOrchestrator
         return array_slice($urls, 0, max(0, $maxPages - 1));
     }
 
+    /**
+     * @param  array{disallow: string[], sitemaps: string[], found: bool|null, url: string|null}  $robots
+     * @param  string[]  $sitemapUrls
+     */
+    private function recordSiteSignals(Audit $audit, array $robots, array $sitemapUrls, bool $declaredInRobots): void
+    {
+        AuditSiteSignals::updateOrCreate(
+            ['audit_id' => $audit->id],
+            [
+                'robots_txt_url' => $robots['url'],
+                'robots_txt_found' => $robots['found'],
+                // Null when robots.txt could not be read at all: a count of
+                // zero would claim the file exists and disallows nothing.
+                'robots_disallow_count' => $robots['found'] === true ? count($robots['disallow']) : null,
+                'robots_sitemaps' => $robots['sitemaps'],
+                // "A sitemap that yielded URLs" is the only claim this can
+                // honestly make — an empty or unfetchable sitemap is
+                // indistinguishable from none, from here.
+                'sitemap_found' => $sitemapUrls !== [],
+                'sitemap_urls' => array_slice($sitemapUrls, 0, 1000),
+                'sitemap_url_count' => count($sitemapUrls),
+                'sitemap_declared_in_robots' => $declaredInRobots,
+            ],
+        );
+    }
+
     private function storeAuditPage(Audit $audit, CrawlUrl $crawlUrl, CrawledPageData $data): AuditPage
     {
         $page = AuditPage::create([
@@ -214,6 +255,14 @@ class CrawlOrchestrator
             'title' => $data->title,
             'meta_description' => $data->metaDescription,
             'canonical_url' => $data->canonicalUrl,
+            'meta_robots' => $data->metaRobots,
+            'meta_googlebot' => $data->metaGooglebot,
+            'open_graph' => $data->openGraph,
+            'twitter_card' => $data->twitterCard,
+            // Only the headers the audit actually reads. Storing the whole
+            // response header set would persist cookies and auth-adjacent
+            // values we have no use for.
+            'response_headers' => $this->indexableHeaders($data->headers),
             'redirect_chain' => $data->redirectChain,
             'headings' => $data->headings,
             'links' => $data->links,
@@ -222,6 +271,8 @@ class CrawlOrchestrator
             'structured_data' => $data->structuredData,
             'cta_elements' => $data->ctaElements,
             'accessibility_violations' => $data->accessibilityViolations,
+            'accessibility_passes' => $data->accessibilityPasses,
+            'accessibility_incomplete' => $data->accessibilityIncomplete,
             'html_size_bytes' => $data->htmlSizeBytes,
             'load_time_ms' => $data->loadTimeMs,
             'crawled_at' => now(),
@@ -232,6 +283,31 @@ class CrawlOrchestrator
         $this->storeCrawlerMetrics($audit, $page, $data);
 
         return $page;
+    }
+
+    /**
+     * The subset of response headers the SEO audit reads (§44).
+     * `x-robots-tag` can make a page non-indexable without any on-page
+     * markup saying so, which is exactly the kind of thing an owner
+     * cannot discover by viewing source.
+     *
+     * @param  array<string, mixed>  $headers
+     * @return array<string, string>
+     */
+    private function indexableHeaders(array $headers): array
+    {
+        $wanted = ['x-robots-tag', 'content-type', 'link'];
+        $kept = [];
+
+        foreach ($headers as $name => $value) {
+            $lower = strtolower((string) $name);
+
+            if (in_array($lower, $wanted, true)) {
+                $kept[$lower] = substr((string) $value, 0, 1000);
+            }
+        }
+
+        return $kept;
     }
 
     /**
@@ -265,6 +341,10 @@ class CrawlOrchestrator
                 'third_party_bytes' => $metrics['thirdPartyBytes'] ?? null,
                 'dom_nodes' => $metrics['domNodes'] ?? null,
                 'by_type' => $metrics['byType'] ?? null,
+                // Caching and compression are decided entirely by response
+                // headers, which only the crawler sees (§45).
+                'caching' => $metrics['caching'] ?? null,
+                'compression' => $metrics['compression'] ?? null,
             ],
         );
     }

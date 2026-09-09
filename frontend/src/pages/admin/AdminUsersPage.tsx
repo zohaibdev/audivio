@@ -28,29 +28,29 @@ export function AdminUsersPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900 dark:text-white">Users</h1>
+      <h1 className="mb-6 text-2xl font-bold text-ink">Users</h1>
       {users.data.length === 0 ? (
         <EmptyState title="No users yet" />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
-          <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
-            <thead className="bg-slate-50 dark:bg-slate-800/50">
+        <div className="overflow-x-auto rounded-xl border border-line">
+          <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-line">
+            <thead className="bg-surface-2">
               <tr>
-                <th className="px-4 py-2 text-left font-medium text-slate-500 dark:text-slate-400">Name</th>
-                <th className="px-4 py-2 text-left font-medium text-slate-500 dark:text-slate-400">Email</th>
-                <th className="px-4 py-2 text-left font-medium text-slate-500 dark:text-slate-400">Plan</th>
-                <th className="px-4 py-2 text-left font-medium text-slate-500 dark:text-slate-400">Role</th>
-                <th className="px-4 py-2 text-left font-medium text-slate-500 dark:text-slate-400">Joined</th>
+                <th className="px-4 py-2 text-left font-medium text-muted">Name</th>
+                <th className="px-4 py-2 text-left font-medium text-muted">Email</th>
+                <th className="px-4 py-2 text-left font-medium text-muted">Plan</th>
+                <th className="px-4 py-2 text-left font-medium text-muted">Role</th>
+                <th className="px-4 py-2 text-left font-medium text-muted">Joined</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+            <tbody className="divide-y divide-line bg-white dark:divide-line dark:bg-slate-900">
               {users.data.map((user) => (
                 <tr key={user.id}>
-                  <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{user.name}</td>
-                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{user.email}</td>
-                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{user.subscription?.plan?.name ?? '—'}</td>
+                  <td className="px-4 py-2 text-muted">{user.name}</td>
+                  <td className="px-4 py-2 text-muted">{user.email}</td>
+                  <td className="px-4 py-2 text-muted">{user.subscription?.plan?.name ?? '—'}</td>
                   <td className="px-4 py-2">{user.is_admin && <Badge tone="purple">Admin</Badge>}</td>
-                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{new Date(user.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-2 text-muted">{new Date(user.created_at).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>

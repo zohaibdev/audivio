@@ -14,10 +14,17 @@ class AdminLeadController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Lead::with('audit')->orderByDesc('id');
+        $query = Lead::with(['audit', 'website'])->orderByDesc('id');
 
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));
+        }
+
+        // Every lead for one site, which is the view a salesperson working
+        // an account actually wants (§55). Only possible now that a lead
+        // carries a real website_id rather than a typed-in URL.
+        if ($request->filled('website_id')) {
+            $query->where('website_id', $request->integer('website_id'));
         }
 
         return ApiResponse::success($query->paginate(25));
@@ -25,7 +32,7 @@ class AdminLeadController extends Controller
 
     public function show(Lead $lead): JsonResponse
     {
-        return ApiResponse::success($lead->load('audit', 'activities.user'));
+        return ApiResponse::success($lead->load('audit', 'website', 'activities.user'));
     }
 
     public function update(UpdateLeadRequest $request, Lead $lead): JsonResponse

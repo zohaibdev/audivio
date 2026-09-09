@@ -9,7 +9,7 @@ use App\Models\Audit;
 use App\Models\AuditIssue;
 use App\Models\AuditPage;
 use App\Models\AuditScore;
-use App\Models\Screenshot;
+use App\Services\Backlink\BacklinkService;
 use Illuminate\Support\Collection;
 
 /**
@@ -28,7 +28,11 @@ class ServiceReportBuilder
 {
     public function __construct(
         private readonly IssueTaxonomy $taxonomy,
+        private readonly IssueExplanations $explanations,
         private readonly PerformanceReportBuilder $performance,
+        private readonly AccessibilityReportBuilder $accessibility,
+        private readonly SeoReportBuilder $seo,
+        private readonly BacklinkService $backlinks,
     ) {}
 
     /**
@@ -141,7 +145,10 @@ class ServiceReportBuilder
             'name' => $serviceName,
             'score' => $applicable ? $score->score : null,
             'is_applicable' => $applicable,
-            'not_applicable_reason' => $applicable ? null : $this->notApplicableReason($audit, $serviceKey),
+            'not_applicable_reason' => $applicable ? null : $this->notApplicableReason($audit, $serviceKey, $score),
+            // The signals behind the decision, so a reader who thinks we
+            // got the site type wrong can see what it was based on.
+            'not_applicable_evidence' => $applicable ? [] : ($score->detection_evidence ?? []),
             'confidence' => $applicable ? ($partial ? 'partial' : 'complete') : 'unavailable',
             'coverage_note' => $partial ? $this->partialCoverageNote($serviceKey) : null,
             'status' => match (true) {
@@ -161,6 +168,26 @@ class ServiceReportBuilder
             // generic issue shape can't express.
             'performance' => $serviceKey === 'performance' && $applicable
                 ? $this->performance->build($audit)
+                : null,
+            // Accessibility's own block (§43): the per-check-area rollup,
+            // WCAG criteria, scan coverage, and the disclaimer. Built even
+            // when the service is not applicable, because the disclaimer
+            // must accompany any accessibility result at all — including
+            // an empty one.
+            'accessibility' => $serviceKey === 'accessibility'
+                ? $this->accessibility->build($audit, $score, $issues)
+                : null,
+            // SEO's own block (§44): the redirect report, the Open Graph
+            // previews, the schema report and the page-by-page table.
+            'seo' => $serviceKey === 'seo' && $applicable
+                ? $this->seo->build($audit, $score, $issues)
+                : null,
+            // Backlinks are the one thing here that cannot be measured
+            // from the site itself. Present as a status, always: "no
+            // provider configured" is a real answer and the only honest
+            // one when there is no backlink index behind it.
+            'backlinks' => $serviceKey === 'seo'
+                ? $this->backlinks->forDomain($audit->website->domain)
                 : null,
         ];
     }
@@ -191,6 +218,12 @@ class ServiceReportBuilder
             'severity' => $issue->severity->value,
             'title' => $this->titleForIssue($issue),
             'message' => $issue->message,
+            // The part between "what is wrong" and "how to fix it" (§47).
+            // A finding without a stated reason invites the reader to
+            // dismiss it; accessibility already had this, and every other
+            // service was leaving the reader to infer why it mattered.
+            'why_it_matters' => $issue->meta['why_it_matters']
+                ?? $this->explanations->forIssue($issue->category, $issue->code),
             'recommendation' => $issue->recommendation,
             'evidence' => $meta,
             'affected_pages' => $affectedPages,
@@ -373,10 +406,23 @@ class ServiceReportBuilder
             .'Only the rule-based checks contributed to this score. Configure an AI provider and re-run the audit for full coverage.';
     }
 
-    private function notApplicableReason(Audit $audit, string $serviceKey): string
+    /**
+     * The module's own explanation wherever it left one (§46).
+     *
+     * The generic strings below are a fallback for audits that ran before
+     * the reason was persisted, and for modules that decline without
+     * saying why. A stored reason always wins: it is the one written
+     * about this specific site.
+     */
+    private function notApplicableReason(Audit $audit, string $serviceKey, AuditScore $score): string
     {
+        if (! empty($score->not_applicable_reason)) {
+            return $score->not_applicable_reason;
+        }
+
         return match ($serviceKey) {
             'ecommerce' => 'This site did not show enough ecommerce signals to audit as a store, so no ecommerce score was generated.',
+            'product_auditor' => 'No product pages were found among the crawled pages, so there was nothing to audit.',
             default => 'There was not enough data to score this area for this site.',
         };
     }
@@ -426,12 +472,11 @@ class ServiceReportBuilder
      */
     private function screenshotsFor(AuditPage $page): array
     {
-        $byViewport = $page->screenshots->keyBy(fn (Screenshot $s) => $s->viewport->value);
-
-        return [
-            'desktop' => $byViewport->get('desktop')?->storage_path,
-            'mobile' => $byViewport->get('mobile')?->storage_path,
-        ];
+        // Signed and short-lived (§48). Emitting the raw storage path
+        // here is what made screenshots walkable: the path is derived
+        // from a sequential audit id, so anyone could guess their way
+        // into other people's captures.
+        return app(ScreenshotUrlSigner::class)->urlsFor($page->screenshots);
     }
 
     /**

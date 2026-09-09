@@ -24,7 +24,7 @@ class IssuePageRelationshipTest extends TestCase
 
     public function test_a_multi_page_issue_is_queryable_by_page_and_a_page_is_queryable_by_issue(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => AuditStatus::Analyzing, 'max_pages' => 5]);
 
         $pages = [];
