@@ -15,6 +15,8 @@ class EcommerceAuditModule implements AuditModule
     public function __construct(
         private readonly AiAnalysisService $ai,
         private readonly EcommerceDetector $detector,
+        private readonly ConversionSignalDetector $signals,
+        private readonly ConversionSignalChecks $checks,
     ) {}
 
     public function category(): AuditCategory
@@ -26,6 +28,24 @@ class EcommerceAuditModule implements AuditModule
     {
         $detection = $this->detector->detect($audit);
 
+        // The site's classification is checked first, and it can veto
+        // (§46). A blog with a stray "checkout" link in its footer can
+        // clear the detector's threshold; it still has no store, and an
+        // ecommerce score on it would be a category error rather than a
+        // low score. The classifier's answer is the broader judgement, so
+        // it wins.
+        $siteType = $audit->site_type;
+
+        if ($siteType !== null && ! $siteType->canSellOnline()) {
+            return new AuditModuleResult(
+                category: $this->category(),
+                score: null,
+                isApplicable: false,
+                notApplicableReason: $siteType->ecommerceSkipReason(),
+                detectionEvidence: $audit->site_type_signals ?? [],
+            );
+        }
+
         // Not enough evidence this is actually an ecommerce site — report
         // Not Applicable rather than running (and scoring) checks against
         // a site that sells nothing. No score, no issues, no ecommerce
@@ -36,7 +56,7 @@ class EcommerceAuditModule implements AuditModule
                 category: $this->category(),
                 score: null,
                 isApplicable: false,
-                notApplicableReason: 'No sufficient ecommerce signals detected (confidence: '.$detection->confidence.').',
+                notApplicableReason: 'No evidence of an online store was found on the pages that were crawled, so no ecommerce score is shown. The signals looked for include product structured data, an add-to-cart action, and a known ecommerce platform.',
                 detectionEvidence: $detection->signals,
             );
         }
@@ -67,6 +87,12 @@ class EcommerceAuditModule implements AuditModule
             );
         }
 
+        // Shipping, returns, checkout reachability and review data (§46).
+        // Deterministic, so a shop still gets these findings when the AI
+        // provider is unavailable.
+        $signals = $this->signals->detect($audit);
+        $issues = array_merge($issues, $this->checks->ecommerceIssues($audit, $signals));
+
         $aiResponse = $this->ai->analyze(
             $audit,
             $this->category(),
@@ -79,6 +105,7 @@ class EcommerceAuditModule implements AuditModule
         }
 
         [$score, $breakdown] = ScoreCalculator::deductPoints($issues);
+        $breakdown['signals'] = $signals;
 
         return new AuditModuleResult(
             category: $this->category(),

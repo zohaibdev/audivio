@@ -23,6 +23,10 @@ class AuditScheduleApiTest extends TestCase
             'max_pages' => 100,
             'daily_audit_limit' => 5,
             'full_recrawls' => $fullRecrawls,
+            // These tests schedule weekly; the column defaults to the most
+            // restrictive frequency, which would refuse that outright (§40).
+            'max_audit_frequency' => 'daily',
+            'max_websites' => 25,
             'features' => ['scheduled_audits' => $canSchedule],
         ]);
         $user = User::create(['name' => 'Ada', 'email' => $email, 'password' => 'x']);
@@ -45,7 +49,7 @@ class AuditScheduleApiTest extends TestCase
     public function test_a_user_can_schedule_their_own_website(): void
     {
         $user = $this->makeUser();
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
 
         $response = $this->withHeader('Authorization', 'Bearer '.$this->tokenFor($user))
             ->postJson('/api/audit-schedules', ['website_id' => $website->id, 'frequency' => 'weekly']);
@@ -57,7 +61,7 @@ class AuditScheduleApiTest extends TestCase
     public function test_a_user_cannot_schedule_someone_elses_website(): void
     {
         $owner = $this->makeUser(email: 'owner@example.com');
-        $website = Website::create(['user_id' => $owner->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $owner->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
 
         $other = $this->makeUser(email: 'other@example.com');
         $this->app['auth']->forgetGuards();
@@ -72,7 +76,7 @@ class AuditScheduleApiTest extends TestCase
     public function test_a_plan_without_the_scheduled_audits_feature_is_rejected(): void
     {
         $user = $this->makeUser(canSchedule: false);
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
 
         $response = $this->withHeader('Authorization', 'Bearer '.$this->tokenFor($user))
             ->postJson('/api/audit-schedules', ['website_id' => $website->id, 'frequency' => 'weekly']);
@@ -83,8 +87,8 @@ class AuditScheduleApiTest extends TestCase
     public function test_a_second_website_beyond_the_plans_full_recrawls_limit_is_rejected(): void
     {
         $user = $this->makeUser(fullRecrawls: 1);
-        $websiteOne = Website::create(['user_id' => $user->id, 'url' => 'https://one.example.com', 'domain' => 'one.example.com']);
-        $websiteTwo = Website::create(['user_id' => $user->id, 'url' => 'https://two.example.com', 'domain' => 'two.example.com']);
+        $websiteOne = Website::create(['user_id' => $user->id, 'primary_url' => 'https://one.example.com', 'domain' => 'one.example.com', 'normalized_domain' => 'one.example.com']);
+        $websiteTwo = Website::create(['user_id' => $user->id, 'primary_url' => 'https://two.example.com', 'domain' => 'two.example.com', 'normalized_domain' => 'two.example.com']);
         $token = $this->tokenFor($user);
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -99,7 +103,7 @@ class AuditScheduleApiTest extends TestCase
     public function test_a_website_cannot_be_scheduled_twice(): void
     {
         $user = $this->makeUser(fullRecrawls: 5);
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $token = $this->tokenFor($user);
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -114,7 +118,7 @@ class AuditScheduleApiTest extends TestCase
     public function test_invalid_frequency_is_rejected(): void
     {
         $user = $this->makeUser();
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
 
         $this->withHeader('Authorization', 'Bearer '.$this->tokenFor($user))
             ->postJson('/api/audit-schedules', ['website_id' => $website->id, 'frequency' => 'yearly'])
@@ -124,11 +128,11 @@ class AuditScheduleApiTest extends TestCase
     public function test_a_user_can_list_only_their_own_schedules(): void
     {
         $user = $this->makeUser(fullRecrawls: 5, email: 'mine@example.com');
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         AuditSchedule::create(['user_id' => $user->id, 'website_id' => $website->id, 'frequency' => ScheduleFrequency::Daily, 'next_run_at' => now()->addDay()]);
 
         $other = $this->makeUser(fullRecrawls: 5, email: 'other@example.com');
-        $otherWebsite = Website::create(['user_id' => $other->id, 'url' => 'https://other.example.com', 'domain' => 'other.example.com']);
+        $otherWebsite = Website::create(['user_id' => $other->id, 'primary_url' => 'https://other.example.com', 'domain' => 'other.example.com', 'normalized_domain' => 'other.example.com']);
         AuditSchedule::create(['user_id' => $other->id, 'website_id' => $otherWebsite->id, 'frequency' => ScheduleFrequency::Weekly, 'next_run_at' => now()->addWeek()]);
 
         $this->app['auth']->forgetGuards();
@@ -144,7 +148,7 @@ class AuditScheduleApiTest extends TestCase
     public function test_a_user_can_pause_their_own_schedule(): void
     {
         $user = $this->makeUser();
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $schedule = AuditSchedule::create(['user_id' => $user->id, 'website_id' => $website->id, 'frequency' => ScheduleFrequency::Daily, 'next_run_at' => now()->addDay()]);
 
         $response = $this->withHeader('Authorization', 'Bearer '.$this->tokenFor($user))
@@ -156,7 +160,7 @@ class AuditScheduleApiTest extends TestCase
     public function test_a_user_cannot_update_someone_elses_schedule(): void
     {
         $owner = $this->makeUser(email: 'owner@example.com');
-        $website = Website::create(['user_id' => $owner->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $owner->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $schedule = AuditSchedule::create(['user_id' => $owner->id, 'website_id' => $website->id, 'frequency' => ScheduleFrequency::Daily, 'next_run_at' => now()->addDay()]);
 
         $other = $this->makeUser(email: 'other@example.com');
@@ -170,7 +174,7 @@ class AuditScheduleApiTest extends TestCase
     public function test_a_user_can_delete_their_own_schedule(): void
     {
         $user = $this->makeUser();
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $schedule = AuditSchedule::create(['user_id' => $user->id, 'website_id' => $website->id, 'frequency' => ScheduleFrequency::Daily, 'next_run_at' => now()->addDay()]);
 
         $this->withHeader('Authorization', 'Bearer '.$this->tokenFor($user))
@@ -183,7 +187,7 @@ class AuditScheduleApiTest extends TestCase
     public function test_a_user_cannot_delete_someone_elses_schedule(): void
     {
         $owner = $this->makeUser(email: 'owner@example.com');
-        $website = Website::create(['user_id' => $owner->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $owner->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $schedule = AuditSchedule::create(['user_id' => $owner->id, 'website_id' => $website->id, 'frequency' => ScheduleFrequency::Daily, 'next_run_at' => now()->addDay()]);
 
         $other = $this->makeUser(email: 'other@example.com');

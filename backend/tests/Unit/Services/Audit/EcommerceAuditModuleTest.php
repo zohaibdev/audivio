@@ -5,9 +5,7 @@ namespace Tests\Unit\Services\Audit;
 use App\Models\Audit;
 use App\Models\AuditPage;
 use App\Models\Website;
-use App\Services\AI\AiAnalysisService;
 use App\Services\Audit\EcommerceAuditModule;
-use App\Services\Audit\EcommerceDetector;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -17,14 +15,14 @@ class EcommerceAuditModuleTest extends TestCase
 
     private function makeAudit(string $platform = 'custom'): Audit
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com', 'platform' => $platform]);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com', 'platform' => $platform]);
 
         return Audit::create(['website_id' => $website->id, 'status' => 'analyzing', 'max_pages' => 5]);
     }
 
     private function module(): EcommerceAuditModule
     {
-        return new EcommerceAuditModule(app(AiAnalysisService::class), new EcommerceDetector);
+        return app(EcommerceAuditModule::class);
     }
 
     public function test_non_ecommerce_site_is_not_applicable_with_no_score(): void

@@ -22,7 +22,7 @@ class ServiceReportBuilderTest extends TestCase
 
     private function makeAudit(): Audit
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
 
         return Audit::create([
             'website_id' => $website->id,
@@ -177,8 +177,9 @@ class ServiceReportBuilderTest extends TestCase
         $this->assertCount(1, $seoPages);
         $this->assertSame('https://example.com/a', $seoPages[0]['url']);
         $this->assertSame(1, $seoPages[0]['issue_count'], 'the performance issue must not leak into the SEO report');
-        $this->assertSame('screenshots/a-desktop.png', $seoPages[0]['screenshots']['desktop']);
-        $this->assertSame('screenshots/a-mobile.png', $seoPages[0]['screenshots']['mobile']);
+        $this->assertStringContainsString('/api/screenshots/', $seoPages[0]['screenshots']['desktop']);
+        $this->assertStringContainsString('signature=', $seoPages[0]['screenshots']['desktop']);
+        $this->assertStringContainsString('/api/screenshots/', $seoPages[0]['screenshots']['mobile']);
     }
 
     public function test_a_failed_ai_provider_reads_as_unavailable_not_as_an_absent_finding(): void

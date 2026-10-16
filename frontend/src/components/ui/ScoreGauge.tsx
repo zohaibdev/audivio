@@ -9,10 +9,10 @@ export function ScoreGauge({ score, label, size = 'md' }: { score: number | null
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className={`font-bold ${sizeClasses} ${score === null ? 'text-slate-400' : toneFor(score)}`}>
+      <span className={`font-bold ${sizeClasses} ${score === null ? 'text-faint' : toneFor(score)}`}>
         {score === null ? '—' : Math.round(score)}
       </span>
-      <span className="text-center text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+      <span className="text-center text-xs font-medium uppercase tracking-wide text-muted">
         {label}
       </span>
     </div>

@@ -2,6 +2,7 @@
 
 namespace App\Services\Report;
 
+use App\Enums\AccessibilityCheck;
 use App\Enums\AuditCategory;
 
 /**
@@ -80,23 +81,53 @@ class IssueTaxonomy
         'performance.too_many_requests' => 'Network',
         'performance.slow_server_response' => 'Server Response',
         'performance.third_party_weight' => 'Third-Party Resources',
-        'performance.excessive_dom_size' => 'Render Blocking',
+        'performance.excessive_dom_size' => 'DOM',
+        'performance.no_cache_headers' => 'Caching',
+        'performance.no_compression' => 'Compression',
 
-        // SEO
+        // SEO (§44)
         'seo.missing_title' => 'Metadata',
         'seo.title_length' => 'Metadata',
         'seo.missing_meta_description' => 'Metadata',
         'seo.meta_description_length' => 'Metadata',
         'seo.duplicate_title' => 'Metadata',
+        'seo.duplicate_meta_description' => 'Metadata',
         'seo.missing_canonical' => 'Canonical',
+        'seo.not_indexable' => 'Indexability',
+        'seo.client_error_page' => 'Indexability',
+        'seo.server_error_page' => 'Indexability',
+        'seo.missing_robots_txt' => 'Crawlability',
+        'seo.missing_sitemap' => 'Crawlability',
+        'seo.sitemap_not_declared' => 'Crawlability',
         'seo.missing_h1' => 'Headings',
         'seo.multiple_h1' => 'Headings',
+        'seo.heading_hierarchy_skip' => 'Headings',
         'seo.missing_image_alt' => 'Images',
+        'seo.image_missing_dimensions' => 'Images',
         'seo.broken_internal_links' => 'Links',
-        'seo.redirect_chain' => 'Links',
+        'seo.internal_links_to_redirects' => 'Links',
+        'seo.nofollow_internal_links' => 'Links',
+        'seo.few_internal_links' => 'Links',
+        'seo.orphan_pages' => 'Links',
+        'seo.redirect_chain' => 'Redirects',
+        'seo.redirect_loop' => 'Redirects',
+        'seo.temporary_redirect' => 'Redirects',
+        'seo.missing_open_graph' => 'Social Sharing',
+        'seo.incomplete_open_graph' => 'Social Sharing',
+        'seo.missing_twitter_card' => 'Social Sharing',
 
-        // CRO
+        // CRO (§46)
         'conversion.form_friction' => 'Forms',
+        'conversion.long_forms' => 'Forms',
+        'conversion.pages_without_cta' => 'CTA',
+        'conversion.vague_cta_text' => 'CTA',
+        'conversion.wide_navigation' => 'Navigation',
+        'conversion.thin_navigation' => 'Navigation',
+        'conversion.no_contact_route' => 'Trust Signals',
+        'conversion.no_privacy_policy' => 'Trust Signals',
+        'conversion.no_social_proof' => 'Social Proof',
+        'conversion.no_tap_to_call' => 'Mobile Conversion',
+        'conversion.small_tap_targets' => 'Mobile Conversion',
         'landing_page.no_cta' => 'CTA',
         'landing_page.no_headline' => 'Value Proposition',
 
@@ -107,6 +138,10 @@ class IssueTaxonomy
         // Ecommerce
         'ecommerce.missing_product_schema' => 'Structured Data',
         'ecommerce.missing_purchase_cta' => 'Add to Cart',
+        'ecommerce.no_cart_route_found' => 'Checkout Signals',
+        'ecommerce.missing_shipping_information' => 'Shipping',
+        'ecommerce.missing_returns_information' => 'Returns',
+        'ecommerce.no_review_data' => 'Trust',
 
         // Product audit
         'product.missing_product_schema' => 'Structured Data',
@@ -120,33 +155,14 @@ class IssueTaxonomy
     ];
 
     /**
-     * axe-core rule id => accessibility category. Only rules actually
-     * observed from real audits are listed; anything else falls back to
-     * the service default, so a new axe rule still appears in the report.
+     * Code *prefix* => category, for codes whose tail is variable.
+     *
+     * Checked after the exact map, so an exact entry always wins.
      */
-    private const AXE_RULE_CATEGORY_MAP = [
-        'image-alt' => 'Images',
-        'input-image-alt' => 'Images',
-        'color-contrast' => 'Contrast',
-        'link-name' => 'Links',
-        'link-in-text-block' => 'Links',
-        'heading-order' => 'Headings',
-        'empty-heading' => 'Headings',
-        'label' => 'Labels',
-        'form-field-multiple-labels' => 'Labels',
-        'select-name' => 'Forms',
-        'aria-allowed-role' => 'ARIA',
-        'aria-allowed-attr' => 'ARIA',
-        'aria-required-attr' => 'ARIA',
-        'aria-valid-attr-value' => 'ARIA',
-        'presentation-role-conflict' => 'ARIA',
-        'region' => 'Semantic HTML',
-        'landmark-one-main' => 'Semantic HTML',
-        'html-has-lang' => 'Semantic HTML',
-        'frame-title' => 'Semantic HTML',
-        'skip-link' => 'Keyboard Navigation',
-        'tabindex' => 'Keyboard Navigation',
-        'focus-order-semantics' => 'Keyboard Navigation',
+    private const CODE_PREFIX_CATEGORY_MAP = [
+        'seo.schema_incomplete.' => 'Structured Data',
+        'seo.schema_recommended.' => 'Structured Data',
+        'seo.missing_schema.' => 'Structured Data',
     ];
 
     /** Fallback category per service, for codes not in the maps above. */
@@ -173,10 +189,27 @@ class IssueTaxonomy
             return self::CODE_CATEGORY_MAP[$code];
         }
 
-        if (str_starts_with($code, 'axe.')) {
-            $rule = substr($code, 4);
+        // Schema codes carry the schema.org type as a suffix
+        // (`seo.schema_incomplete.Product`), so they cannot be listed
+        // exhaustively — adding a type to config/seo_schema.php would
+        // otherwise silently drop its findings into the catch-all.
+        foreach (self::CODE_PREFIX_CATEGORY_MAP as $prefix => $mapped) {
+            if (str_starts_with($code, $prefix)) {
+                return $mapped;
+            }
+        }
 
-            return self::AXE_RULE_CATEGORY_MAP[$rule] ?? self::SERVICE_FALLBACK_CATEGORY['accessibility'];
+        if (str_starts_with($code, 'axe.')) {
+            // Delegated to the one place axe rules are grouped (§43).
+            // This used to be a second, thinner copy of that map, and the
+            // two drifted: a rule grouped as "Contrast" in the
+            // accessibility rollup could appear under "Other
+            // Accessibility" in the issue list of the same report.
+            $check = AccessibilityCheck::forAxeRule(substr($code, 4));
+
+            return $check === AccessibilityCheck::Other
+                ? self::SERVICE_FALLBACK_CATEGORY['accessibility']
+                : $check->label();
         }
 
         return self::SERVICE_FALLBACK_CATEGORY[$service] ?? 'Other';

@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { SidebarLayout } from './components/layout/SidebarLayout';
 import { RequireAdmin, RequireAuth } from './components/layout/RouteGuards';
@@ -10,6 +11,9 @@ import { HowItWorksPage } from './pages/public/HowItWorksPage';
 import { PricingPage } from './pages/public/PricingPage';
 import { FaqPage } from './pages/public/FaqPage';
 import { ContactPage } from './pages/public/ContactPage';
+import { PrivacyPage } from './pages/public/PrivacyPage';
+import { TermsPage } from './pages/public/TermsPage';
+import { AccessibilityPage } from './pages/public/AccessibilityPage';
 
 import { LoginPage } from './pages/auth/LoginPage';
 import { SignupPage } from './pages/auth/SignupPage';
@@ -18,6 +22,7 @@ import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { SubmitAuditPage } from './pages/audit/SubmitAuditPage';
 import { AuditStatusPage } from './pages/audit/AuditStatusPage';
 import { AuditReportPage } from './pages/audit/AuditReportPage';
+import { SharedReportPage } from './pages/public/SharedReportPage';
 
 import { DashboardOverviewPage } from './pages/dashboard/DashboardOverviewPage';
 import { DashboardWebsitesPage } from './pages/dashboard/DashboardWebsitesPage';
@@ -70,7 +75,8 @@ const adminNavItems = [
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
         <Routes>
           <Route element={<PublicLayout />}>
             <Route path="/" element={<HomePage />} />
@@ -79,6 +85,9 @@ function App() {
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/faq" element={<FaqPage />} />
             <Route path="/contact" element={<ContactPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/accessibility" element={<AccessibilityPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -120,9 +129,15 @@ function App() {
             </Route>
           </Route>
 
+          {/* Shared reports (§50). Outside every layout: a recipient
+              has no account, so the app's own navigation would offer
+              them nothing but links they cannot use. */}
+          <Route path="/shared-report/:token" element={<SharedReportPage />} />
+
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
-      </AuthProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

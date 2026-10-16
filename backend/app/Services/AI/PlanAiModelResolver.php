@@ -2,23 +2,29 @@
 
 namespace App\Services\AI;
 
-use App\Contracts\AiProvider;
+use App\DTOs\ResolvedAiModel;
+use App\Enums\AiTaskComplexity;
 use App\Models\AiModel;
 use App\Models\Audit;
 use App\Services\Plan\FeatureAccessResolver;
+use Illuminate\Support\Collection;
 
 /**
- * Picks which AI provider an audit is allowed to call, given its owner's
- * (or the default plan's, for anonymous audits) allowed-models list.
+ * Picks which provider *and which model* an audit is allowed to call,
+ * given its owner's (or the default plan's, for anonymous audits)
+ * allowed-models list and how much model the task actually needs.
  *
- * Provider classes have no concept of "call model X for this one request"
- * — each always calls whatever ApiProvider::$model is currently configured
- * (§23). So "the plan allows model X" only actually matters when X is also
- * the provider's current active model; otherwise the plan's approval is
- * moot because nothing would ever call that model anyway. This is why
- * resolution filters down to allowed AiModel rows whose model_id matches
- * their provider's live $model, rather than picking any allowed row and
- * hoping the provider will honor it.
+ * Before §53 this returned a provider only, and every call landed on
+ * whatever single model that provider's row was set to. That made the
+ * "smaller models for simple tasks" rule unimplementable: there was no
+ * per-request model to choose. Providers now accept a model override, so
+ * resolution can pick the cheapest allowed model whose tier meets the
+ * task, and fall back to the provider's configured model when nothing is
+ * classified.
+ *
+ * The plan gate is unchanged and still absolute: a model that is not in
+ * `plan_ai_models` is never selectable, whatever its tier or price. Tiering
+ * decides *among* what a plan already permits — it never widens it.
  */
 class PlanAiModelResolver
 {
@@ -27,33 +33,82 @@ class PlanAiModelResolver
         private readonly FeatureAccessResolver $featureAccess,
     ) {}
 
-    public function resolveFor(Audit $audit): ?AiProvider
+    public function resolveFor(Audit $audit, ?AiTaskComplexity $complexity = null): ?ResolvedAiModel
     {
         $plan = $this->featureAccess->planFor($audit->user);
 
         if ($plan === null) {
             // No plan system configured at all — same "nothing to gate
             // against yet" reasoning as FeatureAccessResolver::featureAllowed():
-            // fall back to the pre-existing "just use the configured
-            // default provider" behavior rather than blocking AI outright.
-            return $this->providerFactory->make();
+            // fall back to the configured default provider rather than
+            // blocking AI outright.
+            return new ResolvedAiModel($this->providerFactory->make());
         }
 
-        $usable = $plan->allowedAiModels()
+        $allowed = $plan->allowedAiModels()
             ->with('apiProvider')
             ->get()
-            ->filter(fn (AiModel $model) => $model->apiProvider !== null
-                && $model->model_id === $model->apiProvider->model
-                && $model->isUsable());
+            ->filter(fn (AiModel $model) => $model->apiProvider !== null && $model->isUsable());
 
-        if ($usable->isEmpty()) {
+        if ($allowed->isEmpty()) {
+            return null;
+        }
+
+        if ($complexity !== null) {
+            $tiered = $this->cheapestMeeting($allowed, $complexity);
+
+            if ($tiered !== null) {
+                return new ResolvedAiModel(
+                    provider: $this->providerFactory->make($tiered->apiProvider->slug),
+                    model: $tiered->model_id,
+                    tier: $tiered->tier?->value,
+                );
+            }
+        }
+
+        // Nothing classified highly enough, or no complexity asked for.
+        // Fall back to the pre-§53 rule: an allowed model that is also the
+        // one its provider is actively configured with, so the request
+        // lands on a model the plan really approved.
+        $live = $allowed->filter(fn (AiModel $model) => $model->model_id === $model->apiProvider->model);
+
+        if ($live->isEmpty()) {
             return null;
         }
 
         $defaultSlug = config('ai.default');
-        $chosen = $usable->first(fn (AiModel $model) => $model->apiProvider->slug === $defaultSlug)
-            ?? $usable->first();
+        $chosen = $live->first(fn (AiModel $model) => $model->apiProvider->slug === $defaultSlug)
+            ?? $live->first();
 
-        return $this->providerFactory->make($chosen->apiProvider->slug);
+        return new ResolvedAiModel(
+            provider: $this->providerFactory->make($chosen->apiProvider->slug),
+            model: $chosen->model_id,
+            tier: $chosen->tier?->value,
+        );
+    }
+
+    /**
+     * The cheapest allowed model strong enough for this task.
+     *
+     * "Strong enough" is one-directional on purpose: a Complex task will
+     * never be handed a Simple model. Saving tokens on a judgement that
+     * then comes back wrong is not a saving — it is a worse audit sold at
+     * the same price.
+     *
+     * @param  Collection<int, AiModel>  $allowed
+     */
+    private function cheapestMeeting(Collection $allowed, AiTaskComplexity $required): ?AiModel
+    {
+        return $allowed
+            ->filter(fn (AiModel $model) => $model->tier !== null && $model->tier->meets($required))
+            ->sortBy([
+                // Cheapest first, but a model with no rates recorded sorts
+                // last rather than first: an unknown price is not a low one.
+                fn (AiModel $a, AiModel $b) => ($a->blendedCostPer1k() ?? INF) <=> ($b->blendedCostPer1k() ?? INF),
+                // Then the least over-powered, so a Simple task does not
+                // take a flagship just because someone priced it low.
+                fn (AiModel $a, AiModel $b) => $a->tier->rank() <=> $b->tier->rank(),
+            ])
+            ->first();
     }
 }

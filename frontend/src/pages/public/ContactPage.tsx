@@ -28,21 +28,21 @@ export function ContactPage() {
   if (submitted) {
     return (
       <div className="mx-auto max-w-md px-4 py-24 text-center">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Thanks — we'll be in touch.</h1>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">A member of our team will reach out shortly.</p>
+        <h1 className="text-2xl font-bold text-ink">Thanks — we'll be in touch.</h1>
+        <p className="mt-2 text-sm text-muted">A member of our team will reach out shortly.</p>
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-md px-4 py-16">
-      <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Talk to a consultant</h1>
-      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+      <h1 className="text-3xl font-bold text-ink">Talk to a consultant</h1>
+      <p className="mt-2 text-sm text-muted">
         Tell us a bit about what you need and we'll get back to you.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
-        <fieldset className="flex gap-4 text-sm text-slate-700 dark:text-slate-300">
+        <fieldset className="flex gap-4 text-sm text-muted">
           <legend className="mb-1 text-sm font-medium">I'd like to</legend>
           <label className="flex items-center gap-2">
             <input
@@ -84,7 +84,7 @@ export function ContactPage() {
           onChange={(event) => setForm({ ...form, website_url: event.target.value })}
         />
         <div className="flex flex-col gap-1">
-          <label htmlFor="message" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label htmlFor="message" className="text-sm font-medium text-muted">
             Message (optional)
           </label>
           <textarea

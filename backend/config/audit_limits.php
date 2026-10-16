@@ -3,17 +3,19 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | Anonymous (no account) limits
+    | Stuck-audit recovery
     |--------------------------------------------------------------------------
-    | Registered-user limits live on the `plans` table (DB-configurable,
-    | see PlanSeeder) since they vary per plan. Anonymous users have no
-    | account to attach a plan to, so their single global limit lives
-    | here instead — still configurable via env, never hardcoded in the
-    | enforcement logic itself (UsageLimitService).
+    | An audit that has made no progress for this long is treated as
+    | abandoned by `audits:recover-stuck` and failed, releasing its
+    | concurrent slot. Must stay comfortably above `crawler.crawl_timeout`
+    | (the longest a healthy crawl may legitimately take) or recovery will
+    | kill audits that are merely slow.
     |
-    | anonymous_audit_limit is a LIFETIME limit per IP address, not daily
-    | (per spec: "Anonymous: 1 audit, max 5 pages").
+    | The anonymous page/audit/active limits that used to live here moved
+    | to `config/entitlements.php` (§40). They belonged with the rest of the
+    | guest tier, not in a file about the crawler's own safety valves — and
+    | keeping the guest's active-audit limit in two places was already
+    | drifting: one key fed EntitlementResolver and the other fed nothing.
     */
-    'anonymous_max_pages' => (int) env('ANONYMOUS_MAX_PAGES', 5),
-    'anonymous_audit_limit' => (int) env('ANONYMOUS_AUDIT_LIMIT', 1),
+    'stuck_after_minutes' => (int) env('AUDIT_STUCK_AFTER_MINUTES', 30),
 ];

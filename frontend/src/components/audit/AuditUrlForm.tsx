@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createAudit } from '../../api/audits';
 import { apiErrorMessage } from '../../api/client';
+import { checkAuditUrl } from '../../lib/url';
 import { Button } from '../ui/Button';
 
 export function AuditUrlForm({ compact = false }: { compact?: boolean }) {
@@ -11,28 +12,21 @@ export function AuditUrlForm({ compact = false }: { compact?: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function isLikelyUrl(value: string): boolean {
-    try {
-      const parsed = new URL(value.includes('://') ? value : `https://${value}`);
-      return Boolean(parsed.hostname);
-    } catch {
-      return false;
-    }
-  }
-
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
 
-    if (!isLikelyUrl(url)) {
-      setError('Enter a valid website address, e.g. https://example.com');
+    // Advisory only — the backend re-validates and re-normalizes whatever
+    // is sent, so this decides the error message, never the outcome.
+    const checked = checkAuditUrl(url);
+    if (!checked.ok) {
+      setError(checked.error);
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const normalized = url.includes('://') ? url : `https://${url}`;
-      const result = await createAudit(normalized);
+      const result = await createAudit(checked.url);
       navigate(`/audits/${result.audit_id}`);
     } catch (err) {
       setError(apiErrorMessage(err));

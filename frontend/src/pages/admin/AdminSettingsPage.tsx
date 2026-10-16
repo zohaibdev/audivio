@@ -11,13 +11,13 @@ const links = [
 export function AdminSettingsPage() {
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
+      <h1 className="mb-6 text-2xl font-bold text-ink">Settings</h1>
       <div className="grid gap-4 sm:grid-cols-2">
         {links.map((link) => (
           <Link key={link.to} to={link.to}>
             <Card className="h-full transition hover:border-indigo-300 dark:hover:border-indigo-700">
-              <h2 className="font-semibold text-slate-900 dark:text-white">{link.title}</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{link.description}</p>
+              <h2 className="font-semibold text-ink">{link.title}</h2>
+              <p className="mt-1 text-sm text-muted">{link.description}</p>
             </Card>
           </Link>
         ))}

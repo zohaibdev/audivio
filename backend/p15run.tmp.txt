@@ -1,0 +1,1167 @@
+
+   WARN  Metadata found in doc-comment for method Tests\Feature\Security\AuditUrlSecurityTest::test_unsafe_url_is_rejected_by_the_api(). Metadata in doc-comments is deprecated and will no longer be supported in PHPUnit 12. Update your test code to use attributes instead.
+
+   PASS  Tests\Unit\Enums\ScheduleFrequencyTest
+  ✓ daily advances by one day                                                                                    0.19s  
+  ✓ weekly advances by one week                                                                                  0.02s  
+  ✓ monthly advances by one month                                                                                0.02s  
+  ✓ does not mutate the given instant                                                                            0.02s  
+
+   PASS  Tests\Unit\ExampleTest
+  ✓ that true is true                                                                                            0.01s  
+
+   PASS  Tests\Unit\Services\AI\AiAnalysisServiceTest
+  ✓ second identical call hits cache not the provider                                                           84.17s  
+  ✓ different context is not a cache hit                                                                         0.55s  
+  ✓ provider failure returns null and logs an error row                                                          0.08s  
+  ✓ successful call writes an api usage log                                                                      0.07s  
+  ✓ failed call writes a failed api usage log                                                                    0.07s  
+  ✓ no plan allowed model records an error row instead of being silent                                           0.06s  
+  ✓ analysis is skipped once the daily limit is reached                                                          0.07s  
+  ✓ caching disabled calls provider every time                                                                   0.09s  
+
+   PASS  Tests\Unit\Services\AI\AiIssueParserTest
+  ✓ parses plain json array                                                                                      0.03s  
+  ✓ strips markdown code fence                                                                                   0.02s  
+  ✓ invalid severity falls back to medium                                                                        0.02s  
+  ✓ malformed json returns empty array                                                                           0.02s  
+  ✓ empty array response returns empty array                                                                     0.02s  
+  ✓ entries missing message are skipped                                                                          0.02s  
+
+   PASS  Tests\Unit\Services\AI\PlanAiModelResolverTest
+  ✓ no plan at all falls back to the configured default provider                                                 0.07s  
+  ✓ a model allowed by the plan and active on its provider is used                                               0.10s  
+  ✓ a model allowed by the plan but not the providers current active model is not used                           0.20s  
+  ✓ a globally disabled model is never used even if the plan allows it                                           0.22s  
+  ✓ a model enabled globally but not assigned to the plan is not used                                            0.27s  
+  ✓ the default provider is preferred when multiple are allowed                                                  0.15s  
+
+   PASS  Tests\Unit\Services\AI\ProvidersTest
+  ✓ claude provider parses response and usage                                                                    0.12s  
+  ✓ claude provider appends context as json                                                                      0.24s  
+  ✓ claude provider throws without api key                                                                       0.04s  
+  ✓ claude provider throws when disabled                                                                         0.04s  
+  ✓ claude provider throws on error status                                                                       0.10s  
+  ✓ claude provider records failure on the provider row                                                          0.11s  
+  ✓ openai provider parses response and usage                                                                    0.07s  
+  ✓ openai provider throws without api key                                                                       0.04s  
+  ✓ openai provider throws on error status                                                                       0.07s  
+  ✓ gemini provider parses response and usage                                                                    0.05s  
+  ✓ gemini provider throws without api key                                                                       0.04s  
+  ✓ gemini provider throws on error status                                                                       0.05s  
+  ✓ claude test connection succeeds even when disabled                                                           0.06s  
+  ✓ claude test connection fails safely without a key                                                            0.04s  
+
+   PASS  Tests\Unit\Services\Admin\AdminDashboardServiceTest
+  ✓ counts users and admins separately                                                                           0.21s  
+  ✓ audits grouped by status                                                                                     0.07s  
+  ✓ leads grouped by status                                                                                      0.21s  
+  ✓ ai usage separates successful from failed calls and sums tokens                                              0.06s  
+  ✓ audit schedules counts total and active separately                                                           0.07s  
+  ✓ provider usage today summarizes ai and pagespeed separately                                                  0.08s  
+  ✓ empty database returns zeros not errors                                                                      0.05s  
+
+   PASS  Tests\Unit\Services\Audit\AccessibilityAuditModuleTest
+  ✓ no violations scores 100                                                                                     0.08s  
+  ✓ same rule repeated across pages is raised once                                                               0.06s  
+  ✓ highest impact seen for a rule wins                                                                          0.05s  
+  ✓ pages with no violation scan are ignored not penalized                                                       0.06s  
+
+   PASS  Tests\Unit\Services\Audit\AioAuditModuleTest
+  ✓ well structured page scores 100                                                                              0.22s  
+  ✓ no structured data anywhere is flagged                                                                       0.07s  
+  ✓ page with no headings is flagged high                                                                        0.07s  
+
+   PASS  Tests\Unit\Services\Audit\ConversionAuditModuleTest
+  ✓ page with no forms scores 100                                                                                0.07s  
+  ✓ form at the friction threshold is not flagged                                                                0.06s  
+  ✓ form over the friction threshold is flagged                                                                  0.08s  
+  ✓ only required fields count toward friction                                                                   0.06s  
+
+   PASS  Tests\Unit\Services\Audit\EcommerceAuditModuleTest
+  ✓ non ecommerce site is not applicable with no score                                                           0.06s  
+  ✓ a lone generic checkout cta does not trigger ecommerce detection                                             0.06s  
+  ✓ a checkout link plus a generic cta alone does not trigger ecommerce detection                                0.05s  
+  ✓ purchase cta without product schema flagged                                                                  0.07s  
+  ✓ product schema without purchase cta flagged                                                                  0.09s  
+  ✓ shopify platform treated as ecommerce even without signals                                                   0.18s  
+
+   PASS  Tests\Unit\Services\Audit\LandingPageAuditModuleTest
+  ✓ page with cta and heading scores 100                                                                         0.07s  
+  ✓ no cta anywhere is flagged high                                                                              0.06s  
+  ✓ page with no headings is flagged medium                                                                      0.05s  
+  ✓ cta count is summed across all pages                                                                         0.06s  
+
+   PASS  Tests\Unit\Services\Audit\PageSpeedFindingsTest
+  ✓ an audit with a measured saving is an opportunity                                                            0.04s  
+  ✓ a failing audit without a saving is a diagnostic                                                             0.07s  
+  ✓ passing and informative audits are not findings                                                              0.04s  
+  ✓ opportunities are ordered by the biggest measured saving                                                     0.06s  
+  ✓ an unrecognised audit is grouped as other rather than dropped                                                0.09s  
+  ✓ summary rows without a url are not reported as resources                                                     0.07s  
+  ✓ crux field metrics including inp are extracted                                                               0.07s  
+  ✓ a url with no crux record reports null field metrics                                                         0.06s  
+  ✓ an empty crux metrics block is treated as no data                                                            0.27s  
+  ✓ a missing category score stays null                                                                          0.05s  
+
+   PASS  Tests\Unit\Services\Audit\PerPageIssueAggregatorTest
+  ✓ a single occurrence of a code passes through unchanged                                                       0.03s  
+  ✓ repeated occurrences of a code collapse into one site wide issue                                             0.02s  
+  ✓ different codes are not merged together                                                                      0.02s  
+  ✓ affected pages list is deduplicated                                                                          0.03s  
+
+   PASS  Tests\Unit\Services\Audit\PerformanceAuditModuleTest
+  ✓ fast lightweight page scores 100                                                                             0.06s  
+  ✓ slow load time flagged                                                                                       0.07s  
+  ✓ oversized page weight flagged                                                                                0.05s  
+  ✓ images missing dimensions flagged                                                                            0.06s  
+  ✓ low pagespeed score is critical                                                                              0.08s  
+  ✓ moderate pagespeed score is medium                                                                           0.06s  
+  ✓ high pagespeed score is not flagged                                                                          0.05s  
+  ✓ poor lcp is flagged high                                                                                     0.07s  
+  ✓ poor cls is flagged medium                                                                                   0.05s  
+  ✓ the same issue on every page is aggregated into one and does not zero the score                              0.13s  
+  ✓ resource breakdown flags oversized javascript css and images                                                 0.10s  
+  ✓ resource issues carry the measured value and the budget as evidence                                          0.09s  
+  ✓ slow server response and excessive dom are flagged from measured values                                      0.06s  
+  ✓ a page with no crawler metrics raises no resource issues                                                     0.05s  
+  ✓ mobile and desktop pagespeed results are stored separately                                                   0.07s  
+  ✓ issues are driven by the mobile result not desktop                                                           0.06s  
+  ✓ a null lighthouse score does not become a zero issue                                                         0.07s  
+  ✓ pagespeed only called for configured page count                                                              0.05s  
+
+   PASS  Tests\Unit\Services\Audit\ProductAuditModuleTest
+  ✓ a site with no product pages is not applicable                                                               0.08s  
+  ✓ a fully specified product page scores 100                                                                    0.05s  
+  ✓ a product page is detected from schema alone                                                                 0.06s  
+  ✓ a product shaped url without a buy signal is not a product page                                              0.06s  
+  ✓ missing price and availability are flagged                                                                   0.07s  
+  ✓ a product page with no images is critical                                                                    0.20s  
+  ✓ too few images and thin copy are flagged                                                                     0.07s  
+  ✓ a missing schema is reported once not as several derived findings                                            0.05s  
+  ✓ findings across several product pages are aggregated                                                         0.06s  
+
+   PASS  Tests\Unit\Services\Audit\ScoreCalculatorTest
+  ✓ deduct points sums by severity                                                                               0.04s  
+  ✓ deduct points floors at zero                                                                                 0.03s  
+  ✓ deduct points caps at max deductions worst first                                                             0.03s  
+  ✓ overall score is weighted and renormalized over present categories                                           0.08s  
+
+   PASS  Tests\Unit\Services\Audit\SeoAuditModuleTest
+  ✓ perfect page scores 100                                                                                      0.06s  
+  ✓ missing title is critical                                                                                    0.06s  
+  ✓ missing meta description and canonical                                                                       0.06s  
+  ✓ missing and multiple h1                                                                                      0.08s  
+  ✓ images missing alt are aggregated per page                                                                   0.06s  
+  ✓ duplicate titles across pages flagged once                                                                   0.05s  
+  ✓ the same issue on every page is aggregated into one and does not zero the score                              0.09s  
+  ✓ broken internal link detected only for crawled targets                                                       0.18s  
+
+   PASS  Tests\Unit\Services\Crawler\PlatformDetectorTest
+  ✓ detects shopify from cdn reference                                                                           0.03s  
+  ✓ detects shopify from header                                                                                  0.02s  
+  ✓ detects shopify from header case insensitively                                                               0.02s  
+  ✓ detects wordpress from wp content                                                                            0.02s  
+  ✓ detects wordpress from generator meta                                                                        0.02s  
+  ✓ detects woocommerce as wordpress plus woocommerce markers                                                    0.02s  
+  ✓ wordpress without woocommerce markers is plain wordpress                                                     0.02s  
+  ✓ detects webflow from data attribute                                                                          0.02s  
+  ✓ detects wix from static asset domain                                                                         0.02s  
+  ✓ detects wix from header                                                                                      0.02s  
+  ✓ shopify signal takes priority over wordpress                                                                 0.02s  
+  ✓ unrecognized generator meta is custom                                                                        0.02s  
+  ✓ no signals at all is unknown                                                                                 0.02s  
+  ✓ empty html is unknown                                                                                        0.02s  
+
+   PASS  Tests\Unit\Services\Crawler\SafeHttpClientTest
+  ✓ fetches a safe url and returns its body                                                                      0.03s  
+  ✓ initial url pointing at an internal address throws                                                           0.02s  
+  ✓ redirect to the cloud metadata endpoint is blocked                                                           0.02s  
+  ✓ redirect to localhost is blocked                                                                             0.02s  
+  ✓ redirect to a private ip is blocked                                                                          0.02s  
+  ✓ redirect to a non http scheme is blocked                                                                     0.02s  
+  ✓ a relative redirect is resolved against its origin and followed                                              0.03s  
+  ✓ a scheme relative redirect to an internal host is blocked                                                    0.03s  
+  ✓ a safe cross host redirect is followed                                                                       0.02s  
+  ✓ a redirect chain longer than the budget is abandoned                                                         0.02s  
+  ✓ a redirect with no location header gives up                                                                  0.02s  
+  ✓ an unsuccessful response returns null                                                                        0.02s  
+  ✓ a response declaring an oversized content length is rejected                                                 0.02s  
+  ✓ an oversized body is rejected even without a content length header                                           0.02s  
+  ✓ a body within the cap is returned whole                                                                      0.02s  
+
+   PASS  Tests\Unit\Services\Crawler\ScreenshotPathTest
+  ✓ a windows backslash base path still yields a relative path                                                   0.04s  
+  ✓ a posix base path still yields a relative path                                                               0.02s  
+  ✓ a base path without a trailing separator is handled                                                          0.02s  
+  ✓ a path outside the disk is returned normalized not mangled                                                   0.02s  
+
+   PASS  Tests\Unit\Services\Crawler\UrlNormalizerTest
+  ✓ scheme and host are lowercased                                                                               0.03s  
+  ✓ bare host gets the implied https scheme                                                                      0.02s  
+  ✓ bare host with path gets the implied scheme                                                                  0.02s  
+  ✓ surrounding whitespace is trimmed                                                                            0.02s  
+  ✓ empty path becomes root                                                                                      0.02s  
+  ✓ fragment is dropped                                                                                          0.02s  
+  ✓ query string is preserved                                                                                    0.02s  
+  ✓ default https port is dropped                                                                                0.02s  
+  ✓ default http port is dropped                                                                                 0.02s  
+  ✓ non default port is kept for the validator to reject                                                         0.03s  
+  ✓ dns root trailing dot is stripped from the host                                                              0.02s  
+  ✓ unicode host is converted to punycode                                                                        0.02s  
+  ✓ ipv6 literal keeps its brackets                                                                              0.02s  
+  ✓ javascript scheme is rejected rather than prefixed                                                           0.02s  
+  ✓ data scheme is rejected                                                                                      0.02s  
+  ✓ file scheme is rejected                                                                                      0.03s  
+  ✓ mailto scheme is rejected                                                                                    0.02s  
+  ✓ embedded credentials are rejected                                                                            0.02s  
+  ✓ embedded newline is rejected                                                                                 0.02s  
+  ✓ embedded tab is rejected                                                                                     0.03s  
+  ✓ empty input is rejected                                                                                      0.02s  
+  ✓ overlong url is rejected                                                                                     0.02s  
+  ✓ url without a host is rejected                                                                               0.02s  
+  ✓ origin strips path query and fragment                                                                        0.02s  
+  ✓ origin of a bare host                                                                                        0.02s  
+
+   PASS  Tests\Unit\Services\Crawler\UrlSecurityValidatorTest
+  ✓ loopback ipv4 is blocked                                                                                     0.04s  
+  ✓ loopback ipv6 is blocked                                                                                     0.02s  
+  ✓ private class a is blocked                                                                                   0.03s  
+  ✓ private class c is blocked                                                                                   0.02s  
+  ✓ private class b is blocked                                                                                   0.02s  
+  ✓ cloud metadata endpoint is blocked                                                                           0.02s  
+  ✓ gcp metadata link local is blocked                                                                           0.02s  
+  ✓ ipv6 unique local is blocked                                                                                 0.03s  
+  ✓ ipv6 link local is blocked                                                                                   0.02s  
+  ✓ ipv6 unspecified is blocked                                                                                  0.02s  
+  ✓ public ip literal is allowed                                                                                 0.02s  
+  ✓ carrier grade nat range is blocked                                                                           0.02s  
+  ✓ ietf protocol assignments range is blocked                                                                   0.02s  
+  ✓ benchmark range is blocked                                                                                   0.02s  
+  ✓ multicast range is blocked                                                                                   0.02s  
+  ✓ nat64 prefix is blocked                                                                                      0.02s  
+  ✓ ipv4 mapped ipv6 loopback is blocked                                                                         0.02s  
+  ✓ ipv4 mapped ipv6 private range is blocked                                                                    0.02s  
+  ✓ ipv4 mapped ipv6 in hex form is blocked                                                                      0.02s  
+  ✓ addresses just outside blocked ranges are allowed                                                            0.02s  
+  ✓ decimal integer form of loopback is blocked                                                                  0.02s  
+  ✓ octal form of loopback is blocked                                                                            0.02s  
+  ✓ hex form of loopback is blocked                                                                              0.02s  
+  ✓ short dotted form of loopback is blocked                                                                     0.02s  
+  ✓ localhost hostname is blocked                                                                                0.02s  
+  ✓ localhost case insensitive is blocked                                                                        0.02s  
+  ✓ subdomain of localhost is blocked                                                                            0.02s  
+  ✓ localhost with trailing dns root dot is blocked                                                              0.02s  
+  ✓ ftp scheme is blocked                                                                                        0.02s  
+  ✓ file scheme is blocked                                                                                       0.02s  
+  ✓ javascript scheme is blocked                                                                                 0.02s  
+  ✓ data scheme is blocked                                                                                       0.02s  
+  ✓ gopher scheme is blocked                                                                                     0.02s  
+  ✓ non standard port is blocked                                                                                 0.02s  
+  ✓ redis port is blocked                                                                                        0.02s  
+  ✓ standard https port is allowed                                                                               0.02s  
+  ✓ embedded credentials are blocked                                                                             0.02s  
+  ✓ credentials disguising an internal host are blocked                                                          0.02s  
+  ✓ oversized query string is blocked                                                                            0.02s  
+  ✓ oversized url is blocked                                                                                     0.02s  
+  ✓ malformed url is blocked                                                                                     0.02s  
+  ✓ shell metacharacters in host are blocked                                                                     0.02s  
+  ✓ shell command substitution in host is blocked                                                                0.03s  
+  ✓ sql injection payload in host is blocked                                                                     0.03s  
+  ✓ xss payload in host is blocked                                                                               0.03s  
+  ✓ crlf in url is blocked                                                                                       0.03s  
+  ✓ null byte in url is blocked                                                                                  0.02s  
+  ✓ real public hostname resolves and is allowed                                                                 0.04s  
+  ✓ resolved addresses are returned for the caller to pin                                                        0.03s  
+
+   PASS  Tests\Unit\Services\Plan\FeatureAccessResolverTest
+  ✓ anonymous visitor resolves to the active default plan                                                        0.22s  
+  ✓ an inactive default plan is not resolved                                                                     0.19s  
+  ✓ a registered user resolves to their own subscribed plan not the default                                      0.17s  
+  ✓ no plan at all in the system is treated as unrestricted                                                      0.04s  
+  ✓ ecommerce feature key gates both ecommerce and landing page categories                                       0.08s  
+  ✓ overall is never gated                                                                                       0.15s  
+  ✓ allowed categories excludes overall and reflects the plans features                                          0.58s  
+
+   PASS  Tests\Unit\Services\Report\IssueTaxonomyTest
+  ✓ service is resolved from the stored category not the code                                                    0.03s  
+  ✓ every performance code maps to a specific category with data set #0                                          0.02s  
+  ✓ every performance code maps to a specific category with data set #1                                          0.02s  
+  ✓ every performance code maps to a specific category with data set #2                                          0.02s  
+  ✓ every performance code maps to a specific category with data set #3                                          0.02s  
+  ✓ every performance code maps to a specific category with data set #4                                          0.02s  
+  ✓ every performance code maps to a specific category with data set #5                                          0.02s  
+  ✓ every performance code maps to a specific category with data set #6                                          0.02s  
+  ✓ every performance code maps to a specific category with data set #7                                          0.02s  
+  ✓ every performance code maps to a specific category with data set #8                                          0.02s  
+  ✓ every performance code maps to a specific category with data set #9                                          0.02s  
+  ✓ every performance code maps to a specific category with data set #10                                         0.02s  
+  ✓ every performance code maps to a specific category with data set #11                                         0.02s  
+  ✓ every performance code maps to a specific category with data set #12                                         0.02s  
+  ✓ every performance code maps to a specific category with data set #13                                         0.02s  
+  ✓ every performance code maps to a specific category with data set #14                                         0.02s  
+  ✓ every performance code maps to a specific category with data set #15                                         0.02s  
+  ✓ every performance code maps to a specific category with data set #16                                         0.03s  
+  ✓ axe rules group the same way the accessibility rollup does                                                   0.03s  
+  ✓ every seo code maps to a specific category with data set #0                                                  0.02s  
+  ✓ every seo code maps to a specific category with data set #1                                                  0.02s  
+  ✓ every seo code maps to a specific category with data set #2                                                  0.02s  
+  ✓ every seo code maps to a specific category with data set #3                                                  0.02s  
+  ✓ every seo code maps to a specific category with data set #4                                                  0.03s  
+  ✓ every seo code maps to a specific category with data set #5                                                  0.02s  
+  ✓ every seo code maps to a specific category with data set #6                                                  0.02s  
+  ✓ every seo code maps to a specific category with data set #7                                                  0.02s  
+  ✓ every seo code maps to a specific category with data set #8                                                  0.02s  
+  ✓ every seo code maps to a specific category with data set #9                                                  0.02s  
+  ✓ every seo code maps to a specific category with data set #10                                                 0.02s  
+  ✓ every seo code maps to a specific category with data set #11                                                 0.03s  
+  ✓ every seo code maps to a specific category with data set #12                                                 0.02s  
+  ✓ every seo code maps to a specific category with data set #13                                                 0.02s  
+  ✓ every seo code maps to a specific category with data set #14                                                 0.02s  
+  ✓ every seo code maps to a specific category with data set #15                                                 0.02s  
+  ✓ every seo code maps to a specific category with data set #16                                                 0.02s  
+  ✓ every seo code maps to a specific category with data set #17                                                 0.02s  
+  ✓ every seo code maps to a specific category with data set #18                                                 0.02s  
+  ✓ every seo code maps to a specific category with data set #19                                                 0.02s  
+  ✓ every seo code maps to a specific category with data set #20                                                 0.02s  
+  ✓ every seo code maps to a specific category with data set #21                                                 0.02s  
+  ✓ every seo code maps to a specific category with data set #22                                                 0.02s  
+  ✓ every seo code maps to a specific category with data set #23                                                 0.03s  
+  ✓ every seo code maps to a specific category with data set #24                                                 0.02s  
+  ✓ an unknown axe rule falls back rather than disappearing                                                      0.02s  
+  ✓ every conversion code maps to a specific category with data set #0                                           0.02s  
+  ✓ every conversion code maps to a specific category with data set #1                                           0.02s  
+  ✓ every conversion code maps to a specific category with data set #2                                           0.02s  
+  ✓ every conversion code maps to a specific category with data set #3                                           0.03s  
+  ✓ every conversion code maps to a specific category with data set #4                                           0.02s  
+  ✓ every conversion code maps to a specific category with data set #5                                           0.02s  
+  ✓ every conversion code maps to a specific category with data set #6                                           0.02s  
+  ✓ every conversion code maps to a specific category with data set #7                                           0.02s  
+  ✓ every conversion code maps to a specific category with data set #8                                           0.02s  
+  ✓ every conversion code maps to a specific category with data set #9                                           0.02s  
+  ✓ every conversion code maps to a specific category with data set #10                                          0.02s  
+  ✓ every conversion code maps to a specific category with data set #11                                          0.02s  
+  ✓ every conversion code maps to a specific category with data set #12                                          0.02s  
+  ✓ every conversion code maps to a specific category with data set #13                                          0.02s  
+  ✓ an ai invented code falls back to its services bucket                                                        0.02s  
+
+   PASS  Tests\Unit\Services\Report\ReportAccessResolverTest
+  ✓ anonymous audit grants no one full access even a logged in viewer                                            0.10s  
+  ✓ owner viewing their own audit has full access                                                                0.12s  
+  ✓ a different registered user does not get full access to someone elses audit                                  0.04s  
+  ✓ anonymous viewer of a registered users audit has no full access                                              0.04s  
+
+   PASS  Tests\Unit\Services\Report\ReportBuilderTest
+  ✓ overview includes website info and scores                                                                    0.07s  
+  ✓ overall score is excluded from category scores                                                               0.06s  
+  ✓ issues are serialized with derived priority                                                                  0.08s  
+  ✓ recommendations only include issues with a recommendation worst first                                        0.05s  
+  ✓ ai analysis only includes successful responses                                                               0.09s  
+  ✓ page findings include per page issue counts                                                                  0.05s  
+
+   PASS  Tests\Unit\Services\Report\ReportPdfServiceTest
+  ✓ render produces a valid pdf binary                                                                           0.20s  
+  ✓ render handles a report with no issues or ai analysis                                                        0.11s  
+
+   PASS  Tests\Unit\Services\Report\ReportVisibilityFilterTest
+  ✓ full access returns everything unmodified plus the access flag                                               0.03s  
+  ✓ a restricted plan never yields the full report                                                               0.02s  
+  ✓ restricted view only includes major severity issues                                                          0.02s  
+  ✓ restricted view hides full only sections                                                                     0.02s  
+  ✓ restricted view strips priority from issues and recommendations                                              0.02s  
+  ✓ the percentage decides how many findings survive                                                             0.02s  
+  ✓ a single finding survives a low percentage                                                                   0.02s  
+  ✓ zero percent shows no findings but still shows the overview                                                  0.02s  
+  ✓ the per service cap can lower what the percentage allowed                                                    0.02s  
+  ✓ restricted view reports hidden counts against the whole report                                               0.02s  
+  ✓ restricted view reports the percentage it applied                                                            0.02s  
+  ✓ restricted view always shows the overview                                                                    0.03s  
+
+   PASS  Tests\Unit\Services\Report\ServiceReportBuilderTest
+  ✓ a service with no score row is omitted entirely                                                              0.09s  
+  ✓ a not applicable service keeps that state instead of a number                                                0.06s  
+  ✓ issues are grouped into categories within their service                                                      0.06s  
+  ✓ severity summary counts every level                                                                          0.06s  
+  ✓ cro merges the two internal categories into one service score                                                0.06s  
+  ✓ page findings include both screenshots and only this services issues                                         0.09s  
+  ✓ a failed ai provider reads as unavailable not as an absent finding                                           0.05s  
+  ✓ an ai dependent service whose ai failed is marked partial not good                                           0.05s  
+  ✓ a service with working ai is marked complete                                                                 0.08s  
+  ✓ a service with no ai dependency is complete without an ai record                                             0.05s  
+  ✓ ai generated issues are labelled as ai detected                                                              0.07s  
+  ✓ recommendations only come from issues that carry one                                                         0.05s  
+
+   PASS  Tests\Unit\Services\Schedule\AuditSchedulerServiceTest
+  ✓ a user with no plan cannot create a schedule                                                                 0.05s  
+  ✓ a plan without the scheduled audits feature cannot create a schedule                                         0.07s  
+  ✓ a plan with the feature can create a schedule up to its full recrawls limit                                  0.09s  
+  ✓ inactive schedules do not count against the limit                                                            0.12s  
+  ✓ create sets next run at based on frequency                                                                   0.06s  
+  ✓ run due dispatches a crawl and advances the schedule                                                         0.09s  
+  ✓ run due ignores schedules not yet due                                                                        0.06s  
+  ✓ run due ignores inactive schedules                                                                           0.05s  
+
+   PASS  Tests\Unit\Services\User\UsageLimitServiceTest
+  ✓ anonymous with no prior usage can create an audit                                                            0.04s  
+  ✓ anonymous with a prior audit from the same ip cannot create another                                          0.07s  
+  ✓ anonymous limit is scoped per ip                                                                             0.05s  
+  ✓ registered user under their daily limit can create an audit                                                  0.05s  
+  ✓ registered user at their daily limit cannot create another                                                   0.05s  
+  ✓ registered users limit resets on a new day                                                                   0.08s  
+  ✓ registered user with no subscription cannot create an audit                                                  0.05s  
+  ✓ a users own usage does not affect a different users limit                                                    0.07s  
+  ✓ max pages for anonymous uses config                                                                          0.03s  
+  ✓ max pages for registered user uses their plan                                                                0.05s  
+  ✓ max pages for registered user with no subscription falls back to anonymous limit                             0.05s  
+  ✓ record audit created persists a usage log                                                                    0.15s  
+
+   PASS  Tests\Feature\Ai\ModelTieringAndUsageTest
+  ✓ a simple task takes the cheapest model that can do it                                                        0.27s  
+  ✓ a complex task is never handed a simple model                                                                0.21s  
+  ✓ a model with no price recorded is not treated as free                                                        0.07s  
+  ✓ tiering never widens what a plan allows                                                                      0.06s  
+  ✓ an unclassified catalogue still serves work the way it did before                                            0.06s  
+  ✓ a model defaults to standard rather than to the cheapest tier                                                0.04s  
+  ✓ the category decides the tier and config decides the category                                                0.08s  
+  ✓ usage records the model that was called not the one configured                                               0.11s  
+  ✓ cost is priced at the model actually used                                                                    0.37s  
+  ✓ every ai call records the prompt version that produced it                                                    0.06s  
+  ✓ ai error columns are text not varchar                                                                        0.03s  
+  ✓ a long provider error is recorded rather than destroying the record                                          0.07s  
+  ✓ usage can be grouped by the model that was called                                                            0.10s  
+  ✓ today and this month ignore the selected date range                                                          0.10s  
+  ✓ a long failure message reaches the provider row                                                              0.07s  
+
+   PASS  Tests\Feature\Api\AccessibilityReportApiTest
+  ✓ the report carries the eight summary fields the spec names                                                   0.44s  
+  ✓ the report says when the scan did not cover every page                                                       0.38s  
+  ✓ wcag criteria are listed and best practice findings add none                                                 0.08s  
+  ✓ issue evidence reaches the owner intact                                                                      0.08s  
+  ✓ the owner report carries the disclaimer                                                                      0.09s  
+  ✓ an anonymous viewer sees the score and the disclaimer with it                                                0.34s  
+  ✓ an anonymous viewer does not get the paid accessibility detail                                               0.13s  
+  ✓ the combined report carries the disclaimer too                                                               0.06s  
+  ✓ a restricted viewer of the combined report still gets the disclaimer                                         0.08s  
+  ✓ the service pdf template renders the disclaimer and coverage                                                 0.07s  
+  ✓ an audit without an accessibility score disclaims nothing                                                    0.06s  
+
+   PASS  Tests\Feature\Api\AdminAiModelApiTest
+  ✓ admin can list ai models                                                                                     0.09s  
+  ✓ admin can add an ai model                                                                                    0.08s  
+  ✓ duplicate model id for the same provider is rejected                                                         0.09s  
+  ✓ a non ai provider cannot receive an ai model                                                                 0.06s  
+  ✓ admin can edit and disable an ai model                                                                       0.42s  
+  ✓ a globally disabled model is not usable even if a plan allows it                                             0.11s  
+  ✓ admin cannot delete a model assigned to a plan                                                               0.06s  
+  ✓ admin can delete an unassigned model                                                                         0.06s  
+  ✓ non admin cannot manage ai models                                                                            0.10s  
+  ✓ unauthenticated request to ai models is rejected                                                             0.04s  
+
+   PASS  Tests\Feature\Api\AdminApiTest
+  ✓ unauthenticated request to admin route is rejected                                                           0.04s  
+  ✓ non admin authenticated user is rejected with 403                                                            0.06s  
+  ✓ admin user can access admin routes                                                                           0.06s  
+  ✓ dashboard returns summary data                                                                               0.12s  
+  ✓ users listing is paginated and includes subscription                                                         0.18s  
+  ✓ websites listing includes audit count                                                                        0.06s  
+  ✓ audit show includes scores and issues                                                                        0.08s  
+  ✓ crawl jobs listing                                                                                           0.06s  
+  ✓ audit schedules listing                                                                                      0.06s  
+  ✓ failed jobs listing and deletion                                                                             0.06s  
+  ✓ deleting an unknown failed job returns 404                                                                   0.08s  
+  ✓ admin can create a plan                                                                                      0.09s  
+  ✓ setting a new default plan unsets the previous default                                                       0.06s  
+  ✓ admin can update a plan                                                                                      0.06s  
+  ✓ admin cannot delete a plan with an active subscription                                                       0.08s  
+  ✓ plan slug must be unique                                                                                     0.06s  
+  ✓ admin can enable and disable individual audit features for a plan                                            0.34s  
+  ✓ a feature disabled globally is unavailable even if the plan enables it                                       0.13s  
+  ✓ admin can globally disable a feature                                                                         0.08s  
+  ✓ non admin cannot modify plan features or global feature status                                               0.07s  
+  ✓ admin can assign and remove ai models from a plan                                                            0.09s  
+  ✓ non admin cannot assign ai models to a plan                                                                  0.05s  
+  ✓ duplicate plan ai model assignment via repeated ids is rejected                                              0.10s  
+  ✓ usage listing                                                                                                0.09s  
+  ✓ ai usage endpoint returns aggregates                                                                         0.08s  
+  ✓ system health reports real database and cache status                                                         0.14s  
+  ✓ system health requires admin                                                                                 0.04s  
+  ✓ anyone can submit a lead                                                                                     0.09s  
+  ✓ lead submission requires a valid source                                                                      0.04s  
+  ✓ lead submission is rejected without admin auth to list                                                       0.04s  
+  ✓ lead submission rejects an oversized message                                                                 0.04s  
+  ✓ lead submission safely stores injection and script style strings without executing them                      0.09s  
+  ✓ lead submissions beyond the rate limit are throttled                                                         0.08s  
+  ✓ admin can list and filter leads by status                                                                    0.05s  
+  ✓ admin can update lead status and it logs an activity                                                         0.10s  
+  ✓ admin can add a note to a lead                                                                               0.07s  
+  ✓ public can read a cms page                                                                                   0.06s  
+  ✓ public read of unknown cms page returns 404                                                                  0.05s  
+  ✓ admin can create a cms page                                                                                  0.10s  
+  ✓ admin can upsert a section creating it if new                                                                0.24s  
+  ✓ admin can upsert a section updating it if it exists                                                          0.06s  
+  ✓ admin can delete a section                                                                                   0.06s  
+  ✓ cms page slug must be unique                                                                                 0.06s  
+
+   PASS  Tests\Feature\Api\AdminProviderApiTest
+  ✓ unauthenticated request is rejected                                                                          0.07s  
+  ✓ non admin cannot access provider configuration                                                               0.06s  
+  ✓ admin can view provider configuration                                                                        0.09s  
+  ✓ admin can configure claude                                                                                   0.10s  
+  ✓ an empty string api key does not count as configured                                                         0.09s  
+  ✓ admin can configure openai                                                                                   0.07s  
+  ✓ admin can configure gemini                                                                                   0.09s  
+  ✓ admin can configure google pagespeed                                                                         0.54s  
+  ✓ admin can enable and disable a provider                                                                      0.07s  
+  ✓ enabling a provider without a key is rejected                                                                0.06s  
+  ✓ provider api key is never returned in full                                                                   0.07s  
+  ✓ connection succeeds with valid credentials                                                                   0.06s  
+  ✓ connection fails safely with invalid credentials                                                             0.14s  
+  ✓ every provider request creates a usage record                                                                0.11s  
+  ✓ daily request aggregation is correct                                                                         0.36s  
+  ✓ usage provider filtering works                                                                               0.07s  
+  ✓ usage date filtering works                                                                                   0.09s  
+  ✓ failed requests are counted                                                                                  0.07s  
+  ✓ token usage is recorded where available                                                                      0.06s  
+  ✓ estimated cost is calculated where supported                                                                 0.06s  
+  ✓ usage dashboard loads real backend data                                                                      0.06s  
+
+   PASS  Tests\Feature\Api\AuditApiTest
+  ✓ anonymous visitor can create an audit                                                                        0.68s  
+  ✓ created audit has no user id for an anonymous request                                                        0.41s  
+  ✓ anonymous audit is capped at the configured anonymous page limit                                             0.52s  
+  ✓ unsafe url is rejected before creating any records                                                           0.04s  
+  ✓ missing url is rejected with a validation error                                                              0.04s  
+  ✓ oversized url is rejected with a validation error                                                            0.04s  
+  ✓ non string url is rejected with a validation error                                                           0.03s  
+  ✓ second audit from the same anonymous ip is rejected                                                          0.25s  
+  ✓ registered user can create an audit with their plans page limit                                              0.16s  
+  ✓ registered user hitting their daily limit is rejected                                                        0.22s  
+  ✓ a registered users limit is independent of an exhausted anonymous ip limit                                   0.32s  
+  ✓ show returns audit status                                                                                    0.27s  
+  ✓ show for an unknown audit returns 404                                                                        0.04s  
+  ✓ show is visible to the owner of a registered audit                                                           0.21s  
+  ✓ show hides a registered audit from a different registered user                                               0.15s  
+  ✓ show hides a registered audit from an anonymous viewer                                                       0.16s  
+  ✓ report endpoint returns the anonymous view for an anonymous viewer                                           0.24s  
+  ✓ report endpoint returns full access for the audits owner                                                     0.14s  
+  ✓ report endpoint does not grant full access to a different registered user                                    0.14s  
+  ✓ pdf export returns a pdf for the owner on a plan with the feature                                            0.23s  
+  ✓ pdf export is rejected when the owners plan lacks the feature                                                0.17s  
+  ✓ pdf export is rejected for a non owner                                                                       0.16s  
+  ✓ pdf export is rejected for an anonymous viewer                                                               0.16s  
+  ✓ pdf export returns 404 when the report is not ready                                                          0.06s  
+  ✓ my audits lists only the authenticated users own audits                                                      0.25s  
+  ✓ my audits requires authentication                                                                            0.04s  
+  ✓ my websites lists only the authenticated users own websites                                                  0.32s  
+  ✓ my websites requires authentication                                                                          0.04s  
+  ✓ requests beyond the rate limit are throttled                                                                 0.06s  
+
+   PASS  Tests\Feature\Api\AuditScheduleApiTest
+  ✓ unauthenticated request is rejected                                                                          0.05s  
+  ✓ a user can schedule their own website                                                                        0.06s  
+  ✓ a user cannot schedule someone elses website                                                                 0.08s  
+  ✓ a plan without the scheduled audits feature is rejected                                                      0.06s  
+  ✓ a second website beyond the plans full recrawls limit is rejected                                            0.10s  
+  ✓ a website cannot be scheduled twice                                                                          0.07s  
+  ✓ invalid frequency is rejected                                                                                0.07s  
+  ✓ a user can list only their own schedules                                                                     0.08s  
+  ✓ a user can pause their own schedule                                                                          0.09s  
+  ✓ a user cannot update someone elses schedule                                                                  0.07s  
+  ✓ a user can delete their own schedule                                                                         0.07s  
+  ✓ a user cannot delete someone elses schedule                                                                  0.05s  
+
+   PASS  Tests\Feature\Api\AuthTest
+  ✓ registration creates a user and returns a token                                                              0.06s  
+  ✓ registration subscribes the user to the default plan                                                         0.05s  
+  ✓ registration rejects a duplicate email                                                                       0.06s  
+  ✓ registration rejects mismatched password confirmation                                                        0.03s  
+  ✓ registration rejects a password with no numbers                                                              0.04s  
+  ✓ registration rejects a password under eight characters                                                       0.04s  
+  ✓ registration rejects an oversized name                                                                       0.04s  
+  ✓ registration safely stores an injection style name without executing it                                      0.06s  
+  ✓ login with correct credentials returns a token                                                               0.06s  
+  ✓ registration response includes the new subscription and plan                                                 0.06s  
+  ✓ login response includes the current subscription and plan                                                    0.06s  
+  ✓ login with wrong password is rejected                                                                        0.05s  
+  ✓ login with unknown email is rejected                                                                         0.04s  
+  ✓ authenticated user can fetch their own profile                                                               0.06s  
+  ✓ own profile includes the current subscription and plan                                                       0.07s  
+  ✓ unauthenticated request to user endpoint is rejected                                                         0.04s  
+  ✓ logout revokes the current token                                                                             0.05s  
+  ✓ successful api responses include baseline security headers                                                   0.07s  
+  ✓ exception rendered api responses also include security headers                                               0.04s  
+  ✓ login attempts beyond the rate limit are throttled                                                           0.06s  
+  ✓ registration attempts beyond the rate limit are throttled                                                    0.05s  
+
+   PASS  Tests\Feature\Api\MeApiTest
+  ✓ anonymous visitor sees the default plans features                                                            0.19s  
+  ✓ a locked feature lists which plans include it                                                                0.10s  
+  ✓ a globally disabled feature is not advertised as available anywhere                                          0.06s  
+  ✓ logged in user sees their own plans allowed ai models                                                        0.06s  
+  ✓ ai models not assigned to the plan are not exposed                                                           0.10s  
+
+   PASS  Tests\Feature\Api\PlanApiTest
+  ✓ anyone can list plans                                                                                        0.06s  
+  ✓ plans are ordered by price                                                                                   0.05s  
+
+   PASS  Tests\Feature\Api\SeoReportApiTest
+  ✓ the redirect report separates chains loops and temporary redirects                                           0.10s  
+  ✓ the redirect report states what it covers                                                                    0.11s  
+  ✓ the og preview shows what each field will actually render                                                    0.08s  
+  ✓ the preview says it is derived from tags not captured live                                                   0.09s  
+  ✓ the schema report lists which types are present and where                                                    0.08s  
+  ✓ the schema report states that only json ld is read                                                           0.08s  
+  ✓ the page by page report has one row per crawled page                                                         0.08s  
+  ✓ the site report distinguishes not found from unknown                                                         0.08s  
+  ✓ an audit with no site signals reports unknown not missing                                                    0.10s  
+  ✓ with no provider the report says so instead of showing numbers                                               0.07s  
+  ✓ a configured provider supplies real attributed data                                                          0.08s  
+  ✓ a failing provider reports no data rather than zero                                                          0.18s  
+  ✓ a successful answer is cached but a failure is not                                                           0.05s  
+  ✓ an unknown driver name falls back to no data rather than failing                                             0.07s  
+  ✓ the seo detail block is full access content                                                                  0.07s  
+  ✓ the service pdf renders the seo views and the backlink state                                                 0.07s  
+  ✓ the builder is not run for other services                                                                    0.06s  
+
+   PASS  Tests\Feature\Api\ServiceReportApiTest
+  ✓ owner sees full service reports including pages and screenshots                                              0.09s  
+  ✓ anonymous viewer gets scores but not page findings or low severity issues                                    0.13s  
+  ✓ anonymous issue detail is redacted but not misrepresented                                                    0.09s  
+  ✓ a not applicable service is reported as such not scored                                                      0.07s  
+  ✓ a service that never ran is 404 not an empty report                                                          0.07s  
+  ✓ page explorer requires full access                                                                           0.05s  
+  ✓ service pdf renders a real pdf for a plan with pdf export                                                    0.52s  
+  ✓ the service pdf header names the site it audited                                                             0.10s  
+  ✓ service pdf is refused for an anonymous viewer                                                               0.07s  
+  ✓ service pdf 404s for a service that never ran                                                                0.09s  
+  ✓ service reports 404 before the report exists                                                                 0.06s  
+
+   PASS  Tests\Feature\Api\WebsiteApiTest
+  ✓ auditing the same domain twice reuses one website record                                                     0.29s  
+  ✓ www and bare domain are the same website                                                                     0.23s  
+  ✓ url spelling differences do not create a second website                                                      0.44s  
+  ✓ a different domain gets its own website                                                                      0.23s  
+  ✓ two users auditing the same domain get separate website records                                              0.24s  
+  ✓ the database itself rejects a duplicate domain for one user                                                  0.05s  
+  ✓ anonymous audits of the same domain do not share a website record                                            0.25s  
+  ✓ a repeat audit updates the primary url but not the user edited profile                                       0.22s  
+  ✓ the listing shows one card per domain with its audit count                                                   0.06s  
+  ✓ the card reports the latest audits scores and issue counts                                                   0.08s  
+  ✓ a card keeps the last completed scores while a re audit is running                                           0.09s  
+  ✓ a website with only a failed audit reports no scores                                                         0.07s  
+  ✓ the listing only contains the callers own websites                                                           0.07s  
+  ✓ detail can be addressed by domain and returns every section                                                  0.09s  
+  ✓ detail can also be addressed by id and by domain spelling variants                                           0.08s  
+  ✓ score trends are chronological and exclude unfinished audits                                                 0.09s  
+  ✓ a category no audit scored is absent from the trends rather than flat at zero                                0.09s  
+  ✓ service scores exclude the overall score                                                                     0.07s  
+  ✓ issue trends report counts per audit over time                                                               0.09s  
+  ✓ audit history includes failed runs that the trends exclude                                                   0.08s  
+  ✓ recommendations only include issues that carry one                                                           0.08s  
+  ✓ website endpoints require authentication                                                                     0.05s  
+  ✓ another users website is not found by id                                                                     0.06s  
+  ✓ another users website is not found by domain                                                                 0.06s  
+  ✓ another users website cannot be edited                                                                       0.18s  
+  ✓ an anonymous website is not visible to any logged in user                                                    0.06s  
+  ✓ the owner can edit the website profile                                                                       0.08s  
+  ✓ identity fields cannot be rewritten through the profile endpoint                                             0.07s  
+  ✓ profile validation rejects bad values                                                                        0.08s  
+
+   PASS  Tests\Feature\AuditModuleRegistryFeatureGatingTest
+  ✓ a plan that disables seo and accessibility skips only those modules                                          0.29s  
+  ✓ a plan with every feature disabled still completes the audit with a zero overall score                       0.14s  
+
+   PASS  Tests\Feature\Audit\AuditLifecycleTest
+  ✓ every non terminal state holds a slot and every terminal state releases it                                   0.04s  
+  ✓ a terminal audit cannot be transitioned again                                                                0.07s  
+  ✓ a terminal transition stamps terminated at                                                                   0.10s  
+  ✓ failing an audit records the stage it died in                                                                0.06s  
+  ✓ a plan allowing one active audit refuses a second                                                            0.07s  
+  ✓ a plan allowing several active audits permits up to its limit                                                0.08s  
+  ✓ each active state counts toward the limit                                                                    0.08s  
+  ✓ a user with no subscription has no slots at all                                                              0.06s  
+  ✓ one users running audits do not consume another users slots                                                  0.09s  
+  ✓ the anonymous active limit comes from config                                                                 0.03s  
+  ✓ a guests running audit consumes their slot                                                                   0.04s  
+  ✓ a completed audit releases its slot                                                                          0.07s  
+  ✓ a failed audit releases its slot                                                                             0.09s  
+  ✓ a cancelled audit releases its slot                                                                          0.10s  
+  ✓ the slot check and the insert happen under one lock                                                          0.07s  
+  ✓ the guarded callback never runs when the owner is at capacity                                                0.05s  
+  ✓ a burst of requests creates no more audits than the plan allows                                              0.13s  
+  ✓ the owner can cancel a running audit                                                                         0.07s  
+  ✓ a completed audit cannot be cancelled                                                                        0.07s  
+  ✓ another user cannot cancel someone elses audit                                                               0.06s  
+  ✓ cancelling twice is refused the second time                                                                  0.07s  
+  ✓ a cancelled audit stops the pipeline rather than completing                                                  0.06s  
+  ✓ the status endpoint reports the lifecycle flags the ui needs                                                 0.08s  
+
+   PASS  Tests\Feature\Audit\AuditPipelineIntegrityTest
+  ✓ a generated report records the audit date                                                                    0.25s  
+  ✓ two page jobs finishing together dispatch analysis only once                                                 0.10s  
+  ✓ a scheduled audit does not exceed the plans concurrent limit                                                 0.07s  
+  ✓ a skipped schedule still moves its next run forward                                                          0.06s  
+  ✓ cancelling an audit closes its running crawl job                                                             0.10s  
+  ✓ failing an audit closes its running crawl job                                                                0.06s  
+  ✓ stuck audit recovery also frees the global crawl slot                                                        0.06s  
+  ✓ completing an audit leaves its already completed crawl job alone                                             0.06s  
+  ✓ a stranger cannot cancel an anonymous audit from another ip                                                  0.07s  
+  ✓ the guest who started an anonymous audit can still cancel it                                                 0.05s  
+
+   PASS  Tests\Feature\Audit\AuditProgressTest
+  ✓ each status reports the stage a person would recognise                                                       0.09s  
+  ✓ a crawl with nothing discovered yet reads as discovering                                                     0.07s  
+  ✓ screenshots are reported once one actually exists                                                            0.07s  
+  ✓ the analysis stage follows which scores have been written                                                    0.09s  
+  ✓ a terminal audit reports no current stage                                                                    0.09s  
+  ✓ every named stage is listed with its state                                                                   0.06s  
+  ✓ a completed audit shows every stage done                                                                     0.05s  
+  ✓ pages discovered is what the crawler found not the plan limit                                                0.08s  
+  ✓ services are done because a result exists                                                                    0.06s  
+  ✓ services are pending before analysis begins                                                                  0.07s  
+  ✓ no estimate is offered before the first page completes                                                       0.06s  
+  ✓ the estimate is projected from the measured page rate                                                        0.05s  
+  ✓ a slower crawl produces a longer estimate                                                                    0.08s  
+  ✓ a finished audit offers no estimate                                                                          0.05s  
+  ✓ a large audit says plainly that it will take longer                                                          0.05s  
+  ✓ a small audit is not given a warning it does not need                                                        0.08s  
+  ✓ the status endpoint carries the progress payload                                                             0.07s  
+
+   PASS  Tests\Feature\Audit\AuditReliabilityTest
+  ✓ a crawler failure fails the audit and records the stage                                                      0.08s  
+  ✓ a crawler failure releases the owners slot                                                                   0.06s  
+  ✓ a job the queue gives up on still fails the audit                                                            0.06s  
+  ✓ every pipeline job marks the audit failed when the queue gives up                                            0.06s  
+  ✓ one failing module does not fail the whole audit                                                             0.12s  
+  ✓ a module failure is retried before the category is written off                                               0.07s  
+  ✓ a module failure on the final attempt writes off the category                                                0.10s  
+  ✓ a module the queue gives up on also records an unassessable score                                            0.11s  
+  ✓ a cancelled audit stops the crawl job before it does anything                                                0.08s  
+  ✓ a cancelled audit stops the report job                                                                       0.06s  
+  ✓ recovery fails an audit that stopped making progress                                                         0.08s  
+  ✓ recovery leaves an audit that is merely slow alone                                                           0.06s  
+  ✓ recovery never touches a finished audit                                                                      0.06s  
+  ✓ recovery falls back to updated at for rows predating progress tracking                                       0.06s  
+  ✓ a dry run reports without changing anything                                                                  0.08s  
+  ✓ the threshold can be overridden per run                                                                      0.06s  
+  ✓ progress updates keep an audit out of recovery                                                               0.08s  
+
+   PASS  Tests\Feature\Audit\AuditSnapshotTest
+  ✓ a written snapshot cannot be updated                                                                         0.10s  
+  ✓ a written snapshot cannot be changed by attribute assignment                                                 0.12s  
+  ✓ the stored content survives an attempted rewrite                                                             0.07s  
+  ✓ a written snapshot cannot be deleted                                                                         0.10s  
+  ✓ rebuilding returns the existing snapshot rather than writing a new one                                       0.09s  
+  ✓ a snapshot is not affected by a later change to its website                                                  0.07s  
+  ✓ the snapshot records every field the spec requires                                                           0.09s  
+  ✓ the snapshot stores the scoring weights not just their version                                               0.07s  
+  ✓ service results record which services did not run                                                            0.07s  
+  ✓ recommendations only include issues that carry one                                                           0.08s  
+  ✓ screenshots and performance data are recorded                                                                0.07s  
+  ✓ ai provenance records the provider that actually answered                                                    0.07s  
+  ✓ a failed ai call is not reported as the answering provider                                                   0.07s  
+  ✓ the backfill command writes snapshots for historical audits                                                  0.08s  
+  ✓ a backfilled snapshot says so                                                                                0.07s  
+  ✓ a snapshot written by the pipeline is not marked backfilled                                                  0.06s  
+  ✓ the backfill is a no op once every audit has a snapshot                                                      0.07s  
+  ✓ a dry run writes nothing                                                                                     0.05s  
+  ✓ an unfinished audit is not backfilled                                                                        0.06s  
+  ✓ the report pipeline writes a snapshot when an audit completes                                                0.10s  
+
+   PASS  Tests\Feature\Audit\ConversionSignalsTest
+  ✓ a page with no call to action is reported                                                                    0.09s  
+  ✓ generic button wording is reported with examples                                                             0.05s  
+  ✓ specific wording containing a vague phrase is not flagged                                                    0.10s  
+  ✓ a long form is reported and hidden fields do not count                                                       0.07s  
+  ✓ a short form is not reported                                                                                 0.04s  
+  ✓ repeated links to one destination count once                                                                 0.05s  
+  ✓ a page that links nowhere is reported                                                                        0.07s  
+  ✓ a site with no contact route is reported                                                                     0.06s  
+  ✓ a mailto link counts as a contact route                                                                      0.06s  
+  ✓ review markup counts as social proof                                                                         0.07s  
+  ✓ a local business with no tap to call is reported                                                             0.06s  
+  ✓ a blog is not asked for a phone number                                                                       0.07s  
+  ✓ a shop with no shipping or returns information is reported                                                   0.05s  
+  ✓ a returns policy linked by text alone is found                                                               0.07s  
+  ✓ a shop with no reachable cart is reported                                                                    0.05s  
+  ✓ findings state that they cover crawled pages only                                                            0.06s  
+
+   PASS  Tests\Feature\Audit\DeepAccessibilityTest
+  ✓ an issue carries every field the spec requires                                                               0.07s  
+  ✓ an axe rule is grouped under a named check area                                                              0.05s  
+  ✓ every spec check area has a rule mapped to it                                                                0.04s  
+  ✓ an unmapped axe rule is still reported rather than dropped                                                   0.07s  
+  ✓ wcag criteria and level are parsed from axe tags                                                             0.04s  
+  ✓ a best practice rule carries no wcag reference                                                               0.05s  
+  ✓ the strictest conformance level wins                                                                         0.03s  
+  ✓ the report counts issues by severity                                                                         0.06s  
+  ✓ the report records affected pages and elements                                                               0.12s  
+  ✓ passed checks come from what axe actually ran                                                                0.06s  
+  ✓ incomplete results are reported separately from passes                                                       0.05s  
+  ✓ coverage distinguishes a scanned page from an unscanned one                                                  0.07s  
+  ✓ every check area is listed including ones with no findings                                                   0.05s  
+  ✓ every check area explains why it matters                                                                     0.03s  
+  ✓ every result carries the automated assessment disclaimer                                                     0.05s  
+  ✓ a clean scan still carries the disclaimer                                                                    0.05s  
+  ✓ the disclaimer never claims compliance or certification                                                      0.04s  
+  ✓ older audits without node detail still produce selectors                                                     0.04s  
+
+   PASS  Tests\Feature\Audit\DeepSeoTest
+  ✓ a noindex meta tag excludes a page from search                                                               0.08s  
+  ✓ an x robots tag header excludes a page that looks fine in the markup                                         0.05s  
+  ✓ a canonical pointing at another page makes this one non indexable                                            0.07s  
+  ✓ a self referencing canonical is not a problem                                                                0.12s  
+  ✓ an error page is reported once as a status problem                                                           0.08s  
+  ✓ a missing robots txt and sitemap are reported                                                                0.06s  
+  ✓ a failed robots fetch is not reported as a missing file                                                      0.06s  
+  ✓ a sitemap found only by guessing is reported as undeclared                                                   0.05s  
+  ✓ a redirect chain is reported with its hops and types                                                         0.08s  
+  ✓ a single redirect is not called a chain                                                                      0.06s  
+  ✓ a redirect loop is reported as critical                                                                      0.05s  
+  ✓ a temporary redirect is flagged only when the status was recorded                                            0.07s  
+  ✓ a broken internal link names the page it is on                                                               0.07s  
+  ✓ a link to an uncrawled page is never called broken                                                           0.05s  
+  ✓ orphan pages are pages nothing links to                                                                      0.07s  
+  ✓ www and bare domain links count as internal                                                                  0.05s  
+  ✓ a nofollow link to your own page is reported                                                                 0.08s  
+  ✓ missing open graph tags are reported with the predicted preview                                              0.05s  
+  ✓ a page crawled before social tags were captured is not reported                                              0.07s  
+  ✓ twitter falls back to open graph but still needs a card type                                                 0.05s  
+  ✓ a product missing required properties is reported                                                            0.08s  
+  ✓ a subtype is audited as the type it inherits from                                                            0.04s  
+  ✓ schema nested in a graph is found                                                                            0.05s  
+  ✓ a declared but empty property does not count as present                                                      0.06s  
+  ✓ a site with no organization schema is told so once                                                           0.07s  
+  ✓ a skipped heading level is reported but going back up is not                                                 0.05s  
+  ✓ images without declared dimensions are reported only when captured                                           0.06s  
+  ✓ the breakdown says which checks actually ran                                                                 0.05s  
+  ✓ indexability directives are reported verbatim                                                                0.05s  
+
+   PASS  Tests\Feature\Audit\FailureRecordingTest
+  ✓ a long failure message still terminates the audit                                                            0.11s  
+  ✓ the message is kept rather than cut to the old width                                                         0.05s  
+  ✓ a pathological message is bounded                                                                            0.07s  
+  ✓ every error message column is text not a narrow string                                                       0.03s  
+
+   PASS  Tests\Feature\Audit\ProfessionalPerformanceTest
+  ✓ opportunities carry their measured savings and the resources they blame                                      0.06s  
+  ✓ a finding with no measured saving is a diagnostic not an opportunity                                         0.05s  
+  ✓ no opportunities reports null savings not zero                                                               0.09s  
+  ✓ mobile and desktop findings never mix                                                                        0.04s  
+  ✓ a page measured only on desktop reports no mobile findings                                                   0.08s  
+  ✓ the category rollup uses mobile when both exist                                                              0.06s  
+  ✓ all twelve categories are reported even when empty                                                           0.05s  
+  ✓ inp comes from real user data and never from the lab run                                                     0.05s  
+  ✓ a url with no field data says why rather than omitting inp                                                   0.05s  
+  ✓ assets without a cache lifetime are reported with the files responsible                                      0.05s  
+  ✓ a handful of uncached assets is not reported                                                                 0.09s  
+  ✓ uncompressed text resources are reported                                                                     0.07s  
+  ✓ an audit crawled before headers were captured reports nothing                                                0.06s  
+  ✓ a free viewer keeps the score and the savings total but not the list                                         0.05s  
+  ✓ a free viewer still sees why inp is missing                                                                  0.05s  
+  ✓ the pdf shows savings for opportunities and none for diagnostics                                             0.06s  
+  ✓ a page with no measurement is excluded rather than scored zero                                               0.06s  
+  ✓ a missing lighthouse score stays null                                                                        0.05s  
+
+   PASS  Tests\Feature\Audit\SiteClassificationTest
+  ✓ a shopify store with product data is ecommerce                                                               0.07s  
+  ✓ a subscription product is saas not ecommerce                                                                 0.07s  
+  ✓ an address and opening hours make a local business                                                           0.07s  
+  ✓ dated articles make a blog                                                                                   0.07s  
+  ✓ project pages make a portfolio                                                                               0.06s  
+  ✓ a quote cta and services section make a service business                                                     0.05s  
+  ✓ a single page with one action is a landing page                                                              0.07s  
+  ✓ a multi page site is never called a landing page                                                             0.05s  
+  ✓ conflicting signals report other rather than guessing                                                        0.05s  
+  ✓ a crawl with no pages classifies as other with a reason                                                      0.06s  
+  ✓ the classification always carries its evidence                                                               0.05s  
+  ✓ a blog gets no ecommerce score even with a checkout link                                                     0.05s  
+  ✓ the skip reason explains the decision in the owners terms                                                    0.05s  
+  ✓ the product audit is skipped for the same reason                                                             0.07s  
+  ✓ a local business can still be audited as a shop                                                              0.03s  
+  ✓ every type has a label and a description                                                                     0.04s  
+
+   PASS  Tests\Feature\CascadeDeleteTest
+  ✓ deleting a website cascades to its audits                                                                    0.08s  
+  ✓ deleting a user nulls the websites user id instead of deleting the website                                   0.09s  
+  ✓ deleting an audit cascades to its crawl job pages issues and scores                                          0.05s  
+  ✓ deleting a crawl job cascades to its crawl urls                                                              0.04s  
+  ✓ deleting a crawl url nulls the audit pages crawl url id instead of deleting the page                         0.07s  
+  ✓ deleting an audit page cascades to its issues                                                                0.06s  
+  ✓ no orphaned crawl urls remain after deleting the owning audit                                                0.05s  
+  ✓ deleting a user cascades to their subscription                                                               0.05s  
+  ✓ deleting a plan with an active subscription is prevented                                                     0.06s  
+  ✓ deleting a user cascades to their usage logs                                                                 0.07s  
+  ✓ deleting a website or audit nulls the usage logs references instead of deleting the log                      0.05s  
+  ✓ deleting a lead cascades to its activities                                                                   0.10s  
+  ✓ deleting an audit nulls the leads audit id instead of deleting the lead                                      0.06s  
+  ✓ deleting a user nulls the lead activities user id instead of deleting the activity                           0.06s  
+  ✓ deleting a cms page cascades to its sections                                                                 0.08s  
+  ✓ deleting a user cascades to their audit schedules                                                            0.05s  
+  ✓ deleting a website cascades to its audit schedules                                                           0.06s  
+  ✓ deleting a user nulls the api usage logs user id instead of deleting the log                                 0.10s  
+  ✓ deleting an audit nulls the api usage logs audit id instead of deleting the log                              0.11s  
+  ✓ deleting a plan cascades to its plan features pivot rows                                                     0.18s  
+  ✓ deleting a feature cascades to its plan features pivot rows                                                  0.06s  
+  ✓ deleting a plan cascades to its plan ai models pivot rows                                                    0.22s  
+  ✓ deleting an api provider cascades to its ai models                                                           0.28s  
+  ✓ deleting an audit cascades to its screenshots                                                                0.05s  
+  ✓ deleting an audit issue cascades to its issue pages pivot rows                                               0.20s  
+  ✓ deleting a page cascades to its issue pages pivot rows                                                       0.17s  
+
+   PASS  Tests\Feature\Competitor\BusinessContextAndCompetitorTest
+  ✓ the aio goal can be saved through the profile endpoint                                                       0.19s  
+  ✓ the context builder includes only fields the owner filled in                                                 0.15s  
+  ✓ context is sufficient only once the aio goal is set                                                          0.20s  
+  ✓ missing fields are reported for the onboarding prompt                                                        0.12s  
+  ✓ the detail endpoint reports onboarding completeness                                                          0.06s  
+  ✓ ten default prompts run when the profile is complete                                                         0.06s  
+  ✓ context dependent prompts are skipped when the goal is missing                                               0.21s  
+  ✓ custom prompts are appended after the defaults                                                               0.17s  
+  ✓ the execution budget truncates custom prompts before defaults                                                0.10s  
+  ✓ the owner can add and remove a custom prompt                                                                 0.07s  
+  ✓ adding beyond the plan limit is refused at the point of adding                                               0.07s  
+  ✓ a plan with no custom prompts is told so                                                                     0.06s  
+  ✓ prompts on another users website are not reachable                                                           0.07s  
+  ✓ the prompt index shows the defaults alongside custom ones                                                    0.06s  
+  ✓ discovery is skipped when the plan does not include it                                                       0.05s  
+  ✓ discovery is skipped when the owner named their own competitors                                              0.05s  
+  ✓ discovery is skipped when there is no business context to reason from                                        0.08s  
+  ✓ discovery stores suggested competitors                                                                       0.25s  
+  ✓ discovery never returns the site itself as its own competitor                                                0.07s  
+  ✓ discovery discards entries that are not resolvable domains                                                   0.06s  
+  ✓ discovery never relabels an owner named competitor                                                           0.07s  
+  ✓ an unanalyzed competitor reports null scores not zero                                                        0.06s  
+  ✓ owner named competitors are listed before discovered ones                                                    0.07s  
+
+   PASS  Tests\Feature\CrawlAndAnalyzePipelineTest
+  ✓ full pipeline produces a completed audit with all category scores                                            0.43s  
+  ✓ screenshot storage paths are stored relative to the disk not as absolute paths                               0.69s  
+  ✓ pipeline marks audit failed when the homepage crawl fails                                                    0.09s  
+
+   PASS  Tests\Feature\DatabaseMigrationTest
+  ✓ migrate fresh runs cleanly                                                                                 107.03s  
+  ✓ rolling back the last migration reverses it and remigrating restores the schema                             87.86s  
+  ✓ rolling back every migration drops every application table                                                 180.82s  
+
+   PASS  Tests\Feature\ExampleTest
+  ✓ the application returns a successful response                                                                0.04s  
+
+   PASS  Tests\Feature\IssuePageRelationshipTest
+  ✓ a multi page issue is queryable by page and a page is queryable by issue                                     0.38s  
+
+   PASS  Tests\Feature\Plan\EntitlementTest
+  ✓ a new website beyond the plans limit is refused                                                              0.14s  
+  ✓ re auditing a website already owned still works at the limit                                                 0.28s  
+  ✓ one users websites do not count against another                                                              0.28s  
+  ✓ the monthly audit limit is enforced on top of the daily one                                                  0.20s  
+  ✓ usage from last month does not count against this month                                                      0.22s  
+  ✓ a null monthly limit means unlimited                                                                         0.20s  
+  ✓ the page limit comes from the plan and ignores the payload                                                   0.09s  
+  ✓ report visibility percent decides how much an owner sees                                                     0.07s  
+  ✓ the issues per service cap lowers what the percentage allowed                                                0.05s  
+  ✓ a built feature follows the plans configuration                                                              0.06s  
+  ✓ a feature that is not built yet never reports as allowed                                                     0.05s  
+  ✓ pdf export is refused without the entitlement                                                                0.06s  
+  ✓ a schedule more frequent than the plan allows is refused                                                     0.08s  
+  ✓ a less frequent schedule than the ceiling is always allowed                                                  0.05s  
+  ✓ an upgrade takes effect immediately                                                                          0.07s  
+  ✓ a downgrade takes effect immediately too                                                                     0.09s  
+  ✓ an expired subscription falls back to the default plan                                                       0.06s  
+  ✓ a cancelled subscription also falls back                                                                     0.06s  
+  ✓ a subscription inside its paid period is still active                                                        0.07s  
+  ✓ a subscription to a deactivated plan falls back                                                              0.10s  
+  ✓ a user with no subscription at all resolves to nothing                                                       0.07s  
+  ✓ the guest tier comes from config not a plan row                                                              0.04s  
+  ✓ the entitlements endpoint describes the callers plan                                                         0.09s  
+  ✓ the entitlements endpoint works for a guest                                                                  0.04s  
+  ✓ limits cannot be raised through the request payload                                                          0.08s  
+  ✓ a non admin cannot edit plan limits                                                                          0.06s  
+
+   PASS  Tests\Feature\Plan\LapsedSubscriptionAccessTest
+  ✓ an expired subscription loses its plans feature access                                                       0.09s  
+  ✓ an active subscription keeps its plan                                                                        0.07s  
+  ✓ a subscription to a withdrawn plan falls back too                                                            0.05s  
+  ✓ a guest still resolves to the default plan                                                                   0.07s  
+  ✓ category gating follows the resolved plan                                                                    0.07s  
+  ✓ a lapsed subscribers scheduled audit uses the fallback page limit                                            0.29s  
+  ✓ an active subscribers scheduled audit keeps the paid page limit                                              0.07s  
+
+   PASS  Tests\Feature\Report\AuditComparisonTest
+  ✓ a score movement reads the way the spec writes it                                                            0.21s  
+  ✓ a decline is reported as plainly as an improvement                                                           0.07s  
+  ✓ the biggest movement leads                                                                                   0.07s  
+  ✓ an unchanged score produces no insight                                                                       0.05s  
+  ✓ a service that stopped applying is not reported as a collapse                                                0.06s  
+  ✓ a service that started applying has nothing to compare against                                               0.06s  
+  ✓ a service that never ran is not described as inapplicable                                                    0.06s  
+  ✓ a service that could not be assessed says so                                                                 0.06s  
+  ✓ the stored not applicable reason survives when neither run scored                                            0.08s  
+  ✓ every scored service appears in the comparison                                                               0.06s  
+  ✓ the overall score is named like a service not an enum                                                        0.07s  
+  ✓ landing page is not labelled the same as cro                                                                 0.06s  
+  ✓ an incomparable service never becomes an insight                                                             0.06s  
+  ✓ a service neither audit ran is left out entirely                                                             0.06s  
+  ✓ a finding on a page that was not recrawled is not called resolved                                            0.06s  
+  ✓ a finding on a page that was recrawled and is gone is resolved                                               0.06s  
+  ✓ a site wide finding is never excused as not rechecked                                                        0.06s  
+  ✓ a narrower crawl carries a caveat ahead of every other insight                                               0.06s  
+  ✓ a wider crawl says new findings may be new to the comparison                                                 0.06s  
+  ✓ identical coverage is reported as like for like                                                              0.06s  
+  ✓ a trailing slash does not make a page look uncrawled                                                         0.05s  
+  ✓ a finding absent before and present now is new                                                               0.06s  
+  ✓ the same finding on both runs is persisting not new or resolved                                              0.06s  
+  ✓ findings are listed worst first                                                                              0.06s  
+  ✓ severity counts move with the findings                                                                       0.13s  
+  ✓ the default comparison is the previous completed run                                                         0.10s  
+  ✓ the first audit of a site has nothing to compare against                                                     0.04s  
+  ✓ the endpoint compares against the previous run                                                               0.07s  
+  ✓ the first audit reports that there is nothing to compare                                                     0.05s  
+  ✓ a stranger cannot read a comparison                                                                          0.08s  
+  ✓ a comparison cannot be pointed at another websites audit                                                     0.06s  
+  ✓ a failed run cannot be named as the comparison point                                                         0.11s  
+
+   PASS  Tests\Feature\Report\ReportInterfaceTest
+  ✓ a page score uses the same severity weights as the category scores                                           0.08s  
+  ✓ a page with no issues scores 100                                                                             0.05s  
+  ✓ a page score never goes below zero                                                                           0.06s  
+  ✓ each page is scored from its own issues                                                                      0.05s  
+  ✓ every finding carries a reason                                                                               0.05s  
+  ✓ an unmapped code falls back to its category rather than silence                                              0.07s  
+  ✓ accessibility reasons come from the check definitions                                                        0.11s  
+  ✓ the reason reaches the serialized issue                                                                      0.10s  
+  ✓ a free viewer still gets the reason                                                                          0.05s  
+
+   PASS  Tests\Feature\Report\ScreenshotsAndBrandingTest
+  ✓ a screenshot url is signed rather than a raw storage path                                                    0.20s  
+  ✓ the owner can load their own screenshot                                                                      0.07s  
+  ✓ an unsigned url is refused                                                                                   0.06s  
+  ✓ a valid signed url is useless to another user                                                                0.09s  
+  ✓ a valid signed url is useless to an anonymous visitor                                                        0.07s  
+  ✓ a missing screenshot reads as not found rather than erroring                                                 0.09s  
+  ✓ a screenshot captured before the disk moved is still served                                                  0.07s  
+  ✓ a report can load more screenshots than the audit throttle allows                                            0.16s  
+  ✓ a pdf export is filtered by the owners plan like the web report                                              0.14s  
+  ✓ the pdf and the web report apply the same filter                                                             0.07s  
+  ✓ branding falls back to the product when the plan excludes it                                                 0.07s  
+  ✓ branding applies when the plan allows it                                                                     0.09s  
+  ✓ an empty profile is treated as no branding                                                                   0.07s  
+  ✓ a lapsed plan stops branding without deleting it                                                             0.07s  
+  ✓ an anonymous audit never carries someone elses branding                                                      0.05s  
+  ✓ a logo is inlined as a data uri for the pdf                                                                  0.07s  
+  ✓ an oversized logo is dropped rather than failing the export                                                  0.09s  
+  ✓ branding can be saved and read back                                                                          0.08s  
+  ✓ branding is saved on a plan that cannot use it yet                                                           0.09s  
+  ✓ a logo upload is stored privately                                                                            0.09s  
+  ✓ branding requires authentication                                                                             0.07s  
+
+   PASS  Tests\Feature\Security\AuditUrlSecurityTest
+  ✓ unsafe url is rejected by the api with data set "not a url"                                                  0.06s  
+  ✓ unsafe url is rejected by the api with data set "scheme only"                                                0.04s  
+  ✓ unsafe url is rejected by the api with data set "no host"                                                    0.03s  
+  ✓ unsafe url is rejected by the api with data set "spaces"                                                     0.04s  
+  ✓ unsafe url is rejected by the api with data set "javascript"                                                 0.04s  
+  ✓ unsafe url is rejected by the api with data set "file"                                                       0.04s  
+  ✓ unsafe url is rejected by the api with data set "data"                                                       0.04s  
+  ✓ unsafe url is rejected by the api with data set "ftp"                                                        0.04s  
+  ✓ unsafe url is rejected by the api with data set "gopher"                                                     0.04s  
+  ✓ unsafe url is rejected by the api with data set "localhost"                                                  0.04s  
+  ✓ unsafe url is rejected by the api with data set "localhost uppercase"                                        0.04s  
+  ✓ unsafe url is rejected by the api with data set "localhost trailing dot"                                     0.04s  
+  ✓ unsafe url is rejected by the api with data set "localhost subdomain"                                        0.04s  
+  ✓ unsafe url is rejected by the api with data set "loopback ipv4"                                              0.04s  
+  ✓ unsafe url is rejected by the api with data set "loopback ipv4 alternate"                                    0.04s  
+  ✓ unsafe url is rejected by the api with data set "loopback ipv6"                                              0.04s  
+  ✓ unsafe url is rejected by the api with data set "private 10/8"                                               0.04s  
+  ✓ unsafe url is rejected by the api with data set "private 172.16/12"                                          0.04s  
+  ✓ unsafe url is rejected by the api with data set "private 192.168/16"                                         0.05s  
+  ✓ unsafe url is rejected by the api with data set "carrier grade nat"                                          0.04s  
+  ✓ unsafe url is rejected by the api with data set "ipv6 unique local"                                          0.04s  
+  ✓ unsafe url is rejected by the api with data set "ipv4 mapped ipv6 private"                                   0.04s  
+  ✓ unsafe url is rejected by the api with data set "link local"                                                 0.04s  
+  ✓ unsafe url is rejected by the api with data set "aws metadata"                                               0.04s  
+  ✓ unsafe url is rejected by the api with data set "gcp metadata"                                               0.04s  
+  ✓ unsafe url is rejected by the api with data set "nat64 wrapped metadata"                                     0.04s  
+  ✓ unsafe url is rejected by the api with data set "decimal ip"                                                 0.04s  
+  ✓ unsafe url is rejected by the api with data set "octal ip"                                                   0.03s  
+  ✓ unsafe url is rejected by the api with data set "hex ip"                                                     0.04s  
+  ✓ unsafe url is rejected by the api with data set "embedded credentials"                                       0.04s  
+  ✓ unsafe url is rejected by the api with data set "credentials masking an internal host"                       0.04s  
+  ✓ unsafe url is rejected by the api with data set "redis port"                                                 0.04s  
+  ✓ unsafe url is rejected by the api with data set "postgres port"                                              0.04s  
+  ✓ unsafe url is rejected by the api with data set "high port"                                                  0.05s  
+  ✓ unsafe url is rejected by the api with data set "shell metacharacters"                                       0.04s  
+  ✓ unsafe url is rejected by the api with data set "shell substitution"                                         0.04s  
+  ✓ unsafe url is rejected by the api with data set "shell pipe"                                                 0.04s  
+  ✓ unsafe url is rejected by the api with data set "sql injection"                                              0.04s  
+  ✓ unsafe url is rejected by the api with data set "xss script tag"                                             0.03s  
+  ✓ unsafe url is rejected by the api with data set "xss in host"                                                0.04s  
+  ✓ unsafe url is rejected by the api with data set "crlf injection"                                             0.04s  
+  ✓ unsafe url is rejected by the api with data set "null byte"                                                  0.04s  
+  ✓ sql injection payload does not reach the database                                                            0.04s  
+  ✓ the stored url is the normalized one                                                                         0.36s  
+  ✓ the stored domain is lowercased and stripped of the dns root dot                                             0.37s  
+  ✓ guest cannot raise its page limit through the payload                                                        0.26s  
+  ✓ guest cannot assign itself a user id through the payload                                                     0.48s  
+  ✓ guest cannot set the audit status through the payload                                                        0.26s  
+  ✓ guest second audit is refused and creates nothing                                                            0.25s  
+  ✓ guest cannot reuse its free audit by varying the url spelling                                                0.25s  
+  ✓ audit creation is rate limited                                                                               0.27s  
+
+   PASS  Tests\Feature\Share\ReportSharingTest
+  ✓ the owner can create a share and the url carries no audit id                                                 0.12s  
+  ✓ the token is stored hashed never in plaintext                                                                0.21s  
+  ✓ the password is stored hashed                                                                                0.11s  
+  ✓ a share cannot be created without a password                                                                 0.17s  
+  ✓ the url is returned once and never again                                                                     0.13s  
+  ✓ a stranger cannot create a share on someone elses audit                                                      0.07s  
+  ✓ an anonymous caller cannot create a share                                                                    0.06s  
+  ✓ a plan without sharing cannot create one                                                                     0.07s  
+  ✓ a lapsed subscription loses sharing                                                                          0.07s  
+  ✓ a valid password unlocks the report                                                                          0.10s  
+  ✓ an invalid password is refused and yields no access                                                          0.10s  
+  ✓ nothing about the report is returned before the password                                                     0.09s  
+  ✓ the report cannot be read without unlocking                                                                  0.08s  
+  ✓ repeated invalid passwords lock the link                                                                     0.11s  
+  ✓ a successful unlock clears earlier failures                                                                  0.12s  
+  ✓ a revoked link stops working                                                                                 0.12s  
+  ✓ an expired link stops working                                                                                0.09s  
+  ✓ regenerating kills the old url and keeps the history                                                         0.10s  
+  ✓ the password can be changed and the old one stops working                                                    0.09s  
+  ✓ an unknown token is indistinguishable from a revoked one                                                     0.09s  
+  ✓ a malformed token never reaches the database                                                                 0.08s  
+  ✓ tokens are unique and high entropy                                                                           0.07s  
+  ✓ an access token for one share does not unlock another                                                        0.12s  
+  ✓ a share of one audit cannot read another audits screenshots                                                  0.10s  
+  ✓ a forged access token is refused                                                                             0.28s  
+  ✓ pdf download is refused when the share disallows it                                                          0.10s  
+  ✓ pdf download works when the share allows it                                                                  0.34s  
+  ✓ a share cannot grant a pdf the owners plan does not allow                                                    0.10s  
+  ✓ screenshots are withheld when the share disallows them                                                       0.10s  
+  ✓ screenshots load when the share allows them                                                                  0.10s  
+  ✓ recommendations are withheld when the share disallows them                                                   0.32s  
+  ✓ a share recipient cannot use the owners endpoints                                                            0.12s  
+  ✓ the share access token is not accepted as a bearer token                                                     0.09s  
+  ✓ every shared response tells crawlers to stay away                                                            0.36s  
+  ✓ every named event is recorded                                                                                0.36s  
+  ✓ the owner can see failed attempts on their share                                                             0.10s  
+  ✓ the history survives the share being deleted                                                                 0.08s  
+
+   PASS  Tests\Feature\UniqueConstraintsTest
+  ✓ audit scores rejects a duplicate category for the same audit                                                 0.08s  
+  ✓ ai analyses rejects a duplicate cache key                                                                    0.06s  
+
+   PASS  Tests\Feature\WebsiteDeduplicationMigrationTest
+  ✓ the column is renamed and the new fields exist                                                               7.10s  
+  ✓ existing rows are backfilled with a normalized domain and a name                                           108.61s  
+  ✓ duplicate rows for one user are merged onto the earliest                                                   114.69s  
+  ✓ two users with the same domain are not merged together                                                     117.01s  
+  ✓ anonymous rows are left alone                                                                              112.51s  
+  ✓ usage logs are repointed at the surviving website                                                          100.86s  
+  ✓ a duplicates schedule is moved and the surplus dropped                                                      94.24s  
+  ✓ a schedule on the survivor wins and the duplicates is dropped                                               90.65s  
+  ✓ the unique index is in place after the merge                                                               103.16s  
+
+  Tests:    1017 passed (2577 assertions)
+  Duration: 1390.52s
+

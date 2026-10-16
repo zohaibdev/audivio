@@ -38,6 +38,16 @@ class AdminApiUsageController extends Controller
             'total_tokens' => (int) ($totals->total_tokens ?? 0),
             'estimated_cost' => round((float) ($totals->estimated_cost ?? 0), 4),
             'average_response_time_ms' => $totals->average_response_time_ms !== null ? round((float) $totals->average_response_time_ms) : null,
+
+            // Deliberately outside the date filter: "how much have we
+            // spent today and this month" is a question about now, and
+            // answering it from whatever range the admin happened to have
+            // selected would give a number that looks absolute but isn't
+            // (§53).
+            'requests_today' => ApiUsageLog::whereDate('created_at', now()->toDateString())->count(),
+            'requests_this_month' => ApiUsageLog::whereYear('created_at', now()->year)
+                ->whereMonth('created_at', now()->month)
+                ->count(),
         ]);
     }
 
@@ -66,6 +76,30 @@ class AdminApiUsageController extends Controller
                 'avg(response_time_ms) as average_response_time_ms'
             )
             ->groupBy('provider')
+            ->get();
+
+        return ApiResponse::success($rows);
+    }
+
+    /**
+     * Usage grouped by the model actually called (§53).
+     *
+     * `model` was recorded from the start but never reported on, so there
+     * was no way to see whether cheap models were being used for the work
+     * that should be cheap — which is the whole point of tiering them.
+     */
+    public function byModel(Request $request): JsonResponse
+    {
+        $rows = $this->filtered($request)
+            ->whereNotNull('model')
+            ->selectRaw(
+                'model, provider, count(*) as requests, '.
+                'sum(case when success = 0 then 1 else 0 end) as failures, '.
+                'sum(total_tokens) as total_tokens, sum(estimated_cost) as estimated_cost, '.
+                'avg(response_time_ms) as average_response_time_ms'
+            )
+            ->groupBy('model', 'provider')
+            ->orderByDesc('requests')
             ->get();
 
         return ApiResponse::success($rows);

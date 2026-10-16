@@ -96,15 +96,15 @@ export function ProviderCard({ provider, onUpdated }: { provider: ApiProviderSum
 
   return (
     <Card>
-      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-4 dark:border-slate-800">
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-4 dark:border-line">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="font-semibold text-slate-900 dark:text-white">{provider.name}</h2>
+            <h2 className="font-semibold text-ink">{provider.name}</h2>
             <Badge tone={isAi ? 'purple' : 'blue'}>{provider.provider_type}</Badge>
             <Badge tone={provider.is_enabled ? 'green' : 'gray'}>{provider.is_enabled ? 'Enabled' : 'Disabled'}</Badge>
             <Badge tone={provider.is_configured ? 'blue' : 'yellow'}>{provider.is_configured ? 'Configured' : 'Not configured'}</Badge>
           </div>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-xs text-muted">
             Key: {provider.masked_key ?? 'not set'} {provider.model && `· Model: ${provider.model}`}
           </p>
         </div>
@@ -113,28 +113,28 @@ export function ProviderCard({ provider, onUpdated }: { provider: ApiProviderSum
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 border-b border-slate-100 py-4 text-sm dark:border-slate-800 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 border-b border-slate-100 py-4 text-sm dark:border-line sm:grid-cols-4">
         <div>
-          <p className="text-xs text-slate-400">Requests today</p>
-          <p className="font-medium text-slate-900 dark:text-white">
+          <p className="text-xs text-faint">Requests today</p>
+          <p className="font-medium text-ink">
             {provider.requests_today}
             {provider.daily_limit !== null && ` / ${provider.daily_limit}`}
           </p>
         </div>
         <div>
-          <p className="text-xs text-slate-400">Requests this month</p>
-          <p className="font-medium text-slate-900 dark:text-white">
+          <p className="text-xs text-faint">Requests this month</p>
+          <p className="font-medium text-ink">
             {provider.requests_this_month}
             {provider.monthly_limit !== null && ` / ${provider.monthly_limit}`}
           </p>
         </div>
         <div>
-          <p className="text-xs text-slate-400">Failures today</p>
-          <p className="font-medium text-slate-900 dark:text-white">{provider.failures_today}</p>
+          <p className="text-xs text-faint">Failures today</p>
+          <p className="font-medium text-ink">{provider.failures_today}</p>
         </div>
         <div>
-          <p className="text-xs text-slate-400">Last success / failure</p>
-          <p className="font-medium text-slate-900 dark:text-white">
+          <p className="text-xs text-faint">Last success / failure</p>
+          <p className="font-medium text-ink">
             {provider.last_success_at ? new Date(provider.last_success_at).toLocaleString() : '—'}
             {provider.last_failure_at && (
               <span className="block text-red-500">Failed: {new Date(provider.last_failure_at).toLocaleString()}</span>
@@ -147,7 +147,7 @@ export function ProviderCard({ provider, onUpdated }: { provider: ApiProviderSum
         <Input label="API Key" type="password" placeholder="Leave blank to keep current key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
         {isAi && catalogModels.length > 0 && (
           <div className="flex flex-col gap-1">
-            <label htmlFor="active-model" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            <label htmlFor="active-model" className="text-sm font-medium text-muted">
               Active model
             </label>
             <select
@@ -175,11 +175,11 @@ export function ProviderCard({ provider, onUpdated }: { provider: ApiProviderSum
         {isAi && <Input label="Monthly Request Limit" type="number" placeholder="No limit" value={monthlyLimit} onChange={(e) => setMonthlyLimit(e.target.value)} />}
         {isPageSpeed && (
           <div className="flex items-center gap-6 sm:col-span-2">
-            <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+            <label className="flex items-center gap-2 text-sm text-muted">
               <input type="checkbox" checked={mobileEnabled} onChange={(e) => setMobileEnabled(e.target.checked)} />
               Mobile strategy
             </label>
-            <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+            <label className="flex items-center gap-2 text-sm text-muted">
               <input type="checkbox" checked={desktopEnabled} onChange={(e) => setDesktopEnabled(e.target.checked)} />
               Desktop strategy
             </label>

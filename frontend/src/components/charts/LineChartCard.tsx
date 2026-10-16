@@ -15,7 +15,7 @@ export function LineChartCard({
 }) {
   return (
     <Card>
-      <h3 className="mb-4 text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</h3>
+      <h3 className="mb-4 text-sm font-semibold text-ink">{title}</h3>
       {data.length === 0 ? (
         <EmptyState title="No data yet" description="This chart will populate once requests start coming in." />
       ) : (

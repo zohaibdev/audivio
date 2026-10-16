@@ -7,8 +7,8 @@ const STATUS_STYLES: Record<ServiceStatus, { ring: string; text: string; label: 
   poor: { ring: 'text-red-500', text: 'text-red-700 dark:text-red-400', label: 'Poor' },
   // Deliberately not green: a partial score means most of the assessment
   // did not run, so it must never look like a pass at a glance.
-  partial: { ring: 'text-slate-400', text: 'text-slate-600 dark:text-slate-300', label: 'Incomplete' },
-  not_applicable: { ring: 'text-slate-300', text: 'text-slate-500 dark:text-slate-400', label: 'Not applicable' },
+  partial: { ring: 'text-faint', text: 'text-muted', label: 'Incomplete' },
+  not_applicable: { ring: 'text-slate-300', text: 'text-muted', label: 'Not applicable' },
 };
 
 function ScoreRing({ score, status }: { score: number | null; status: ServiceStatus }) {
@@ -49,28 +49,28 @@ export function ServiceScoreCard({ report, auditId }: { report: ServiceReport; a
   return (
     <Link
       to={`/audits/${auditId}/report/${report.service}`}
-      className="flex gap-4 rounded-xl border border-slate-200 bg-white p-5 transition hover:border-indigo-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700"
+      className="flex gap-4 rounded-xl border border-line bg-white p-5 transition hover:border-indigo-300 hover:shadow-sm dark:border-line dark:bg-slate-900 dark:hover:border-indigo-700"
     >
       <ScoreRing score={report.score} status={report.status} />
       <div className="min-w-0 flex-1">
-        <h3 className="font-semibold text-slate-900 dark:text-white">{report.name}</h3>
+        <h3 className="font-semibold text-ink">{report.name}</h3>
         <p className={`text-sm font-medium ${style.text}`}>{style.label}</p>
 
         {report.is_applicable ? (
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-muted">
             {counts.total === 0
               ? 'No issues found'
               : `${counts.total} issue${counts.total === 1 ? '' : 's'}${criticalish > 0 ? ` · ${criticalish} need attention` : ''}`}
           </p>
         ) : (
-          <p className="mt-1 line-clamp-2 text-sm text-slate-500 dark:text-slate-400">{report.not_applicable_reason}</p>
+          <p className="mt-1 line-clamp-2 text-sm text-muted">{report.not_applicable_reason}</p>
         )}
 
         {report.confidence === 'partial' && (
           <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400">Incomplete — AI checks did not run</p>
         )}
 
-        <span className="mt-2 inline-block text-sm font-medium text-indigo-600 dark:text-indigo-400">View report →</span>
+        <span className="mt-2 inline-block text-sm font-medium text-brand">View report →</span>
       </div>
     </Link>
   );

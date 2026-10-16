@@ -1,0 +1,24 @@
+
+   WARN  Metadata found in doc-comment for method Tests\Feature\Security\AuditUrlSecurityTest::test_unsafe_url_is_rejected_by_the_api(). Metadata in doc-comments is deprecated and will no longer be supported in PHPUnit 12. Update your test code to use attributes instead.
+
+   PASS  Tests\Unit\Services\AI\ProvidersTest
+  ✓ a failed test connection still reports how long it took                                                    186.74s  
+  ✓ every provider reports a failed calls duration                                                               0.20s  
+  ✓ claude provider parses response and usage                                                                    0.11s  
+  ✓ claude provider appends context as json                                                                      0.10s  
+  ✓ claude provider throws without api key                                                                       0.03s  
+  ✓ claude provider throws when disabled                                                                         0.16s  
+  ✓ claude provider throws on error status                                                                       0.28s  
+  ✓ claude provider records failure on the provider row                                                          0.08s  
+  ✓ openai provider parses response and usage                                                                    0.10s  
+  ✓ openai provider throws without api key                                                                       0.03s  
+  ✓ openai provider throws on error status                                                                       0.07s  
+  ✓ gemini provider parses response and usage                                                                    0.09s  
+  ✓ gemini provider throws without api key                                                                       0.05s  
+  ✓ gemini provider throws on error status                                                                       0.13s  
+  ✓ claude test connection succeeds even when disabled                                                           0.12s  
+  ✓ claude test connection fails safely without a key                                                            0.04s  
+
+  Tests:    16 passed (38 assertions)
+  Duration: 188.72s
+

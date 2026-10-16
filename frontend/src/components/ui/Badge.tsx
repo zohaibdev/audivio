@@ -30,11 +30,15 @@ export function SeverityBadge({ severity }: { severity: string }) {
 }
 
 const statusTone: Record<string, BadgeTone> = {
-  pending: 'gray',
+  queued: 'gray',
+  validating: 'blue',
   crawling: 'blue',
   analyzing: 'blue',
+  generating_report: 'blue',
   completed: 'green',
   failed: 'red',
+  // Amber, not red: the user asked for this, so it is not a fault.
+  cancelled: 'yellow',
 };
 
 export function StatusBadge({ status }: { status: string }) {

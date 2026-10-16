@@ -12,6 +12,8 @@ class AiAnalysis extends Model
         'audit_id',
         'category',
         'provider',
+        'model',
+        'prompt_version',
         'context_hash',
         'context',
         'prompt',

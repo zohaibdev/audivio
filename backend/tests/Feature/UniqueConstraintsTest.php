@@ -24,7 +24,7 @@ class UniqueConstraintsTest extends TestCase
 
     public function test_audit_scores_rejects_a_duplicate_category_for_the_same_audit(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         AuditScore::create(['audit_id' => $audit->id, 'category' => 'seo', 'score' => 80]);
 
@@ -35,7 +35,7 @@ class UniqueConstraintsTest extends TestCase
 
     public function test_ai_analyses_rejects_a_duplicate_cache_key(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         AiAnalysis::create(['audit_id' => $audit->id, 'category' => 'aio', 'provider' => 'claude', 'context_hash' => 'abc', 'prompt' => 'x']);
 

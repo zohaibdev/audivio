@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Contracts\BacklinkProvider;
+use App\Services\Backlink\NullBacklinkProvider;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Schema\Builder;
 use Illuminate\Foundation\Http\Events\RequestHandled;
@@ -17,7 +19,21 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Backlink data comes from a third-party index or from nowhere
+        // (§44). The default binding is the null provider, so "no
+        // provider configured" is a normal state the audit reports rather
+        // than an unbound dependency that explodes mid-run.
+        $this->app->bind(BacklinkProvider::class, function () {
+            $driver = config('backlinks.driver', 'null');
+            $providers = config('backlinks.providers', []);
+
+            // An unknown driver name falls back to null rather than
+            // throwing: a typo in an env var must not take audits down,
+            // and reporting "no backlink data" is always safe.
+            $class = $providers[$driver] ?? NullBacklinkProvider::class;
+
+            return $this->app->make($class);
+        });
     }
 
     /**

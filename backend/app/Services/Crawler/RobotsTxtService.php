@@ -2,50 +2,51 @@
 
 namespace App\Services\Crawler;
 
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class RobotsTxtService
 {
     public function __construct(
-        private readonly UrlSecurityValidator $validator,
+        private readonly SafeHttpClient $http,
+        private readonly UrlNormalizer $normalizer,
     ) {}
 
     /**
-     * @return array{disallow: string[], sitemaps: string[]}
+     * `found` is a three-state answer (§44): true when robots.txt was
+     * fetched, false when the request completed and there was nothing
+     * there, and null when the request itself failed. The SEO audit
+     * reports the last of those as "could not check", never as "missing" —
+     * sending an owner to create a file that already exists is worse than
+     * saying nothing.
+     *
+     * @return array{disallow: string[], sitemaps: string[], found: bool|null, url: string|null}
      */
     public function fetch(string $baseUrl): array
     {
-        $robotsUrl = $this->buildRobotsUrl($baseUrl);
+        $robotsUrl = null;
 
         try {
-            $this->validator->assertSafe($robotsUrl);
-            $response = Http::withUserAgent(config('crawler.user_agent'))
-                ->timeout(config('crawler.request_timeout'))
-                ->get($robotsUrl);
+            $robotsUrl = $this->buildRobotsUrl($baseUrl);
+            $result = $this->http->get($robotsUrl);
         } catch (\Throwable $e) {
             Log::channel('crawler')->info('robots.txt unavailable, proceeding without it', [
-                'url' => $robotsUrl,
+                'url' => $robotsUrl ?? $baseUrl,
                 'error' => $e->getMessage(),
             ]);
 
-            return ['disallow' => [], 'sitemaps' => []];
+            return ['disallow' => [], 'sitemaps' => [], 'found' => null, 'url' => $robotsUrl];
         }
 
-        if (! $response->successful()) {
-            return ['disallow' => [], 'sitemaps' => []];
+        if ($result === null) {
+            return ['disallow' => [], 'sitemaps' => [], 'found' => false, 'url' => $robotsUrl];
         }
 
-        return $this->parse($response->body());
+        return $this->parse($result['body']) + ['found' => true, 'url' => $robotsUrl];
     }
 
     private function buildRobotsUrl(string $baseUrl): string
     {
-        $parts = parse_url($baseUrl);
-        $scheme = $parts['scheme'] ?? 'https';
-        $host = $parts['host'] ?? '';
-
-        return "{$scheme}://{$host}/robots.txt";
+        return $this->normalizer->origin($baseUrl).'/robots.txt';
     }
 
     /**

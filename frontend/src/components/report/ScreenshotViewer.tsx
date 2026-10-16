@@ -1,14 +1,5 @@
 import { useState } from 'react';
-
-/**
- * Screenshots are stored on Laravel's `public` disk and served from
- * /storage — derived from the API base URL rather than configured
- * separately, so a deployment only has one URL to set.
- */
-function storageUrl(path: string): string {
-  const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api';
-  return `${apiBase.replace(/\/api\/?$/, '')}/storage/${path.replace(/^\/+/, '')}`;
-}
+import { AuthenticatedImage } from '../ui/AuthenticatedImage';
 
 type Viewport = 'mobile' | 'desktop';
 
@@ -31,7 +22,7 @@ export function ScreenshotViewer({
   if (available.length === 0) {
     // A failed capture must read as unavailable, never as a broken image.
     return (
-      <p className="rounded-md bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
+      <p className="rounded-md bg-slate-50 p-3 text-xs text-muted dark:bg-slate-800/50 dark:text-faint">
         No screenshot was captured for this page.
       </p>
     );
@@ -50,7 +41,7 @@ export function ScreenshotViewer({
             className={`rounded-md px-2.5 py-1 text-xs font-medium capitalize transition ${
               viewport === v
                 ? 'bg-indigo-600 text-white'
-                : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                : 'text-muted hover:bg-slate-100 dark:text-faint dark:hover:bg-slate-800'
             }`}
           >
             {v}
@@ -59,11 +50,13 @@ export function ScreenshotViewer({
         ))}
       </div>
       {active && (
-        <img
-          src={storageUrl(active)}
+        // The API sends an absolute signed URL since §48, not a storage
+        // path — and it needs the auth header, which an <img> cannot
+        // send.
+        <AuthenticatedImage
+          src={active}
           alt={`${viewport} screenshot of ${alt}`}
-          loading="lazy"
-          className={`rounded-md border border-slate-200 dark:border-slate-700 ${
+          className={`rounded-md border border-line ${
             viewport === 'mobile' ? 'max-h-96 w-auto' : 'max-h-96 w-full object-contain object-top'
           }`}
         />

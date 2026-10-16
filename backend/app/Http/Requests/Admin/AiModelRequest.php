@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Enums\AiTaskComplexity;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -34,6 +35,11 @@ class AiModelRequest extends FormRequest
                     ->ignore($aiModelId),
             ],
             'display_name' => [$this->isMethod('post') ? 'required' : 'sometimes', 'string', 'max:255'],
+            // What the model is fit for (§53). Not nullable and not
+            // free text: an unclassified model would be silently skipped
+            // by tier selection, and a typo'd one would be worse — it
+            // would look configured while never being picked.
+            'tier' => ['sometimes', Rule::enum(AiTaskComplexity::class)],
             'description' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'is_enabled' => ['sometimes', 'boolean'],
             'input_cost_per_1k_tokens' => ['sometimes', 'nullable', 'numeric', 'min:0'],

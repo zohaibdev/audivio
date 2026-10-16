@@ -17,6 +17,8 @@ class ConversionAuditModule implements AuditModule
 
     public function __construct(
         private readonly AiAnalysisService $ai,
+        private readonly ConversionSignalDetector $signals,
+        private readonly ConversionSignalChecks $checks,
     ) {}
 
     public function category(): AuditCategory
@@ -33,6 +35,14 @@ class ConversionAuditModule implements AuditModule
             $issues = array_merge($issues, $this->checkFormFriction($page));
         }
 
+        // The countable half of the CRO assessment (§46): CTA presence and
+        // clarity, form length, navigation breadth, trust routes, social
+        // proof and mobile signals. Deterministic, so these still land
+        // when the AI provider is unavailable — which is exactly when a
+        // report is otherwise at its thinnest.
+        $signals = $this->signals->detect($audit);
+        $issues = array_merge($issues, $this->checks->croIssues($audit, $signals));
+
         $aiResponse = $this->ai->analyze(
             $audit,
             $this->category(),
@@ -45,6 +55,10 @@ class ConversionAuditModule implements AuditModule
         }
 
         [$score, $breakdown] = ScoreCalculator::deductPoints($issues);
+
+        // Carried whether or not they produced a finding, so the report
+        // can show every CRO area rather than only the failing ones.
+        $breakdown['signals'] = $signals;
 
         return new AuditModuleResult(category: $this->category(), score: $score, issues: $issues, breakdown: $breakdown);
     }

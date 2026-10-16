@@ -12,8 +12,11 @@ interface AiProvider
      * response shapes past this boundary.
      *
      * @param  array<string, mixed>  $context  Pre-extracted, minimal context — never raw full-page HTML.
+     * @param  string|null  $model  Overrides the provider's configured model for this one
+     *                              request, so a simple task can be served by a cheaper
+     *                              model (§53). Null keeps the configured one.
      */
-    public function analyze(string $prompt, array $context = []): AiResponse;
+    public function analyze(string $prompt, array $context = [], ?string $model = null): AiResponse;
 
     public function name(): string;
 

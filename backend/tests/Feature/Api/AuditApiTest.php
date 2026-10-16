@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\DTOs\CrawledPageData;
 use App\Models\Audit;
+use App\Models\Feature;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;
@@ -62,24 +63,45 @@ class AuditApiTest extends TestCase
             $plan->update(['features' => $features]);
         }
 
+        // Every audit service enabled on the plan.
+        //
+        // These tests are about access control, not feature gating, and
+        // they used to leave the pivot empty — which meant no module ran
+        // and the audit completed with a fabricated overall score of 0.
+        // Since §56 that case fails the audit instead, so a plan with
+        // nothing enabled produces no report for these tests to fetch.
+        // Enabling the services makes the setup say what it always meant.
+        $this->enableAllAuditFeatures($plan);
+
         $user = User::create(['name' => 'Ada', 'email' => $email, 'password' => 'x']);
         Subscription::create(['user_id' => $user->id, 'plan_id' => $plan->id, 'started_at' => now()]);
 
         return $user;
     }
 
+    private function enableAllAuditFeatures(Plan $plan): void
+    {
+        $ids = [];
+
+        foreach (['performance', 'accessibility', 'cro', 'seo', 'aio', 'ecommerce', 'product_auditor'] as $key) {
+            $ids[] = Feature::firstOrCreate(['key' => $key], ['name' => ucfirst($key), 'is_enabled' => true])->id;
+        }
+
+        $plan->auditFeatures()->syncWithoutDetaching($ids);
+    }
+
     public function test_anonymous_visitor_can_create_an_audit(): void
     {
         $response = $this->postJson('/api/audits', ['url' => 'https://example.com']);
 
-        // 'pending' is the correct response here regardless of what the
+        // 'queued' is the correct response here regardless of what the
         // sync queue driver happens to do under the hood in tests — a 202
         // Accepted response reflects the state at acceptance, not
         // whatever a background worker gets to next. Real async
         // processing (redis in production) means this MUST stay
-        // 'pending' at this point; a client polls GET /api/audits/{id}
+        // 'queued' at this point; a client polls GET /api/audits/{id}
         // for progress (see test_show_returns_audit_status).
-        $response->assertStatus(202)->assertJsonPath('data.status', 'pending');
+        $response->assertStatus(202)->assertJsonPath('data.status', 'queued');
         $this->assertDatabaseHas('audits', ['id' => $response->json('data.audit_id')]);
     }
 
@@ -93,7 +115,7 @@ class AuditApiTest extends TestCase
 
     public function test_anonymous_audit_is_capped_at_the_configured_anonymous_page_limit(): void
     {
-        config(['audit_limits.anonymous_max_pages' => 5]);
+        config(['entitlements.guest.max_pages' => 5]);
 
         $response = $this->postJson('/api/audits', ['url' => 'https://example.com']);
 
@@ -370,7 +392,7 @@ class AuditApiTest extends TestCase
 
     public function test_pdf_export_returns_404_when_the_report_is_not_ready(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'crawling', 'max_pages' => 5]);
 
         $this->getJson("/api/audits/{$audit->id}/report/pdf")->assertStatus(404);

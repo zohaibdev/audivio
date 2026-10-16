@@ -4,6 +4,8 @@ namespace App\Services\Provider;
 
 use App\Models\ApiProvider;
 use App\Services\AI\AiProviderException;
+use App\Services\Audit\AuditLifecycle;
+use Illuminate\Support\Str;
 
 /**
  * Shared "is this provider usable right now" check for every provider
@@ -48,6 +50,6 @@ class ProviderResolver
 
     public function recordFailure(ApiProvider $provider, string $message): void
     {
-        $provider->update(['last_failure_at' => now(), 'last_error' => substr($message, 0, 250)]);
+        $provider->update(['last_failure_at' => now(), 'last_error' => Str::limit($message, AuditLifecycle::MAX_ERROR_MESSAGE)]);
     }
 }

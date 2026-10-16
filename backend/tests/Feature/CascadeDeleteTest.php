@@ -42,7 +42,7 @@ class CascadeDeleteTest extends TestCase
 
     public function test_deleting_a_website_cascades_to_its_audits(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
 
         $website->delete();
@@ -53,7 +53,7 @@ class CascadeDeleteTest extends TestCase
     public function test_deleting_a_user_nulls_the_websites_user_id_instead_of_deleting_the_website(): void
     {
         $user = User::create(['name' => 'Test', 'email' => 'test@example.com', 'password' => 'x']);
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
 
         $user->delete();
 
@@ -63,7 +63,7 @@ class CascadeDeleteTest extends TestCase
 
     public function test_deleting_an_audit_cascades_to_its_crawl_job_pages_issues_and_scores(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
 
         $crawlJob = CrawlJob::create(['audit_id' => $audit->id, 'status' => 'completed']);
@@ -85,7 +85,7 @@ class CascadeDeleteTest extends TestCase
 
     public function test_deleting_a_crawl_job_cascades_to_its_crawl_urls(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         $crawlJob = CrawlJob::create(['audit_id' => $audit->id, 'status' => 'completed']);
         $url = CrawlUrl::create(['crawl_job_id' => $crawlJob->id, 'url' => 'https://example.com/', 'status' => 'completed']);
@@ -97,7 +97,7 @@ class CascadeDeleteTest extends TestCase
 
     public function test_deleting_a_crawl_url_nulls_the_audit_pages_crawl_url_id_instead_of_deleting_the_page(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         $crawlJob = CrawlJob::create(['audit_id' => $audit->id, 'status' => 'completed']);
         $url = CrawlUrl::create(['crawl_job_id' => $crawlJob->id, 'url' => 'https://example.com/', 'status' => 'completed']);
@@ -111,7 +111,7 @@ class CascadeDeleteTest extends TestCase
 
     public function test_deleting_an_audit_page_cascades_to_its_issues(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         $page = AuditPage::create(['audit_id' => $audit->id, 'url' => 'https://example.com/', 'http_status' => 200]);
         $pageIssue = AuditIssue::create(['audit_id' => $audit->id, 'audit_page_id' => $page->id, 'category' => 'seo', 'severity' => 'medium', 'code' => 'x', 'message' => 'x']);
@@ -126,7 +126,7 @@ class CascadeDeleteTest extends TestCase
 
     public function test_no_orphaned_crawl_urls_remain_after_deleting_the_owning_audit(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         $crawlJob = CrawlJob::create(['audit_id' => $audit->id, 'status' => 'completed']);
         CrawlUrl::create(['crawl_job_id' => $crawlJob->id, 'url' => 'https://example.com/', 'status' => 'completed']);
@@ -176,7 +176,7 @@ class CascadeDeleteTest extends TestCase
 
     public function test_deleting_a_website_or_audit_nulls_the_usage_logs_references_instead_of_deleting_the_log(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         $log = UsageLog::create(['ip_address' => '203.0.113.1', 'action' => 'audit_created', 'website_id' => $website->id, 'audit_id' => $audit->id]);
 
@@ -200,7 +200,7 @@ class CascadeDeleteTest extends TestCase
 
     public function test_deleting_an_audit_nulls_the_leads_audit_id_instead_of_deleting_the_lead(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         $lead = Lead::create(['audit_id' => $audit->id, 'name' => 'A', 'email' => 'a@example.com', 'source' => 'request_audit_review']);
 
@@ -235,7 +235,7 @@ class CascadeDeleteTest extends TestCase
     public function test_deleting_a_user_cascades_to_their_audit_schedules(): void
     {
         $user = User::create(['name' => 'Test', 'email' => 'test@example.com', 'password' => 'x']);
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $schedule = AuditSchedule::create([
             'user_id' => $user->id,
             'website_id' => $website->id,
@@ -251,7 +251,7 @@ class CascadeDeleteTest extends TestCase
     public function test_deleting_a_website_cascades_to_its_audit_schedules(): void
     {
         $user = User::create(['name' => 'Test', 'email' => 'test@example.com', 'password' => 'x']);
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $schedule = AuditSchedule::create([
             'user_id' => $user->id,
             'website_id' => $website->id,
@@ -277,7 +277,7 @@ class CascadeDeleteTest extends TestCase
 
     public function test_deleting_an_audit_nulls_the_api_usage_logs_audit_id_instead_of_deleting_the_log(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         $log = ApiUsageLog::create(['provider' => 'claude', 'service' => 'ai_analysis', 'success' => true, 'audit_id' => $audit->id]);
 
@@ -335,7 +335,7 @@ class CascadeDeleteTest extends TestCase
 
     public function test_deleting_an_audit_cascades_to_its_screenshots(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         $page = AuditPage::create(['audit_id' => $audit->id, 'url' => 'https://example.com/', 'http_status' => 200]);
         $screenshot = Screenshot::create(['audit_id' => $audit->id, 'audit_page_id' => $page->id, 'viewport' => 'desktop', 'width' => 1366, 'height' => 900, 'storage_path' => 'screenshots/1/1/desktop.png']);
@@ -347,7 +347,7 @@ class CascadeDeleteTest extends TestCase
 
     public function test_deleting_an_audit_issue_cascades_to_its_issue_pages_pivot_rows(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         $page = AuditPage::create(['audit_id' => $audit->id, 'url' => 'https://example.com/', 'http_status' => 200]);
         $issue = AuditIssue::create(['audit_id' => $audit->id, 'category' => 'seo', 'severity' => 'medium', 'code' => 'seo.test', 'message' => 'x']);
@@ -360,7 +360,7 @@ class CascadeDeleteTest extends TestCase
 
     public function test_deleting_a_page_cascades_to_its_issue_pages_pivot_rows(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         $page = AuditPage::create(['audit_id' => $audit->id, 'url' => 'https://example.com/', 'http_status' => 200]);
         $issue = AuditIssue::create(['audit_id' => $audit->id, 'category' => 'seo', 'severity' => 'medium', 'code' => 'seo.test', 'message' => 'x']);

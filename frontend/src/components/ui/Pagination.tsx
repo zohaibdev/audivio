@@ -10,8 +10,8 @@ export function Pagination({
   onChange: (page: number) => void;
 }) {
   return (
-    <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm dark:border-slate-800">
-      <span className="text-slate-500 dark:text-slate-400">
+    <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm dark:border-line">
+      <span className="text-muted">
         Page {currentPage} of {lastPage} — {total} total
       </span>
       <div className="flex gap-2">

@@ -206,16 +206,16 @@ export function AdminPlansPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Pricing Plans</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Audit features, AI models, and usage limits per plan.</p>
+          <h1 className="text-2xl font-bold text-ink">Pricing Plans</h1>
+          <p className="mt-1 text-sm text-muted">Audit features, AI models, and usage limits per plan.</p>
         </div>
         <Button onClick={openCreate}>New plan</Button>
       </div>
 
       {allFeatures && allFeatures.length > 0 && (
         <Card>
-          <h2 className="mb-1 text-sm font-semibold text-slate-700 dark:text-slate-200">Global feature registry</h2>
-          <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+          <h2 className="mb-1 text-sm font-semibold text-ink">Global feature registry</h2>
+          <p className="mb-3 text-xs text-muted">
             Disabling a feature here removes it from every plan immediately, even ones that individually enable it.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -238,9 +238,9 @@ export function AdminPlansPage() {
       {plans && plans.length === 0 && <EmptyState title="No plans configured" />}
 
       {plans && plans.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+        <div className="overflow-x-auto rounded-xl border border-line">
           <table className="w-full min-w-[900px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
+            <thead className="bg-slate-50 text-xs uppercase text-muted dark:bg-slate-800/50 dark:text-faint">
               <tr>
                 <th className="px-4 py-3">Plan</th>
                 <th className="px-4 py-3">Price</th>
@@ -252,19 +252,19 @@ export function AdminPlansPage() {
                 <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+            <tbody className="divide-y divide-line bg-white dark:divide-line dark:bg-slate-900">
               {plans.map((plan) => {
                 const enabledFeatureCount = (plan.audit_features ?? []).filter((f) => f.pivot.is_enabled).length;
                 return (
                   <tr key={plan.id}>
-                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
+                    <td className="px-4 py-3 font-medium text-ink">
                       {plan.name} {plan.is_default && <Badge tone="blue">Default</Badge>}
                     </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">${(plan.price_cents / 100).toFixed(0)}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{plan.subscriptions_count ?? 0}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{enabledFeatureCount}/{allFeatures?.length ?? 7}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{plan.allowed_ai_models?.length ?? 0}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{plan.daily_audit_limit}/day</td>
+                    <td className="px-4 py-3 text-muted">${(plan.price_cents / 100).toFixed(0)}</td>
+                    <td className="px-4 py-3 text-muted">{plan.subscriptions_count ?? 0}</td>
+                    <td className="px-4 py-3 text-muted">{enabledFeatureCount}/{allFeatures?.length ?? 7}</td>
+                    <td className="px-4 py-3 text-muted">{plan.allowed_ai_models?.length ?? 0}</td>
+                    <td className="px-4 py-3 text-muted">{plan.daily_audit_limit}/day</td>
                     <td className="px-4 py-3">
                       <Badge tone={plan.is_active ? 'green' : 'gray'}>{plan.is_active ? 'Active' : 'Disabled'}</Badge>
                     </td>
@@ -288,21 +288,21 @@ export function AdminPlansPage() {
         <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 pt-10">
           <Card className="w-full max-w-3xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{editingId ? 'Edit plan' : 'New plan'}</h2>
-              <button onClick={closeEditor} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Close">
+              <h2 className="text-lg font-semibold text-ink">{editingId ? 'Edit plan' : 'New plan'}</h2>
+              <button onClick={closeEditor} className="text-faint hover:text-slate-600 dark:hover:text-slate-200" aria-label="Close">
                 ✕
               </button>
             </div>
 
-            <div className="mb-5 flex flex-wrap gap-1 border-b border-slate-200 dark:border-slate-800">
+            <div className="mb-5 flex flex-wrap gap-1 border-b border-line">
               {TABS.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
                   className={`rounded-t-md px-3 py-2 text-sm font-medium ${
                     activeTab === tab.key
-                      ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400'
-                      : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                      ? 'border-b-2 border-indigo-600 text-brand'
+                      : 'text-muted hover:text-slate-700 dark:text-faint dark:hover:text-slate-200'
                   }`}
                 >
                   {tab.label}
@@ -325,15 +325,15 @@ export function AdminPlansPage() {
                   value={form.price_cents}
                   onChange={(e) => setForm({ ...form, price_cents: Number(e.target.value) })}
                 />
-                <p className="self-end text-sm text-slate-500 dark:text-slate-400">= ${(form.price_cents / 100).toFixed(2)} / month</p>
+                <p className="self-end text-sm text-muted">= ${(form.price_cents / 100).toFixed(2)} / month</p>
               </div>
             )}
 
             {activeTab === 'features' && (
               <div className="flex flex-col gap-3">
-                <p className="text-sm text-slate-500 dark:text-slate-400">Enable or disable each audit type for this plan.</p>
+                <p className="text-sm text-muted">Enable or disable each audit type for this plan.</p>
                 {(allFeatures ?? []).map((feature) => (
-                  <label key={feature.key} className="flex items-start gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-800">
+                  <label key={feature.key} className="flex items-start gap-3 rounded-md border border-line p-3 dark:border-line">
                     <input
                       type="checkbox"
                       className="mt-1"
@@ -342,10 +342,10 @@ export function AdminPlansPage() {
                       onChange={(e) => setFeatureState({ ...featureState, [feature.key]: e.target.checked })}
                     />
                     <span>
-                      <span className="block text-sm font-medium text-slate-900 dark:text-white">
+                      <span className="block text-sm font-medium text-ink">
                         {feature.name} {!feature.is_enabled && <Badge tone="gray">Disabled globally</Badge>}
                       </span>
-                      {feature.description && <span className="block text-xs text-slate-500 dark:text-slate-400">{feature.description}</span>}
+                      {feature.description && <span className="block text-xs text-muted">{feature.description}</span>}
                     </span>
                   </label>
                 ))}
@@ -355,13 +355,13 @@ export function AdminPlansPage() {
 
             {activeTab === 'models' && (
               <div className="flex flex-col gap-4">
-                <p className="text-sm text-slate-500 dark:text-slate-400">Select which AI models users on this plan may use.</p>
+                <p className="text-sm text-muted">Select which AI models users on this plan may use.</p>
                 {[...modelsByProvider.entries()].map(([providerName, models]) => (
                   <div key={providerName}>
-                    <h4 className="mb-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">{providerName}</h4>
+                    <h4 className="mb-2 text-xs font-semibold uppercase text-muted">{providerName}</h4>
                     <div className="flex flex-col gap-2">
                       {models.map((model) => (
-                        <label key={model.id} className="flex items-center gap-3 rounded-md border border-slate-200 p-2 text-sm dark:border-slate-800">
+                        <label key={model.id} className="flex items-center gap-3 rounded-md border border-line p-2 text-sm dark:border-line">
                           <input
                             type="checkbox"
                             checked={selectedModelIds.includes(model.id)}
@@ -372,7 +372,7 @@ export function AdminPlansPage() {
                               )
                             }
                           />
-                          <span className="text-slate-900 dark:text-white">{model.display_name}</span>
+                          <span className="text-ink">{model.display_name}</span>
                           {!model.is_enabled && <Badge tone="gray">Disabled globally</Badge>}
                         </label>
                       ))}
@@ -385,15 +385,15 @@ export function AdminPlansPage() {
 
             {activeTab === 'access' && (
               <div className="flex flex-col gap-3">
-                <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                <label className="flex items-center gap-2 text-sm text-muted">
                   <input type="checkbox" checked={form.pdf_export} onChange={(e) => setForm({ ...form, pdf_export: e.target.checked })} />
                   PDF export
                 </label>
-                <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                <label className="flex items-center gap-2 text-sm text-muted">
                   <input type="checkbox" checked={form.scheduled_audits} onChange={(e) => setForm({ ...form, scheduled_audits: e.target.checked })} />
                   Scheduled audits
                 </label>
-                <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                <label className="flex items-center gap-2 text-sm text-muted">
                   <input type="checkbox" checked={form.audit_history} onChange={(e) => setForm({ ...form, audit_history: e.target.checked })} />
                   Audit history
                 </label>
@@ -422,7 +422,7 @@ export function AdminPlansPage() {
                   value={form.full_recrawls}
                   onChange={(e) => setForm({ ...form, full_recrawls: Number(e.target.value) })}
                 />
-                <p className="self-end text-xs text-slate-500 dark:text-slate-400 sm:col-span-2">
+                <p className="self-end text-xs text-muted sm:col-span-2">
                   There is no separate website-count cap in this MVP — a user may add any number of websites within their audit limits above.
                 </p>
               </div>
@@ -430,11 +430,11 @@ export function AdminPlansPage() {
 
             {activeTab === 'status' && (
               <div className="flex flex-col gap-3">
-                <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                <label className="flex items-center gap-2 text-sm text-muted">
                   <input type="checkbox" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} />
                   Default plan (new signups are subscribed to this plan)
                 </label>
-                <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                <label className="flex items-center gap-2 text-sm text-muted">
                   <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
                   Active (visible on the public pricing page, open to new subscriptions)
                 </label>
@@ -443,7 +443,7 @@ export function AdminPlansPage() {
 
             {formError && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{formError}</p>}
 
-            <div className="mt-6 flex gap-3 border-t border-slate-200 pt-4 dark:border-slate-800">
+            <div className="mt-6 flex gap-3 border-t border-line pt-4 dark:border-line">
               <Button onClick={handleSave} isLoading={isSaving}>
                 {editingId ? 'Save changes' : 'Create plan'}
               </Button>

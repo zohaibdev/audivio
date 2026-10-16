@@ -27,6 +27,42 @@ class ProvidersTest extends TestCase
         ]);
     }
 
+    public function test_a_failed_test_connection_still_reports_how_long_it_took(): void
+    {
+        $this->seedProvider('claude', 'claude-sonnet-5');
+        Http::fake(['api.anthropic.com/*' => Http::response('upstream is unwell', 503)]);
+
+        $result = (new ClaudeProvider)->testConnection();
+
+        // The elapsed time was always measured and then discarded, so the
+        // admin average-response-time figure silently excluded exactly the
+        // calls worth knowing the latency of: a provider that is timing
+        // out is slow before it is broken (§56).
+        $this->assertFalse($result['success']);
+        $this->assertIsInt($result['response_time_ms']);
+        $this->assertGreaterThanOrEqual(0, $result['response_time_ms']);
+    }
+
+    public function test_every_provider_reports_a_failed_calls_duration(): void
+    {
+        $this->seedProvider('claude', 'claude-sonnet-5');
+        $this->seedProvider('openai', 'gpt-5');
+        $this->seedProvider('gemini', 'gemini-3-pro');
+
+        Http::fake([
+            'api.anthropic.com/*' => Http::response('down', 500),
+            'api.openai.com/*' => Http::response('down', 500),
+            'generativelanguage.googleapis.com/*' => Http::response('down', 500),
+        ]);
+
+        foreach ([new ClaudeProvider, new OpenAiProvider, new GeminiProvider] as $provider) {
+            $result = $provider->testConnection();
+
+            $this->assertFalse($result['success'], $provider->name());
+            $this->assertIsInt($result['response_time_ms'], $provider->name());
+        }
+    }
+
     public function test_claude_provider_parses_response_and_usage(): void
     {
         $this->seedProvider('claude', 'claude-sonnet-5');

@@ -35,8 +35,8 @@ export function PricingPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-16">
-      <h1 className="text-center text-3xl font-bold text-slate-900 dark:text-white">Pricing</h1>
-      <p className="mx-auto mt-2 max-w-xl text-center text-slate-600 dark:text-slate-300">
+      <h1 className="text-center text-3xl font-bold text-ink">Pricing</h1>
+      <p className="mx-auto mt-2 max-w-xl text-center text-muted">
         Start free. Upgrade when you need higher page limits, more audit types, or scheduled audits.
       </p>
 
@@ -44,7 +44,7 @@ export function PricingPage() {
       {error && <ErrorState message={error} onRetry={load} />}
 
       {plans && plans.length === 0 && (
-        <p className="mt-10 text-center text-sm text-slate-500 dark:text-slate-400">No plans are configured yet.</p>
+        <p className="mt-10 text-center text-sm text-muted">No plans are configured yet.</p>
       )}
 
       {plans && plans.length > 0 && (
@@ -56,12 +56,12 @@ export function PricingPage() {
                 className={`rounded-xl border p-6 ${
                   plan.is_default
                     ? 'border-indigo-300 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950/40'
-                    : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
+                    : 'border-line bg-white dark:border-line dark:bg-slate-900'
                 }`}
               >
-                <h2 className="font-semibold text-slate-900 dark:text-white">{plan.name}</h2>
-                <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{formatPrice(plan.price_cents)}</p>
-                <ul className="mt-4 space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                <h2 className="font-semibold text-ink">{plan.name}</h2>
+                <p className="mt-2 text-2xl font-bold text-ink">{formatPrice(plan.price_cents)}</p>
+                <ul className="mt-4 space-y-2 text-sm text-muted">
                   <li>Up to {plan.max_pages} pages per audit</li>
                   <li>{plan.daily_audit_limit} audit(s) per day</li>
                   {plan.full_recrawls > 0 && <li>{plan.full_recrawls} full recrawl credit(s)</li>}
@@ -84,23 +84,23 @@ export function PricingPage() {
 
           {featureRows.length > 0 && (
             <div className="mt-14">
-              <h2 className="mb-4 text-center text-xl font-semibold text-slate-900 dark:text-white">Compare audit features</h2>
-              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+              <h2 className="mb-4 text-center text-xl font-semibold text-ink">Compare audit features</h2>
+              <div className="overflow-x-auto rounded-xl border border-line">
                 <table className="w-full min-w-[500px] text-left text-sm">
-                  <thead className="bg-slate-50 dark:bg-slate-800/50">
+                  <thead className="bg-surface-2">
                     <tr>
-                      <th className="px-4 py-3 font-medium text-slate-500 dark:text-slate-400">Audit type</th>
+                      <th className="px-4 py-3 font-medium text-muted">Audit type</th>
                       {plans.map((plan) => (
-                        <th key={plan.id} className="px-4 py-3 text-center font-medium text-slate-500 dark:text-slate-400">
+                        <th key={plan.id} className="px-4 py-3 text-center font-medium text-muted">
                           {plan.name}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+                  <tbody className="divide-y divide-line bg-white dark:divide-line dark:bg-slate-900">
                     {featureRows.map((feature) => (
                       <tr key={feature.key}>
-                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{feature.name}</td>
+                        <td className="px-4 py-3 text-muted">{feature.name}</td>
                         {plans.map((plan) => {
                           const included = (plan.audit_features ?? []).some((f) => f.key === feature.key);
                           return (

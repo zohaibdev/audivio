@@ -34,15 +34,15 @@ const services = [
 export function ServicesPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-16">
-      <h1 className="text-3xl font-bold text-slate-900 dark:text-white">What we audit</h1>
-      <p className="mt-2 max-w-2xl text-slate-600 dark:text-slate-300">
+      <h1 className="text-3xl font-bold text-ink">What we audit</h1>
+      <p className="mt-2 max-w-2xl text-muted">
         Every audit combines deterministic, rule-based checks with targeted AI analysis — never the other way around.
       </p>
       <div className="mt-10 grid gap-6 md:grid-cols-2">
         {services.map((service) => (
-          <div key={service.title} className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="font-semibold text-slate-900 dark:text-white">{service.title}</h2>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{service.description}</p>
+          <div key={service.title} className="rounded-xl border border-line bg-white p-6 dark:border-line dark:bg-slate-900">
+            <h2 className="font-semibold text-ink">{service.title}</h2>
+            <p className="mt-2 text-sm text-muted">{service.description}</p>
           </div>
         ))}
       </div>

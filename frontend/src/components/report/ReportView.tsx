@@ -36,7 +36,7 @@ export function ReportView({
               Separate reports for each audit area, page-by-page findings, and screenshots.
             </p>
           </div>
-          <span className="shrink-0 text-sm font-medium text-indigo-600 dark:text-indigo-400">View →</span>
+          <span className="shrink-0 text-sm font-medium text-brand">View →</span>
         </Link>
       )}
 
@@ -67,22 +67,22 @@ export function ReportView({
       {report.is_full_access && <IssueList issues={other} title="Other Issues" />}
 
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Recommendations</h2>
+        <h2 className="mb-3 text-lg font-semibold text-ink">Recommendations</h2>
         <RecommendationList recommendations={report.recommendations} />
       </div>
 
       {report.is_full_access && aiCategories.length > 0 && (
         <div>
-          <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-white">
-            AI Analysis <span className="text-sm font-normal text-slate-500">(AI-generated)</span>
+          <h2 className="mb-3 text-lg font-semibold text-ink">
+            AI Analysis <span className="text-sm font-normal text-muted">(AI-generated)</span>
           </h2>
           <div className="space-y-3">
             {aiCategories.map(([category, text]) => (
-              <div key={category} className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <div key={category} className="rounded-lg border border-line bg-white p-4 dark:border-line dark:bg-slate-900">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">
                   {category.replace('_', ' ')}
                 </p>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">{text}</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-muted">{text}</p>
               </div>
             ))}
           </div>
@@ -91,7 +91,7 @@ export function ReportView({
 
       {report.is_full_access && report.pages && report.pages.length > 0 && (
         <div>
-          <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Page-Level Findings</h2>
+          <h2 className="mb-3 text-lg font-semibold text-ink">Page-Level Findings</h2>
           <PageFindingsTable pages={report.pages} />
         </div>
       )}

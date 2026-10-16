@@ -29,9 +29,14 @@ class AuditScheduleController extends Controller
     public function store(StoreAuditScheduleRequest $request): JsonResponse
     {
         $user = $request->user();
-        $website = Website::findOrFail($request->validated('website_id'));
 
-        if ($website->user_id !== $user->id) {
+        // Scoped to the caller's own websites rather than looked up by
+        // bare id and checked afterwards (§37). Same outcome for a valid
+        // request, but an id belonging to someone else now reads as "no
+        // such website of yours" instead of confirming the row exists.
+        $website = $user->websites()->find($request->validated('website_id'));
+
+        if ($website === null) {
             return ApiResponse::error('You can only schedule audits for your own websites.', 422);
         }
 
@@ -43,7 +48,22 @@ class AuditScheduleController extends Controller
             return ApiResponse::error('Scheduled audits are not included in your current plan, or you have reached your plan\'s recurring-website limit.', 403);
         }
 
-        $schedule = $this->scheduler->create($user, $website, ScheduleFrequency::from($request->validated('frequency')));
+        $frequency = ScheduleFrequency::from($request->validated('frequency'));
+
+        // A separate check from canCreateSchedule() with its own message:
+        // "your plan has no scheduled audits" and "your plan allows weekly
+        // at most" are different problems needing different actions (§40).
+        if (! $this->scheduler->allowsFrequency($user, $frequency)) {
+            $max = $this->scheduler->maxFrequencyFor($user);
+
+            return ApiResponse::error(
+                "Your plan allows {$max->label()} audits at most, so it cannot run this website {$frequency->label()}.",
+                403,
+                ['limit' => 'max_audit_frequency'],
+            );
+        }
+
+        $schedule = $this->scheduler->create($user, $website, $frequency);
 
         return ApiResponse::success($schedule, status: 201);
     }

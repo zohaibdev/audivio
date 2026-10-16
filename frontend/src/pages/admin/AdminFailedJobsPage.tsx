@@ -41,22 +41,22 @@ export function AdminFailedJobsPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-900 dark:text-white">Failed Jobs</h1>
-      <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">List and remove only — retrying a failed job isn't supported yet.</p>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Failed Jobs</h1>
+      <p className="mb-6 text-sm text-muted">List and remove only — retrying a failed job isn't supported yet.</p>
 
       {jobs.data.length === 0 ? (
         <EmptyState title="No failed jobs" description="Everything is running smoothly." />
       ) : (
         <div className="flex flex-col gap-3">
           {jobs.data.map((job) => (
-            <div key={job.id} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <div key={job.id} className="rounded-xl border border-line bg-white p-4 dark:border-line dark:bg-slate-900">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
                     {job.connection} / {job.queue}
                   </p>
                   <p className="mt-1 truncate text-xs text-red-500">{job.exception}</p>
-                  <p className="mt-1 text-xs text-slate-400">{new Date(job.failed_at).toLocaleString()}</p>
+                  <p className="mt-1 text-xs text-faint">{new Date(job.failed_at).toLocaleString()}</p>
                 </div>
                 <Button variant="danger" onClick={() => handleDelete(job.id)}>
                   Delete

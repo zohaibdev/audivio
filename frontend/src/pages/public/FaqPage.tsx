@@ -36,8 +36,8 @@ export function FaqPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-16">
-      <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Frequently asked questions</h1>
-      <dl className="mt-8 divide-y divide-slate-200 dark:divide-slate-800">
+      <h1 className="text-3xl font-bold text-ink">Frequently asked questions</h1>
+      <dl className="mt-8 divide-y divide-line">
         {faqs.map((faq, index) => {
           const isOpen = openIndex === index;
           return (
@@ -45,17 +45,17 @@ export function FaqPage() {
               <dt>
                 <button
                   type="button"
-                  className="flex w-full items-center justify-between text-left font-medium text-slate-900 dark:text-white"
+                  className="flex w-full items-center justify-between text-left font-medium text-ink"
                   aria-expanded={isOpen}
                   onClick={() => setOpenIndex(isOpen ? null : index)}
                 >
                   {faq.question}
-                  <span aria-hidden="true" className="ml-4 text-slate-400">
+                  <span aria-hidden="true" className="ml-4 text-faint">
                     {isOpen ? '−' : '+'}
                   </span>
                 </button>
               </dt>
-              {isOpen && <dd className="mt-2 text-sm text-slate-600 dark:text-slate-300">{faq.answer}</dd>}
+              {isOpen && <dd className="mt-2 text-sm text-muted">{faq.answer}</dd>}
             </div>
           );
         })}

@@ -8,7 +8,9 @@ use App\Models\Audit;
 use App\Models\Report;
 use App\Models\Website;
 use App\Services\Crawler\SsrfValidationException;
+use App\Services\Crawler\UrlNormalizer;
 use App\Services\Crawler\UrlSecurityValidator;
+use App\Services\Plan\EntitlementResolver;
 use App\Services\Report\ReportVisibilityFilter;
 use Illuminate\Console\Command;
 
@@ -33,21 +35,29 @@ class CrawlWebsite extends Command
 
         $domain = parse_url($url, PHP_URL_HOST);
 
+        // Always a fresh row, like any anonymous submission — this command
+        // has no user to resolve an existing website against.
         $website = Website::create([
-            'url' => $url,
+            'primary_url' => $url,
             'domain' => $domain,
+            'normalized_domain' => app(UrlNormalizer::class)->normalizedDomain($url),
         ]);
 
         $audit = Audit::create([
             'website_id' => $website->id,
-            'status' => AuditStatus::Pending,
+            'status' => AuditStatus::Queued,
             'max_pages' => $maxPages,
         ]);
 
         CrawlWebsiteJob::dispatch($audit);
 
         $this->info("Audit #{$audit->id} queued for {$url} (max {$maxPages} pages).");
-        $this->line('Run `php artisan queue:work redis` in another terminal if it is not already running.');
+        // The configured connection, not a guess: this said "redis" while
+        // the app runs the database driver, so anyone following it started
+        // a worker on a queue that would never receive the job (§56).
+        $connection = config('queue.default');
+
+        $this->line("Run `php artisan queue:work {$connection}` in another terminal if it is not already running.");
 
         if (! $this->option('wait')) {
             return self::SUCCESS;
@@ -58,7 +68,7 @@ class CrawlWebsite extends Command
         while (true) {
             $audit->refresh();
 
-            if (in_array($audit->status, [AuditStatus::Completed, AuditStatus::Failed], true)) {
+            if ($audit->status->isTerminal()) {
                 break;
             }
 
@@ -114,15 +124,23 @@ class CrawlWebsite extends Command
         }
 
         $filter = app(ReportVisibilityFilter::class);
+        // This command has no authenticated caller, so the restricted view
+        // it prints is the guest tier's — the same one a visitor sees. The
+        // full view is what an owner on an unrestricted plan gets, printed
+        // alongside so the two are comparable at a glance.
+        $guest = app(EntitlementResolver::class)->forOrDeny(null);
+        $full = Entitlements::fromGuestConfig(
+            array_merge(config('entitlements.guest'), ['report_visibility_percent' => 100]),
+        );
 
         $this->info('Report (anonymous/free view):');
-        $anonymousView = $filter->filter($report->content, hasFullAccess: false);
+        $anonymousView = $filter->filter($report->content, entitlements: $guest);
         $this->line('  Visible issues: '.count($anonymousView['issues'])." (hidden: {$anonymousView['hidden_issue_count']})");
         $this->line('  Visible recommendations: '.count($anonymousView['recommendations'])." (hidden: {$anonymousView['hidden_recommendation_count']})");
 
         $this->newLine();
         $this->info('Report (full view):');
-        $fullView = $filter->filter($report->content, hasFullAccess: true);
+        $fullView = $filter->filter($report->content, entitlements: $full);
         $this->line('  Issues: '.count($fullView['issues']));
         $this->line('  Recommendations: '.count($fullView['recommendations']));
         $aiCategories = array_keys($fullView['ai_analysis']);

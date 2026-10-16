@@ -17,7 +17,13 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    // MySQL, not Laravel's stock 'sqlite' fallback. A process that starts
+    // without a readable .env used to silently connect to a SQLite file
+    // instead of failing, which is how a dev server ran for an hour
+    // answering 500s against a database path that no longer existed. A
+    // wrong database is worse than no database: the first looks like it
+    // works.
+    'default' => env('DB_CONNECTION', 'mysql'),
 
     /*
     |--------------------------------------------------------------------------
@@ -58,7 +64,13 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
-            'engine' => null,
+            // Pinned rather than left to the server default. This box's
+            // MySQL defaults to MyISAM, which has no foreign keys and no
+            // transactions — so any migration that forgot an explicit
+            // `$table->engine` would silently create a table with neither,
+            // and the FK cascades and DB::transaction() guards the app
+            // relies on would quietly do nothing (§41).
+            'engine' => env('DB_ENGINE', 'InnoDB'),
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
@@ -78,7 +90,13 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
-            'engine' => null,
+            // Pinned rather than left to the server default. This box's
+            // MySQL defaults to MyISAM, which has no foreign keys and no
+            // transactions — so any migration that forgot an explicit
+            // `$table->engine` would silently create a table with neither,
+            // and the FK cascades and DB::transaction() guards the app
+            // relies on would quietly do nothing (§41).
+            'engine' => env('DB_ENGINE', 'InnoDB'),
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],

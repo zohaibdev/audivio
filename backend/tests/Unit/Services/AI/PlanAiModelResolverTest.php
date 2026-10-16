@@ -23,7 +23,7 @@ class PlanAiModelResolverTest extends TestCase
 
     private function makeAudit(?Plan $plan): Audit
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $userId = null;
 
         if ($plan !== null) {
@@ -41,9 +41,12 @@ class PlanAiModelResolverTest extends TestCase
         // bootstrap state as FeatureAccessResolverTest.
         $audit = $this->makeAudit(null);
 
-        $provider = $this->resolver()->resolveFor($audit);
+        $resolved = $this->resolver()->resolveFor($audit);
 
-        $this->assertSame(config('ai.default'), $provider->name());
+        // Since §53 resolution returns the provider *and* the model to
+        // call, so the provider is one field of the result rather than
+        // the result itself.
+        $this->assertSame(config('ai.default'), $resolved->provider->name());
     }
 
     public function test_a_model_allowed_by_the_plan_and_active_on_its_provider_is_used(): void
@@ -60,7 +63,8 @@ class PlanAiModelResolverTest extends TestCase
 
         $resolved = $this->resolver()->resolveFor($audit);
 
-        $this->assertSame('openai', $resolved->name());
+        $this->assertSame('openai', $resolved->provider->name());
+        $this->assertSame('gpt-5', $resolved->model);
     }
 
     public function test_a_model_allowed_by_the_plan_but_not_the_providers_current_active_model_is_not_used(): void
@@ -124,6 +128,6 @@ class PlanAiModelResolverTest extends TestCase
         $audit = $this->makeAudit($plan);
 
         // config('ai.default') is 'claude' — see config/ai.php.
-        $this->assertSame(config('ai.default'), $this->resolver()->resolveFor($audit)->name());
+        $this->assertSame(config('ai.default'), $this->resolver()->resolveFor($audit)->provider->name());
     }
 }

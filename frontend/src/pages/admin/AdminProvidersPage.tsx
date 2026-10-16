@@ -25,8 +25,8 @@ export function AdminProvidersPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-900 dark:text-white">AI & API Providers</h1>
-      <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
+      <h1 className="mb-1 text-2xl font-bold text-ink">AI & API Providers</h1>
+      <p className="mb-6 text-sm text-muted">
         Credentials are encrypted at rest and never shown in full — only a masked preview.
       </p>
       <div className="flex flex-col gap-6">

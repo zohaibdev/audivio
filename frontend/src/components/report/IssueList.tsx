@@ -7,7 +7,7 @@ function IssueRow({ issue }: { issue: ReportIssue }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <li className="border-b border-slate-100 py-4 last:border-0 dark:border-slate-800">
+    <li className="border-b border-slate-100 py-4 last:border-0 dark:border-line">
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
@@ -17,20 +17,20 @@ function IssueRow({ issue }: { issue: ReportIssue }) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <SeverityBadge severity={issue.severity} />
-            <span className="text-xs uppercase tracking-wide text-slate-400">{issue.category.replace('_', ' ')}</span>
+            <span className="text-xs uppercase tracking-wide text-faint">{issue.category.replace('_', ' ')}</span>
           </div>
-          <p className="mt-1 font-medium text-slate-900 dark:text-white">{issue.message}</p>
-          {issue.page_url && <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{issue.page_url}</p>}
+          <p className="mt-1 font-medium text-ink">{issue.message}</p>
+          {issue.page_url && <p className="mt-0.5 truncate text-xs text-muted">{issue.page_url}</p>}
         </div>
-        <span aria-hidden="true" className="mt-1 shrink-0 text-slate-400">
+        <span aria-hidden="true" className="mt-1 shrink-0 text-faint">
           {expanded ? '−' : '+'}
         </span>
       </button>
       {expanded && (
         <div className="mt-3 space-y-2 rounded-md bg-slate-50 p-4 text-sm dark:bg-slate-800/50">
           <p>
-            <span className="font-medium text-slate-700 dark:text-slate-200">Why it matters: </span>
-            <span className="text-slate-600 dark:text-slate-300">
+            <span className="font-medium text-ink">Why it matters: </span>
+            <span className="text-muted">
               {issue.severity === 'critical' || issue.severity === 'high'
                 ? 'This issue can meaningfully hurt conversions, accessibility compliance, or search visibility.'
                 : 'This is a lower-priority improvement worth addressing when higher-severity issues are resolved.'}
@@ -38,11 +38,11 @@ function IssueRow({ issue }: { issue: ReportIssue }) {
           </p>
           {issue.recommendation && (
             <p>
-              <span className="font-medium text-slate-700 dark:text-slate-200">Recommendation: </span>
-              <span className="text-slate-600 dark:text-slate-300">{issue.recommendation}</span>
+              <span className="font-medium text-ink">Recommendation: </span>
+              <span className="text-muted">{issue.recommendation}</span>
             </p>
           )}
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-faint">
             Code: <code>{issue.code}</code>
           </p>
         </div>
@@ -55,7 +55,7 @@ export function IssueList({ issues, title }: { issues: ReportIssue[]; title: str
   if (issues.length === 0) {
     return (
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-white">{title}</h2>
+        <h2 className="mb-3 text-lg font-semibold text-ink">{title}</h2>
         <EmptyState title="No issues in this category" description="Nice — nothing to flag here." />
       </div>
     );
@@ -63,10 +63,10 @@ export function IssueList({ issues, title }: { issues: ReportIssue[]; title: str
 
   return (
     <div>
-      <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-white">
-        {title} <span className="text-sm font-normal text-slate-500">({issues.length})</span>
+      <h2 className="mb-3 text-lg font-semibold text-ink">
+        {title} <span className="text-sm font-normal text-muted">({issues.length})</span>
       </h2>
-      <ul className="rounded-xl border border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-900">
+      <ul className="rounded-xl border border-line bg-white px-4 dark:border-line dark:bg-slate-900">
         {issues.map((issue, index) => (
           <IssueRow key={`${issue.code}-${index}`} issue={issue} />
         ))}

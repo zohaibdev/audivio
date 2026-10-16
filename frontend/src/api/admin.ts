@@ -11,6 +11,8 @@ import type {
   Plan,
   UsageByProviderRow,
   UsageDailyRow,
+  AiTaskComplexity,
+  UsageByModelRow,
   UsageSummary,
   User,
 } from '../types';
@@ -24,13 +26,13 @@ export function fetchUsers(page = 1) {
 }
 
 export function fetchWebsites(page = 1) {
-  return unwrap<Paginated<{ id: number; url: string; domain: string; audits_count: number }>>(
+  return unwrap<Paginated<{ id: number; primary_url: string; domain: string; name: string | null; audits_count: number }>>(
     apiClient.get('/admin/websites', { params: { page } }),
   );
 }
 
 export function fetchAudits(page = 1) {
-  return unwrap<Paginated<{ id: number; status: string; website?: { url: string }; created_at: string }>>(
+  return unwrap<Paginated<{ id: number; status: string; website?: { primary_url: string }; created_at: string }>>(
     apiClient.get('/admin/audits', { params: { page } }),
   );
 }
@@ -117,6 +119,7 @@ export interface AiModelPayload {
   api_provider_id?: number;
   model_id?: string;
   display_name?: string;
+  tier?: AiTaskComplexity;
   description?: string | null;
   is_enabled?: boolean;
   input_cost_per_1k_tokens?: number | null;
@@ -251,6 +254,11 @@ export function fetchUsageDaily(filters: UsageLogFilters = {}) {
 
 export function fetchUsageByProvider(filters: UsageLogFilters = {}) {
   return unwrap<UsageByProviderRow[]>(apiClient.get('/admin/usage/by-provider', { params: filters }));
+}
+
+/** Usage grouped by the model actually called, not the one configured (§53). */
+export function fetchUsageByModel(filters: UsageLogFilters = {}) {
+  return unwrap<UsageByModelRow[]>(apiClient.get('/admin/usage/by-model', { params: filters }));
 }
 
 export function fetchUsageLogs(filters: UsageLogFilters = {}) {

@@ -19,19 +19,19 @@ export function DashboardSubscriptionPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Subscription</h1>
+      <h1 className="text-2xl font-bold text-ink">Subscription</h1>
 
       {!plan ? (
         <Card className="max-w-md">
-          <p className="text-sm text-slate-600 dark:text-slate-300">You don't have an active plan.</p>
+          <p className="text-sm text-muted">You don't have an active plan.</p>
         </Card>
       ) : (
         <Card className="max-w-md">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{plan.name}</h2>
+            <h2 className="text-lg font-semibold text-ink">{plan.name}</h2>
             <Badge tone="green">{user?.subscription?.status ?? 'active'}</Badge>
           </div>
-          <ul className="mt-4 space-y-2 text-sm text-slate-600 dark:text-slate-300">
+          <ul className="mt-4 space-y-2 text-sm text-muted">
             <li>Up to {plan.max_pages} pages per audit</li>
             <li>{plan.daily_audit_limit} audit(s) per day</li>
             <li>{plan.full_recrawls} full recrawl credit(s)</li>
@@ -49,13 +49,13 @@ export function DashboardSubscriptionPage() {
       )}
 
       <Card className="max-w-md">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">Audit types on your plan</h2>
-        {features === null && <p className="text-sm text-slate-400">Loading…</p>}
+        <h2 className="mb-3 text-sm font-semibold text-ink">Audit types on your plan</h2>
+        {features === null && <p className="text-sm text-faint">Loading…</p>}
         {features !== null && (
           <ul className="flex flex-col gap-2 text-sm">
             {features.map((feature) => (
               <li key={feature.key} className="flex items-center justify-between">
-                <span className="text-slate-700 dark:text-slate-300">{feature.name}</span>
+                <span className="text-muted">{feature.name}</span>
                 {feature.enabled ? (
                   <Badge tone="green">Included</Badge>
                 ) : feature.plans_with_access.length > 0 ? (
@@ -72,16 +72,16 @@ export function DashboardSubscriptionPage() {
       </Card>
 
       <Card className="max-w-md">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">AI models available to you</h2>
-        {aiModels === null && <p className="text-sm text-slate-400">Loading…</p>}
+        <h2 className="mb-3 text-sm font-semibold text-ink">AI models available to you</h2>
+        {aiModels === null && <p className="text-sm text-faint">Loading…</p>}
         {aiModels !== null && aiModels.length === 0 && (
-          <p className="text-sm text-slate-500 dark:text-slate-400">No AI models are currently available on your plan.</p>
+          <p className="text-sm text-muted">No AI models are currently available on your plan.</p>
         )}
         {aiModels !== null && aiModels.length > 0 && (
           <ul className="flex flex-col gap-2 text-sm">
             {aiModels.map((model) => (
               <li key={model.id} className="flex items-center justify-between">
-                <span className="text-slate-700 dark:text-slate-300">{model.display_name}</span>
+                <span className="text-muted">{model.display_name}</span>
                 <Badge tone="blue">{model.provider_name}</Badge>
               </li>
             ))}

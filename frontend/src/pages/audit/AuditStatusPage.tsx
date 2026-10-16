@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { downloadReportPdf, fetchAuditStatus, fetchReport } from '../../api/audits';
+import { cancelAudit, downloadReportPdf, fetchAuditStatus, fetchReport } from '../../api/audits';
 import { apiErrorMessage, ApiRequestError } from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { AuditProgressSteps } from '../../components/audit/AuditProgressSteps';
+import { AuditProgressPanel } from '../../components/audit/AuditProgressPanel';
 import { ReportView } from '../../components/report/ReportView';
 import { Spinner } from '../../components/ui/Spinner';
 import { ErrorState } from '../../components/ui/ErrorState';
+import { Button } from '../../components/ui/Button';
 import type { AuditSummary, Report } from '../../types';
 
 // The status/report endpoints share one throttle:10,1 (10 req/min) group
@@ -27,6 +29,8 @@ export function AuditStatusPage() {
   const [error, setError] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const reportAttempts = useRef(0);
 
   useEffect(() => {
@@ -44,7 +48,9 @@ export function AuditStatusPage() {
         if (cancelled) return;
         setAudit(status);
 
-        if (status.status === 'failed') {
+        // Any terminal state ends the poll. Previously only `failed`
+        // did, so a cancelled audit would be polled forever.
+        if (status.status === 'failed' || status.status === 'cancelled') {
           return;
         }
 
@@ -85,6 +91,23 @@ export function AuditStatusPage() {
     };
   }, [id]);
 
+  async function handleCancel() {
+    setCancelError(null);
+    setIsCancelling(true);
+    try {
+      await cancelAudit(id);
+      // Re-read rather than assuming: the audit may have finished in the
+      // moment between the click and the request arriving, in which case
+      // the backend refuses and the real status is the honest thing to
+      // show.
+      setAudit(await fetchAuditStatus(id));
+    } catch (err) {
+      setCancelError(apiErrorMessage(err));
+    } finally {
+      setIsCancelling(false);
+    }
+  }
+
   async function handleDownload() {
     setPdfError(null);
     setIsDownloading(true);
@@ -112,19 +135,65 @@ export function AuditStatusPage() {
   if (audit.status === 'failed') {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16">
-        <ErrorState message={audit.error_message ?? 'This audit failed to complete.'} />
+        <ErrorState
+          message={audit.error_message ?? 'This audit failed to complete.'}
+        />
+        {audit.failed_stage && (
+          <p className="mt-3 text-center text-sm text-muted">
+            It stopped during the {audit.failed_stage.replace(/_/g, ' ')} stage.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (audit.status === 'cancelled') {
+    // Not an ErrorState: the user asked for this, so it is an outcome
+    // rather than a fault.
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16 text-center">
+        <h1 className="text-2xl font-bold text-ink">Audit cancelled</h1>
+        <p className="mt-2 text-sm text-muted">
+          You stopped this audit before it finished, so there is no report for it.
+        </p>
       </div>
     );
   }
 
   if (!report) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-20">
-        <h1 className="mb-8 text-center text-2xl font-bold text-slate-900 dark:text-white">Auditing your website…</h1>
-        <AuditProgressSteps status={audit.status} waitingOnReport={audit.status === 'completed'} />
-        <p className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
-          {audit.pages_crawled} of up to {audit.max_pages} pages crawled so far.
-        </p>
+      <div className="mx-auto max-w-3xl px-4 py-12">
+        <h1 className="mb-8 text-center text-2xl font-bold text-ink">Auditing your website…</h1>
+
+        {/* The detailed panel when the backend supplies progress (§51),
+            falling back to the coarse step list for anything fetched
+            before it existed. */}
+        {audit.progress ? (
+          <AuditProgressPanel progress={audit.progress} />
+        ) : (
+          <>
+            <AuditProgressSteps status={audit.status} />
+            <p className="mt-8 text-center text-sm text-muted">
+              {audit.pages_crawled} of up to {audit.max_pages} pages crawled so far.
+            </p>
+          </>
+        )}
+
+        {audit.is_cancellable && (
+          <div className="mt-8 text-center">
+            <Button type="button" variant="secondary" isLoading={isCancelling} onClick={handleCancel}>
+              Cancel this audit
+            </Button>
+            <p className="mt-2 text-xs text-faint">
+              Cancelling frees the slot so you can start another audit right away.
+            </p>
+            {cancelError && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">
+                {cancelError}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     );
   }

@@ -114,9 +114,17 @@ class ApiProvider extends Model
      * provider have different pricing) and falls back to the provider-wide
      * `config` rate for providers with no registered model catalog yet.
      */
-    public function estimateCost(?int $promptTokens, ?int $completionTokens): ?float
+    /**
+     * @param  string|null  $modelId  The model actually called. Since §53 a request
+     *                                can override the provider's configured model, and
+     *                                costing a cheap model at the flagship's rate would
+     *                                corrupt the one figure this exists to report.
+     */
+    public function estimateCost(?int $promptTokens, ?int $completionTokens, ?string $modelId = null): ?float
     {
-        $activeModel = $this->activeAiModel();
+        $activeModel = $modelId !== null
+            ? $this->aiModels()->where('model_id', $modelId)->first()
+            : $this->activeAiModel();
 
         $inputRate = $activeModel?->input_cost_per_1k_tokens ?? $this->getConfigValue('cost_per_1k_input_tokens');
         $outputRate = $activeModel?->output_cost_per_1k_tokens ?? $this->getConfigValue('cost_per_1k_output_tokens');

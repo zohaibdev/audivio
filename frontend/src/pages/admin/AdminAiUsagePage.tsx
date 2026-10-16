@@ -37,8 +37,8 @@ export function AdminAiUsagePage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">AI Usage</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Per-audit AI analysis results, by provider and category.</p>
+        <h1 className="text-2xl font-bold text-ink">AI Usage</h1>
+        <p className="mt-1 text-sm text-muted">Per-audit AI analysis results, by provider and category.</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -60,28 +60,28 @@ export function AdminAiUsagePage() {
       </div>
 
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Recent analyses</h2>
+        <h2 className="mb-3 text-lg font-semibold text-ink">Recent analyses</h2>
         {data.recent.length === 0 ? (
           <EmptyState title="No AI analyses recorded yet" />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
-            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
-              <thead className="bg-slate-50 dark:bg-slate-800/50">
+          <div className="overflow-x-auto rounded-xl border border-line">
+            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-line">
+              <thead className="bg-surface-2">
                 <tr>
-                  <th className="px-4 py-2 text-left font-medium text-slate-500 dark:text-slate-400">Date</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-500 dark:text-slate-400">Provider</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-500 dark:text-slate-400">Category</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-500 dark:text-slate-400">Audit</th>
-                  <th className="px-4 py-2 text-left font-medium text-slate-500 dark:text-slate-400">Error</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted">Date</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted">Provider</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted">Category</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted">Audit</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted">Error</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+              <tbody className="divide-y divide-line bg-white dark:divide-line dark:bg-slate-900">
                 {data.recent.map((row) => (
                   <tr key={row.id}>
-                    <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{new Date(row.created_at).toLocaleString()}</td>
-                    <td className="px-4 py-2 text-slate-700 dark:text-slate-300">{row.provider}</td>
-                    <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{row.category}</td>
-                    <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{row.audit?.id ?? '—'}</td>
+                    <td className="px-4 py-2 text-muted">{new Date(row.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-2 text-muted">{row.provider}</td>
+                    <td className="px-4 py-2 text-muted">{row.category}</td>
+                    <td className="px-4 py-2 text-muted">{row.audit?.id ?? '—'}</td>
                     <td className="px-4 py-2 text-red-500">{row.error ?? '—'}</td>
                   </tr>
                 ))}

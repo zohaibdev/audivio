@@ -5,7 +5,6 @@ namespace App\Services\Report;
 use App\Models\Audit;
 use App\Models\AuditIssue;
 use App\Models\AuditPage;
-use App\Models\Screenshot;
 use Illuminate\Support\Collection;
 
 /**
@@ -37,6 +36,13 @@ class PageExplorerBuilder
                 'http_status' => $page->http_status,
                 'load_time_ms' => $page->load_time_ms,
                 'issue_count' => $issues->count(),
+                // A page-level score (§47), derived from the issues found
+                // on this page using the same severity weights the
+                // category scores use. Deliberately *not* a Lighthouse
+                // score and never presented as one: it answers "how much
+                // is wrong with this page relative to the others", which
+                // is the question the explorer exists to sort by.
+                'score' => $this->pageScore($issues),
                 'severity_summary' => $this->severitySummary($issues),
                 'issues_by_service' => $this->countByService($issues),
                 'screenshots' => $this->screenshotsFor($page),
@@ -51,6 +57,25 @@ class PageExplorerBuilder
         });
 
         return $rows;
+    }
+
+    /**
+     * 100 minus the weighted cost of this page's issues, floored at 0.
+     *
+     * Uses `audit_scoring.severity_points`, the same weights every
+     * category score uses, so a page scoring 60 here means the same kind
+     * of thing as a category scoring 60. A site-wide issue counts against
+     * every page it affects, because it is wrong on every one of them.
+     *
+     * @param  Collection<int, AuditIssue>  $issues
+     */
+    private function pageScore($issues): int
+    {
+        $points = config('audit_scoring.severity_points');
+
+        $deduction = $issues->sum(fn (AuditIssue $issue) => $points[$issue->severity->value] ?? 0);
+
+        return max(0, 100 - (int) $deduction);
     }
 
     /**
@@ -84,11 +109,10 @@ class PageExplorerBuilder
      */
     private function screenshotsFor(AuditPage $page): array
     {
-        $byViewport = $page->screenshots->keyBy(fn (Screenshot $s) => $s->viewport->value);
-
-        return [
-            'desktop' => $byViewport->get('desktop')?->storage_path,
-            'mobile' => $byViewport->get('mobile')?->storage_path,
-        ];
+        // Signed and short-lived (§48). Emitting the raw storage path
+        // here is what made screenshots walkable: the path is derived
+        // from a sequential audit id, so anyone could guess their way
+        // into other people's captures.
+        return app(ScreenshotUrlSigner::class)->urlsFor($page->screenshots);
     }
 }

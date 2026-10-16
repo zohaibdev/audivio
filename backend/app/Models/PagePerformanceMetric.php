@@ -37,6 +37,11 @@ class PagePerformanceMetric extends Model
         'third_party_bytes',
         'dom_nodes',
         'by_type',
+        'opportunities',
+        'diagnostics',
+        'field_metrics',
+        'caching',
+        'compression',
     ];
 
     protected function casts(): array
@@ -46,6 +51,11 @@ class PagePerformanceMetric extends Model
             'strategy' => MetricStrategy::class,
             'cls' => 'float',
             'by_type' => 'array',
+            'opportunities' => 'array',
+            'diagnostics' => 'array',
+            'field_metrics' => 'array',
+            'caching' => 'array',
+            'compression' => 'array',
         ];
     }
 

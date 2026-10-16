@@ -31,7 +31,7 @@ class AdminDashboardServiceTest extends TestCase
 
     public function test_audits_grouped_by_status(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         Audit::create(['website_id' => $website->id, 'status' => 'failed', 'max_pages' => 5]);
@@ -46,18 +46,18 @@ class AdminDashboardServiceTest extends TestCase
     public function test_leads_grouped_by_status(): void
     {
         Lead::create(['name' => 'A', 'email' => 'a@example.com', 'source' => 'talk_to_consultant', 'status' => 'new']);
-        Lead::create(['name' => 'B', 'email' => 'b@example.com', 'source' => 'talk_to_consultant', 'status' => 'converted']);
+        Lead::create(['name' => 'B', 'email' => 'b@example.com', 'source' => 'talk_to_consultant', 'status' => 'won']);
 
         $summary = (new AdminDashboardService)->summary();
 
         $this->assertSame(2, $summary['leads']['total']);
         $this->assertSame(1, $summary['leads']['by_status']['new']);
-        $this->assertSame(1, $summary['leads']['by_status']['converted']);
+        $this->assertSame(1, $summary['leads']['by_status']['won']);
     }
 
     public function test_ai_usage_separates_successful_from_failed_calls_and_sums_tokens(): void
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
 
         AiAnalysis::create(['audit_id' => $audit->id, 'category' => 'aio', 'provider' => 'claude', 'context_hash' => 'a', 'prompt' => 'x', 'response' => 'ok', 'prompt_tokens' => 100, 'completion_tokens' => 50]);
@@ -74,9 +74,9 @@ class AdminDashboardServiceTest extends TestCase
     public function test_audit_schedules_counts_total_and_active_separately(): void
     {
         $user = User::create(['name' => 'Test', 'email' => 'test@example.com', 'password' => 'x']);
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         AuditSchedule::create(['user_id' => $user->id, 'website_id' => $website->id, 'frequency' => ScheduleFrequency::Weekly, 'is_active' => true, 'next_run_at' => now()->addWeek()]);
-        $website2 = Website::create(['user_id' => $user->id, 'url' => 'https://example.org', 'domain' => 'example.org']);
+        $website2 = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.org', 'domain' => 'example.org', 'normalized_domain' => 'example.org']);
         AuditSchedule::create(['user_id' => $user->id, 'website_id' => $website2->id, 'frequency' => ScheduleFrequency::Daily, 'is_active' => false, 'next_run_at' => now()->addDay()]);
 
         $summary = (new AdminDashboardService)->summary();

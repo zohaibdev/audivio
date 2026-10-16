@@ -13,7 +13,7 @@ import { Spinner } from '../../components/ui/Spinner';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { EmptyState } from '../../components/ui/EmptyState';
 
-function scoreFor(audit: MyAudit | MyWebsite['latestAudit'], category: string): number | null {
+function scoreFor(audit: MyAudit | null | undefined, category: string): number | null {
   const scores = audit?.scores ?? [];
   return scores.find((s) => s.category === category)?.score ?? null;
 }
@@ -46,12 +46,12 @@ export function DashboardOverviewPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Welcome back{user ? `, ${user.name.split(' ')[0]}` : ''}</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Here's how your websites are doing.</p>
+        <h1 className="text-2xl font-bold text-ink">Welcome back{user ? `, ${user.name.split(' ')[0]}` : ''}</h1>
+        <p className="mt-1 text-sm text-muted">Here's how your websites are doing.</p>
       </div>
 
       <Card>
-        <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">Run a new audit</h2>
+        <h2 className="mb-3 text-sm font-semibold text-ink">Run a new audit</h2>
         <AuditUrlForm compact />
       </Card>
 
@@ -65,7 +65,7 @@ export function DashboardOverviewPage() {
       {latest && (
         <Card>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Latest audit — {latest.website.domain}</h2>
+            <h2 className="text-sm font-semibold text-ink">Latest audit — {latest.website.domain}</h2>
             <Link to={`/audits/${latest.id}`} className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
               View report →
             </Link>
@@ -78,7 +78,7 @@ export function DashboardOverviewPage() {
             <ScoreGauge score={scoreFor(latest, 'conversion')} label="CRO" size="sm" />
             <ScoreGauge score={scoreFor(latest, 'aio')} label="AIO" size="sm" />
           </div>
-          <p className="mt-3 text-xs text-slate-400">
+          <p className="mt-3 text-xs text-faint">
             <StatusBadge status={latest.status} />
           </p>
         </Card>
@@ -86,7 +86,7 @@ export function DashboardOverviewPage() {
 
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Your websites</h2>
+          <h2 className="text-lg font-semibold text-ink">Your websites</h2>
           <Link to="/dashboard/websites" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
             View all →
           </Link>
@@ -97,12 +97,15 @@ export function DashboardOverviewPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {websites.slice(0, 3).map((website) => (
               <Card key={website.id}>
-                <p className="truncate font-medium text-slate-900 dark:text-white">{website.domain}</p>
-                <p className="text-xs text-slate-400">{website.audits_count} audit(s)</p>
+                <p className="truncate font-medium text-ink">{website.name}</p>
+                <p className="truncate text-xs text-faint">{website.domain}</p>
+                <p className="text-xs text-faint">{website.audits_count} audit(s)</p>
                 <div className="mt-3 flex items-center gap-3">
-                  <ScoreGauge score={scoreFor(website.latestAudit, 'overall')} label="Score" size="sm" />
-                  {website.latestAudit && (
-                    <Link to={`/audits/${website.latestAudit.id}`} className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
+                  {/* The card already carries the last completed audit's
+                      overall score, so there is nothing to derive here. */}
+                  <ScoreGauge score={website.overall_score} label="Score" size="sm" />
+                  {website.last_audit_id && (
+                    <Link to={`/audits/${website.last_audit_id}/report`} className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
                       View report
                     </Link>
                   )}

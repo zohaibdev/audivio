@@ -15,7 +15,7 @@ class AccessibilityAuditModuleTest extends TestCase
 
     private function makeAudit(): Audit
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
 
         return Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
     }

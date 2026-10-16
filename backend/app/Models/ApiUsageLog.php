@@ -14,6 +14,7 @@ class ApiUsageLog extends Model
         'user_id',
         'audit_id',
         'model',
+        'prompt_version',
         'success',
         'http_status',
         'response_time_ms',

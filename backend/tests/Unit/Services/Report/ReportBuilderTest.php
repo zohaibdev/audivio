@@ -18,7 +18,7 @@ class ReportBuilderTest extends TestCase
 
     private function makeAudit(): Audit
     {
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com', 'platform' => 'wordpress']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com', 'platform' => 'wordpress']);
 
         return Audit::create([
             'website_id' => $website->id,

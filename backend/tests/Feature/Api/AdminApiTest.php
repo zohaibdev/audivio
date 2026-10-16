@@ -87,7 +87,7 @@ class AdminApiTest extends TestCase
     public function test_websites_listing_includes_audit_count(): void
     {
         $token = $this->tokenFor($this->makeAdmin());
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
 
         $response = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/admin/websites');
@@ -98,7 +98,7 @@ class AdminApiTest extends TestCase
     public function test_audit_show_includes_scores_and_issues(): void
     {
         $token = $this->tokenFor($this->makeAdmin());
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -110,7 +110,7 @@ class AdminApiTest extends TestCase
     public function test_crawl_jobs_listing(): void
     {
         $token = $this->tokenFor($this->makeAdmin());
-        $website = Website::create(['url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         $audit = Audit::create(['website_id' => $website->id, 'status' => 'completed', 'max_pages' => 5]);
         CrawlJob::create(['audit_id' => $audit->id, 'status' => 'completed']);
 
@@ -124,7 +124,7 @@ class AdminApiTest extends TestCase
     {
         $token = $this->tokenFor($this->makeAdmin());
         $user = $this->makeRegularUser();
-        $website = Website::create(['user_id' => $user->id, 'url' => 'https://example.com', 'domain' => 'example.com']);
+        $website = Website::create(['user_id' => $user->id, 'primary_url' => 'https://example.com', 'domain' => 'example.com', 'normalized_domain' => 'example.com']);
         AuditSchedule::create(['user_id' => $user->id, 'website_id' => $website->id, 'frequency' => ScheduleFrequency::Weekly, 'next_run_at' => now()->addWeek()]);
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -467,10 +467,10 @@ class AdminApiTest extends TestCase
     {
         $token = $this->tokenFor($this->makeAdmin());
         Lead::create(['name' => 'A', 'email' => 'a@example.com', 'source' => 'talk_to_consultant', 'status' => 'new']);
-        Lead::create(['name' => 'B', 'email' => 'b@example.com', 'source' => 'talk_to_consultant', 'status' => 'converted']);
+        Lead::create(['name' => 'B', 'email' => 'b@example.com', 'source' => 'talk_to_consultant', 'status' => 'won']);
 
         $response = $this->withHeader('Authorization', "Bearer {$token}")
-            ->getJson('/api/admin/leads?status=converted');
+            ->getJson('/api/admin/leads?status=won');
 
         $response->assertStatus(200)->assertJsonPath('data.total', 1);
     }

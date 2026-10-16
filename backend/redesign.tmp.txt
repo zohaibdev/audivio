@@ -1,0 +1,1197 @@
+
+  [30;43;1m WARN [39;49;22m Metadata found in doc-comment for method Tests\Feature\Security\AuditUrlSecurityTest::test_unsafe_url_is_rejected_by_the_api(). Metadata in doc-comments is deprecated and will no longer be supported in PHPUnit 12. Update your test code to use attributes instead.
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Enums\ScheduleFrequencyTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdaily advances by one day[39m[90m                                                                                   [39m [90m0.26s[39m  
+  [32;1m✓[39;22m[90m [39m[90mweekly advances by one week[39m[90m                                                                                 [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmonthly advances by one month[39m[90m                                                                               [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdoes not mutate the given instant[39m[90m                                                                           [39m [90m0.02s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\ExampleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthat true is true[39m[90m                                                                                           [39m [90m0.12s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\AI\AiAnalysisServiceTest[39m
+  [32;1m✓[39;22m[90m [39m[90msecond identical call hits cache not the provider[39m[90m                                                          [39m [90m83.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdifferent context is not a cache hit[39m[90m                                                                        [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90mprovider failure returns null and logs an error row[39m[90m                                                         [39m [90m0.23s[39m  
+  [32;1m✓[39;22m[90m [39m[90msuccessful call writes an api usage log[39m[90m                                                                     [39m [90m0.30s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfailed call writes a failed api usage log[39m[90m                                                                   [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno plan allowed model records an error row instead of being silent[39m[90m                                          [39m [90m0.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90manalysis is skipped once the daily limit is reached[39m[90m                                                         [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcaching disabled calls provider every time[39m[90m                                                                  [39m [90m0.10s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\AI\AiIssueParserTest[39m
+  [32;1m✓[39;22m[90m [39m[90mparses plain json array[39m[90m                                                                                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstrips markdown code fence[39m[90m                                                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90minvalid severity falls back to medium[39m[90m                                                                       [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmalformed json returns empty array[39m[90m                                                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mempty array response returns empty array[39m[90m                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mentries missing message are skipped[39m[90m                                                                         [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\AI\PlanAiModelResolverTest[39m
+  [32;1m✓[39;22m[90m [39m[90mno plan at all falls back to the configured default provider[39m[90m                                                [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma model allowed by the plan and active on its provider is used[39m[90m                                              [39m [90m0.34s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma model allowed by the plan but not the providers current active model is not used[39m[90m                          [39m [90m0.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma globally disabled model is never used even if the plan allows it[39m[90m                                          [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma model enabled globally but not assigned to the plan is not used[39m[90m                                           [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe default provider is preferred when multiple are allowed[39m[90m                                                 [39m [90m0.12s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\AI\ProvidersTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma failed test connection still reports how long it took[39m[90m                                                     [39m [90m0.23s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery provider reports a failed calls duration[39m[90m                                                              [39m [90m0.25s[39m  
+  [32;1m✓[39;22m[90m [39m[90mclaude provider parses response and usage[39m[90m                                                                   [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90mclaude provider appends context as json[39m[90m                                                                     [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mclaude provider throws without api key[39m[90m                                                                      [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mclaude provider throws when disabled[39m[90m                                                                        [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mclaude provider throws on error status[39m[90m                                                                      [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mclaude provider records failure on the provider row[39m[90m                                                         [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mopenai provider parses response and usage[39m[90m                                                                   [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mopenai provider throws without api key[39m[90m                                                                      [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mopenai provider throws on error status[39m[90m                                                                      [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mgemini provider parses response and usage[39m[90m                                                                   [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mgemini provider throws without api key[39m[90m                                                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mgemini provider throws on error status[39m[90m                                                                      [39m [90m0.24s[39m  
+  [32;1m✓[39;22m[90m [39m[90mclaude test connection succeeds even when disabled[39m[90m                                                          [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mclaude test connection fails safely without a key[39m[90m                                                           [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Admin\AdminDashboardServiceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcounts users and admins separately[39m[90m                                                                          [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudits grouped by status[39m[90m                                                                                    [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mleads grouped by status[39m[90m                                                                                     [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mai usage separates successful from failed calls and sums tokens[39m[90m                                             [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudit schedules counts total and active separately[39m[90m                                                          [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mprovider usage today summarizes ai and pagespeed separately[39m[90m                                                 [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mempty database returns zeros not errors[39m[90m                                                                     [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Audit\AccessibilityAuditModuleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mno violations scores 100[39m[90m                                                                                    [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90msame rule repeated across pages is raised once[39m[90m                                                              [39m [90m0.30s[39m  
+  [32;1m✓[39;22m[90m [39m[90mhighest impact seen for a rule wins[39m[90m                                                                         [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpages with no violation scan are ignored not penalized[39m[90m                                                      [39m [90m0.08s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Audit\AioAuditModuleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mwell structured page scores 100[39m[90m                                                                             [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno structured data anywhere is flagged[39m[90m                                                                      [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpage with no headings is flagged high[39m[90m                                                                       [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Audit\ConversionAuditModuleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpage with no forms scores 100[39m[90m                                                                               [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mform at the friction threshold is not flagged[39m[90m                                                               [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mform over the friction threshold is flagged[39m[90m                                                                 [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90monly required fields count toward friction[39m[90m                                                                  [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Audit\EcommerceAuditModuleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mnon ecommerce site is not applicable with no score[39m[90m                                                          [39m [90m0.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma lone generic checkout cta does not trigger ecommerce detection[39m[90m                                            [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma checkout link plus a generic cta alone does not trigger ecommerce detection[39m[90m                               [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpurchase cta without product schema flagged[39m[90m                                                                 [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mproduct schema without purchase cta flagged[39m[90m                                                                 [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mshopify platform treated as ecommerce even without signals[39m[90m                                                  [39m [90m0.10s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Audit\LandingPageAuditModuleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpage with cta and heading scores 100[39m[90m                                                                        [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno cta anywhere is flagged high[39m[90m                                                                             [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpage with no headings is flagged medium[39m[90m                                                                     [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcta count is summed across all pages[39m[90m                                                                        [39m [90m0.10s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Audit\PageSpeedFindingsTest[39m
+  [32;1m✓[39;22m[90m [39m[90man audit with a measured saving is an opportunity[39m[90m                                                           [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma failing audit without a saving is a diagnostic[39m[90m                                                            [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpassing and informative audits are not findings[39m[90m                                                             [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mopportunities are ordered by the biggest measured saving[39m[90m                                                    [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unrecognised audit is grouped as other rather than dropped[39m[90m                                               [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90msummary rows without a url are not reported as resources[39m[90m                                                    [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcrux field metrics including inp are extracted[39m[90m                                                              [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma url with no crux record reports null field metrics[39m[90m                                                        [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90man empty crux metrics block is treated as no data[39m[90m                                                           [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma missing category score stays null[39m[90m                                                                         [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Audit\PerPageIssueAggregatorTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma single occurrence of a code passes through unchanged[39m[90m                                                      [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrepeated occurrences of a code collapse into one site wide issue[39m[90m                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdifferent codes are not merged together[39m[90m                                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90maffected pages list is deduplicated[39m[90m                                                                         [39m [90m0.02s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Audit\PerformanceAuditModuleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfast lightweight page scores 100[39m[90m                                                                            [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mslow load time flagged[39m[90m                                                                                      [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90moversized page weight flagged[39m[90m                                                                               [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mimages missing dimensions flagged[39m[90m                                                                           [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlow pagespeed score is critical[39m[90m                                                                             [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmoderate pagespeed score is medium[39m[90m                                                                          [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mhigh pagespeed score is not flagged[39m[90m                                                                         [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpoor lcp is flagged high[39m[90m                                                                                    [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpoor cls is flagged medium[39m[90m                                                                                  [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe same issue on every page is aggregated into one and does not zero the score[39m[90m                             [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mresource breakdown flags oversized javascript css and images[39m[90m                                                [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mresource issues carry the measured value and the budget as evidence[39m[90m                                         [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mslow server response and excessive dom are flagged from measured values[39m[90m                                     [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma page with no crawler metrics raises no resource issues[39m[90m                                                    [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmobile and desktop pagespeed results are stored separately[39m[90m                                                  [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90missues are driven by the mobile result not desktop[39m[90m                                                          [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma null lighthouse score does not become a zero issue[39m[90m                                                        [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpagespeed only called for configured page count[39m[90m                                                             [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Audit\ProductAuditModuleTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma site with no product pages is not applicable[39m[90m                                                              [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma fully specified product page scores 100[39m[90m                                                                   [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma product page is detected from schema alone[39m[90m                                                                [39m [90m0.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma product shaped url without a buy signal is not a product page[39m[90m                                             [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing price and availability are flagged[39m[90m                                                                  [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma product page with no images is critical[39m[90m                                                                   [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtoo few images and thin copy are flagged[39m[90m                                                                    [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma missing schema is reported once not as several derived findings[39m[90m                                           [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfindings across several product pages are aggregated[39m[90m                                                        [39m [90m0.10s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Audit\ScoreCalculatorTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdeduct points sums by severity[39m[90m                                                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeduct points floors at zero[39m[90m                                                                                [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeduct points caps at max deductions worst first[39m[90m                                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90moverall score is weighted and renormalized over present categories[39m[90m                                          [39m [90m0.15s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Audit\SeoAuditModuleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mperfect page scores 100[39m[90m                                                                                     [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing title is critical[39m[90m                                                                                   [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing meta description and canonical[39m[90m                                                                      [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing and multiple h1[39m[90m                                                                                     [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mimages missing alt are aggregated per page[39m[90m                                                                  [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mduplicate titles across pages flagged once[39m[90m                                                                  [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe same issue on every page is aggregated into one and does not zero the score[39m[90m                             [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbroken internal link detected only for crawled targets[39m[90m                                                      [39m [90m0.15s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Crawler\PlatformDetectorTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdetects shopify from cdn reference[39m[90m                                                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdetects shopify from header[39m[90m                                                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdetects shopify from header case insensitively[39m[90m                                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdetects wordpress from wp content[39m[90m                                                                           [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdetects wordpress from generator meta[39m[90m                                                                       [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdetects woocommerce as wordpress plus woocommerce markers[39m[90m                                                   [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwordpress without woocommerce markers is plain wordpress[39m[90m                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdetects webflow from data attribute[39m[90m                                                                         [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdetects wix from static asset domain[39m[90m                                                                        [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdetects wix from header[39m[90m                                                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mshopify signal takes priority over wordpress[39m[90m                                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munrecognized generator meta is custom[39m[90m                                                                       [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno signals at all is unknown[39m[90m                                                                                [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mempty html is unknown[39m[90m                                                                                       [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Crawler\SafeHttpClientTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfetches a safe url and returns its body[39m[90m                                                                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90minitial url pointing at an internal address throws[39m[90m                                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mredirect to the cloud metadata endpoint is blocked[39m[90m                                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mredirect to localhost is blocked[39m[90m                                                                            [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mredirect to a private ip is blocked[39m[90m                                                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mredirect to a non http scheme is blocked[39m[90m                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma relative redirect is resolved against its origin and followed[39m[90m                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma scheme relative redirect to an internal host is blocked[39m[90m                                                   [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma safe cross host redirect is followed[39m[90m                                                                      [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma redirect chain longer than the budget is abandoned[39m[90m                                                        [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma redirect with no location header gives up[39m[90m                                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unsuccessful response returns null[39m[90m                                                                       [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma response declaring an oversized content length is rejected[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90man oversized body is rejected even without a content length header[39m[90m                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma body within the cap is returned whole[39m[90m                                                                     [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Crawler\ScreenshotPathTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma windows backslash base path still yields a relative path[39m[90m                                                  [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma posix base path still yields a relative path[39m[90m                                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma base path without a trailing separator is handled[39m[90m                                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma path outside the disk is returned normalized not mangled[39m[90m                                                  [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Crawler\UrlNormalizerTest[39m
+  [32;1m✓[39;22m[90m [39m[90mscheme and host are lowercased[39m[90m                                                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbare host gets the implied https scheme[39m[90m                                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbare host with path gets the implied scheme[39m[90m                                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90msurrounding whitespace is trimmed[39m[90m                                                                           [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mempty path becomes root[39m[90m                                                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfragment is dropped[39m[90m                                                                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mquery string is preserved[39m[90m                                                                                   [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdefault https port is dropped[39m[90m                                                                               [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdefault http port is dropped[39m[90m                                                                                [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon default port is kept for the validator to reject[39m[90m                                                        [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdns root trailing dot is stripped from the host[39m[90m                                                             [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90municode host is converted to punycode[39m[90m                                                                       [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mipv6 literal keeps its brackets[39m[90m                                                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mjavascript scheme is rejected rather than prefixed[39m[90m                                                          [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdata scheme is rejected[39m[90m                                                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfile scheme is rejected[39m[90m                                                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmailto scheme is rejected[39m[90m                                                                                   [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90membedded credentials are rejected[39m[90m                                                                           [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90membedded newline is rejected[39m[90m                                                                                [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90membedded tab is rejected[39m[90m                                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mempty input is rejected[39m[90m                                                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90moverlong url is rejected[39m[90m                                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90murl without a host is rejected[39m[90m                                                                              [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90morigin strips path query and fragment[39m[90m                                                                       [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90morigin of a bare host[39m[90m                                                                                       [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Crawler\UrlSecurityValidatorTest[39m
+  [32;1m✓[39;22m[90m [39m[90mloopback ipv4 is blocked[39m[90m                                                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mloopback ipv6 is blocked[39m[90m                                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mprivate class a is blocked[39m[90m                                                                                  [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mprivate class c is blocked[39m[90m                                                                                  [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mprivate class b is blocked[39m[90m                                                                                  [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcloud metadata endpoint is blocked[39m[90m                                                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mgcp metadata link local is blocked[39m[90m                                                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mipv6 unique local is blocked[39m[90m                                                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mipv6 link local is blocked[39m[90m                                                                                  [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mipv6 unspecified is blocked[39m[90m                                                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpublic ip literal is allowed[39m[90m                                                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcarrier grade nat range is blocked[39m[90m                                                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mietf protocol assignments range is blocked[39m[90m                                                                  [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbenchmark range is blocked[39m[90m                                                                                  [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmulticast range is blocked[39m[90m                                                                                  [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnat64 prefix is blocked[39m[90m                                                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mipv4 mapped ipv6 loopback is blocked[39m[90m                                                                        [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mipv4 mapped ipv6 private range is blocked[39m[90m                                                                   [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mipv4 mapped ipv6 in hex form is blocked[39m[90m                                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90maddresses just outside blocked ranges are allowed[39m[90m                                                           [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdecimal integer form of loopback is blocked[39m[90m                                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90moctal form of loopback is blocked[39m[90m                                                                           [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mhex form of loopback is blocked[39m[90m                                                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mshort dotted form of loopback is blocked[39m[90m                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlocalhost hostname is blocked[39m[90m                                                                               [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlocalhost case insensitive is blocked[39m[90m                                                                       [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90msubdomain of localhost is blocked[39m[90m                                                                           [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlocalhost with trailing dns root dot is blocked[39m[90m                                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mftp scheme is blocked[39m[90m                                                                                       [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfile scheme is blocked[39m[90m                                                                                      [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mjavascript scheme is blocked[39m[90m                                                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdata scheme is blocked[39m[90m                                                                                      [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mgopher scheme is blocked[39m[90m                                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon standard port is blocked[39m[90m                                                                                [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mredis port is blocked[39m[90m                                                                                       [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstandard https port is allowed[39m[90m                                                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90membedded credentials are blocked[39m[90m                                                                            [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcredentials disguising an internal host are blocked[39m[90m                                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90moversized query string is blocked[39m[90m                                                                           [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90moversized url is blocked[39m[90m                                                                                    [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmalformed url is blocked[39m[90m                                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mshell metacharacters in host are blocked[39m[90m                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mshell command substitution in host is blocked[39m[90m                                                               [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90msql injection payload in host is blocked[39m[90m                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mxss payload in host is blocked[39m[90m                                                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcrlf in url is blocked[39m[90m                                                                                      [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnull byte in url is blocked[39m[90m                                                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreal public hostname resolves and is allowed[39m[90m                                                                [39m [90m0.28s[39m  
+  [32;1m✓[39;22m[90m [39m[90mresolved addresses are returned for the caller to pin[39m[90m                                                       [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Plan\FeatureAccessResolverTest[39m
+  [32;1m✓[39;22m[90m [39m[90manonymous visitor resolves to the active default plan[39m[90m                                                       [39m [90m0.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90man inactive default plan is not resolved[39m[90m                                                                    [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma registered user resolves to their own subscribed plan not the default[39m[90m                                     [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno plan at all in the system is treated as unrestricted[39m[90m                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mecommerce feature key gates both ecommerce and landing page categories[39m[90m                                      [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90moverall is never gated[39m[90m                                                                                      [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mallowed categories excludes overall and reflects the plans features[39m[90m                                         [39m [90m0.23s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Report\IssueTaxonomyTest[39m
+  [32;1m✓[39;22m[90m [39m[90mservice is resolved from the stored category not the code[39m[90m                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #0[39m[90m                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #1[39m[90m                                         [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #2[39m[90m                                         [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #3[39m[90m                                         [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #4[39m[90m                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #5[39m[90m                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #6[39m[90m                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #7[39m[90m                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #8[39m[90m                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #9[39m[90m                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #10[39m[90m                                        [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #11[39m[90m                                        [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #12[39m[90m                                        [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #13[39m[90m                                        [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #14[39m[90m                                        [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #15[39m[90m                                        [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery performance code maps to a specific category with data set #16[39m[90m                                        [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90maxe rules group the same way the accessibility rollup does[39m[90m                                                  [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #0[39m[90m                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #1[39m[90m                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #2[39m[90m                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #3[39m[90m                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #4[39m[90m                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #5[39m[90m                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #6[39m[90m                                                 [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #7[39m[90m                                                 [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #8[39m[90m                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #9[39m[90m                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #10[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #11[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #12[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #13[39m[90m                                                [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #14[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #15[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #16[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #17[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #18[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #19[39m[90m                                                [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #20[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #21[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #22[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #23[39m[90m                                                [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery seo code maps to a specific category with data set #24[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unknown axe rule falls back rather than disappearing[39m[90m                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery conversion code maps to a specific category with data set #0[39m[90m                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery conversion code maps to a specific category with data set #1[39m[90m                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery conversion code maps to a specific category with data set #2[39m[90m                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery conversion code maps to a specific category with data set #3[39m[90m                                          [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery conversion code maps to a specific category with data set #4[39m[90m                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery conversion code maps to a specific category with data set #5[39m[90m                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery conversion code maps to a specific category with data set #6[39m[90m                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery conversion code maps to a specific category with data set #7[39m[90m                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery conversion code maps to a specific category with data set #8[39m[90m                                          [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery conversion code maps to a specific category with data set #9[39m[90m                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery conversion code maps to a specific category with data set #10[39m[90m                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery conversion code maps to a specific category with data set #11[39m[90m                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery conversion code maps to a specific category with data set #12[39m[90m                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery conversion code maps to a specific category with data set #13[39m[90m                                         [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90man ai invented code falls back to its services bucket[39m[90m                                                       [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Report\ReportAccessResolverTest[39m
+  [32;1m✓[39;22m[90m [39m[90manonymous audit grants no one full access even a logged in viewer[39m[90m                                           [39m [90m0.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90mowner viewing their own audit has full access[39m[90m                                                               [39m [90m0.41s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma different registered user does not get full access to someone elses audit[39m[90m                                 [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90manonymous viewer of a registered users audit has no full access[39m[90m                                             [39m [90m0.12s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Report\ReportBuilderTest[39m
+  [32;1m✓[39;22m[90m [39m[90moverview includes website info and scores[39m[90m                                                                   [39m [90m0.25s[39m  
+  [32;1m✓[39;22m[90m [39m[90moverall score is excluded from category scores[39m[90m                                                              [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90missues are serialized with derived priority[39m[90m                                                                 [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecommendations only include issues with a recommendation worst first[39m[90m                                       [39m [90m0.26s[39m  
+  [32;1m✓[39;22m[90m [39m[90mai analysis only includes successful responses[39m[90m                                                              [39m [90m0.41s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpage findings include per page issue counts[39m[90m                                                                 [39m [90m0.11s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Report\ReportPdfServiceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrender produces a valid pdf binary[39m[90m                                                                          [39m [90m0.70s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrender handles a report with no issues or ai analysis[39m[90m                                                       [39m [90m0.30s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Report\ReportVisibilityFilterTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfull access returns everything unmodified plus the access flag[39m[90m                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma restricted plan never yields the full report[39m[90m                                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrestricted view only includes major severity issues[39m[90m                                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrestricted view hides full only sections[39m[90m                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrestricted view strips priority from issues and recommendations[39m[90m                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe percentage decides how many findings survive[39m[90m                                                            [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma single finding survives a low percentage[39m[90m                                                                  [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mzero percent shows no findings but still shows the overview[39m[90m                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe per service cap can lower what the percentage allowed[39m[90m                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrestricted view reports hidden counts against the whole report[39m[90m                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrestricted view reports the percentage it applied[39m[90m                                                           [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrestricted view always shows the overview[39m[90m                                                                   [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Report\ServiceReportBuilderTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma service with no score row is omitted entirely[39m[90m                                                             [39m [90m0.32s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma not applicable service keeps that state instead of a number[39m[90m                                               [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90missues are grouped into categories within their service[39m[90m                                                     [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mseverity summary counts every level[39m[90m                                                                         [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcro merges the two internal categories into one service score[39m[90m                                               [39m [90m0.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpage findings include both screenshots and only this services issues[39m[90m                                        [39m [90m0.27s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma failed ai provider reads as unavailable not as an absent finding[39m[90m                                          [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90man ai dependent service whose ai failed is marked partial not good[39m[90m                                          [39m [90m0.44s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma service with working ai is marked complete[39m[90m                                                                [39m [90m0.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma service with no ai dependency is complete without an ai record[39m[90m                                            [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mai generated issues are labelled as ai detected[39m[90m                                                             [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecommendations only come from issues that carry one[39m[90m                                                        [39m [90m0.11s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\Schedule\AuditSchedulerServiceTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma user with no plan cannot create a schedule[39m[90m                                                                [39m [90m0.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma plan without the scheduled audits feature cannot create a schedule[39m[90m                                        [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma plan with the feature can create a schedule up to its full recrawls limit[39m[90m                                 [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90minactive schedules do not count against the limit[39m[90m                                                           [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcreate sets next run at based on frequency[39m[90m                                                                  [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrun due dispatches a crawl and advances the schedule[39m[90m                                                        [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrun due ignores schedules not yet due[39m[90m                                                                       [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrun due ignores inactive schedules[39m[90m                                                                          [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Services\User\UsageLimitServiceTest[39m
+  [32;1m✓[39;22m[90m [39m[90manonymous with no prior usage can create an audit[39m[90m                                                           [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90manonymous with a prior audit from the same ip cannot create another[39m[90m                                         [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90manonymous limit is scoped per ip[39m[90m                                                                            [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistered user under their daily limit can create an audit[39m[90m                                                 [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistered user at their daily limit cannot create another[39m[90m                                                  [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistered users limit resets on a new day[39m[90m                                                                  [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistered user with no subscription cannot create an audit[39m[90m                                                 [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma users own usage does not affect a different users limit[39m[90m                                                   [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmax pages for anonymous uses config[39m[90m                                                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmax pages for registered user uses their plan[39m[90m                                                               [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmax pages for registered user with no subscription falls back to anonymous limit[39m[90m                            [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecord audit created persists a usage log[39m[90m                                                                   [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Ai\ModelTieringAndUsageTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma simple task takes the cheapest model that can do it[39m[90m                                                       [39m [90m0.32s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma complex task is never handed a simple model[39m[90m                                                               [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma model with no price recorded is not treated as free[39m[90m                                                       [39m [90m0.24s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtiering never widens what a plan allows[39m[90m                                                                     [39m [90m0.26s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unclassified catalogue still serves work the way it did before[39m[90m                                           [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma model defaults to standard rather than to the cheapest tier[39m[90m                                               [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe category decides the tier and config decides the category[39m[90m                                               [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90musage records the model that was called not the one configured[39m[90m                                              [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcost is priced at the model actually used[39m[90m                                                                   [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery ai call records the prompt version that produced it[39m[90m                                                   [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mai error columns are text not varchar[39m[90m                                                                       [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma long provider error is recorded rather than destroying the record[39m[90m                                         [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90musage can be grouped by the model that was called[39m[90m                                                           [39m [90m0.26s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtoday and this month ignore the selected date range[39m[90m                                                         [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma long failure message reaches the provider row[39m[90m                                                             [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\AccessibilityReportApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthe report carries the eight summary fields the spec names[39m[90m                                                  [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe report says when the scan did not cover every page[39m[90m                                                      [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwcag criteria are listed and best practice findings add none[39m[90m                                                [39m [90m0.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90missue evidence reaches the owner intact[39m[90m                                                                     [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe owner report carries the disclaimer[39m[90m                                                                     [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90man anonymous viewer sees the score and the disclaimer with it[39m[90m                                               [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90man anonymous viewer does not get the paid accessibility detail[39m[90m                                              [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe combined report carries the disclaimer too[39m[90m                                                              [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma restricted viewer of the combined report still gets the disclaimer[39m[90m                                        [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe service pdf template renders the disclaimer and coverage[39m[90m                                                [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90man audit without an accessibility score disclaims nothing[39m[90m                                                   [39m [90m0.11s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\AdminAiModelApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90madmin can list ai models[39m[90m                                                                                    [39m [90m0.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can add an ai model[39m[90m                                                                                   [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mduplicate model id for the same provider is rejected[39m[90m                                                        [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma non ai provider cannot receive an ai model[39m[90m                                                                [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can edit and disable an ai model[39m[90m                                                                      [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma globally disabled model is not usable even if a plan allows it[39m[90m                                            [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin cannot delete a model assigned to a plan[39m[90m                                                              [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can delete an unassigned model[39m[90m                                                                        [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon admin cannot manage ai models[39m[90m                                                                           [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90munauthenticated request to ai models is rejected[39m[90m                                                            [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\AdminApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90munauthenticated request to admin route is rejected[39m[90m                                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon admin authenticated user is rejected with 403[39m[90m                                                           [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin user can access admin routes[39m[90m                                                                          [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdashboard returns summary data[39m[90m                                                                              [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90musers listing is paginated and includes subscription[39m[90m                                                        [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwebsites listing includes audit count[39m[90m                                                                       [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudit show includes scores and issues[39m[90m                                                                       [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcrawl jobs listing[39m[90m                                                                                          [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudit schedules listing[39m[90m                                                                                     [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfailed jobs listing and deletion[39m[90m                                                                            [39m [90m0.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting an unknown failed job returns 404[39m[90m                                                                  [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can create a plan[39m[90m                                                                                     [39m [90m0.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90msetting a new default plan unsets the previous default[39m[90m                                                      [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can update a plan[39m[90m                                                                                     [39m [90m0.23s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin cannot delete a plan with an active subscription[39m[90m                                                      [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mplan slug must be unique[39m[90m                                                                                    [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can enable and disable individual audit features for a plan[39m[90m                                           [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma feature disabled globally is unavailable even if the plan enables it[39m[90m                                      [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can globally disable a feature[39m[90m                                                                        [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon admin cannot modify plan features or global feature status[39m[90m                                              [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can assign and remove ai models from a plan[39m[90m                                                           [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon admin cannot assign ai models to a plan[39m[90m                                                                 [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mduplicate plan ai model assignment via repeated ids is rejected[39m[90m                                             [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90musage listing[39m[90m                                                                                               [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mai usage endpoint returns aggregates[39m[90m                                                                        [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90msystem health reports real database and cache status[39m[90m                                                        [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90msystem health requires admin[39m[90m                                                                                [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90manyone can submit a lead[39m[90m                                                                                    [39m [90m0.67s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlead submission requires a valid source[39m[90m                                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlead submission is rejected without admin auth to list[39m[90m                                                      [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlead submission rejects an oversized message[39m[90m                                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlead submission safely stores injection and script style strings without executing them[39m[90m                     [39m [90m0.43s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlead submissions beyond the rate limit are throttled[39m[90m                                                        [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can list and filter leads by status[39m[90m                                                                   [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can update lead status and it logs an activity[39m[90m                                                        [39m [90m0.42s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can add a note to a lead[39m[90m                                                                              [39m [90m0.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpublic can read a cms page[39m[90m                                                                                  [39m [90m0.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpublic read of unknown cms page returns 404[39m[90m                                                                 [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can create a cms page[39m[90m                                                                                 [39m [90m0.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can upsert a section creating it if new[39m[90m                                                               [39m [90m0.28s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can upsert a section updating it if it exists[39m[90m                                                         [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can delete a section[39m[90m                                                                                  [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcms page slug must be unique[39m[90m                                                                                [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\AdminProviderApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90munauthenticated request is rejected[39m[90m                                                                         [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon admin cannot access provider configuration[39m[90m                                                              [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can view provider configuration[39m[90m                                                                       [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can configure claude[39m[90m                                                                                  [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90man empty string api key does not count as configured[39m[90m                                                        [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can configure openai[39m[90m                                                                                  [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can configure gemini[39m[90m                                                                                  [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can configure google pagespeed[39m[90m                                                                        [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin can enable and disable a provider[39m[90m                                                                     [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90menabling a provider without a key is rejected[39m[90m                                                               [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mprovider api key is never returned in full[39m[90m                                                                  [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mconnection succeeds with valid credentials[39m[90m                                                                  [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mconnection fails safely with invalid credentials[39m[90m                                                            [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery provider request creates a usage record[39m[90m                                                               [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdaily request aggregation is correct[39m[90m                                                                        [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90musage provider filtering works[39m[90m                                                                              [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90musage date filtering works[39m[90m                                                                                  [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfailed requests are counted[39m[90m                                                                                 [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtoken usage is recorded where available[39m[90m                                                                     [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mestimated cost is calculated where supported[39m[90m                                                                [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90musage dashboard loads real backend data[39m[90m                                                                     [39m [90m0.12s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\AuditApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90manonymous visitor can create an audit[39m[90m                                                                       [39m [90m0.55s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcreated audit has no user id for an anonymous request[39m[90m                                                       [39m [90m0.74s[39m  
+  [32;1m✓[39;22m[90m [39m[90manonymous audit is capped at the configured anonymous page limit[39m[90m                                            [39m [90m0.40s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected before creating any records[39m[90m                                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing url is rejected with a validation error[39m[90m                                                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90moversized url is rejected with a validation error[39m[90m                                                           [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon string url is rejected with a validation error[39m[90m                                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90msecond audit from the same anonymous ip is rejected[39m[90m                                                         [39m [90m0.83s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistered user can create an audit with their plans page limit[39m[90m                                             [39m [90m1.41s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistered user hitting their daily limit is rejected[39m[90m                                                       [39m [90m0.75s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma registered users limit is independent of an exhausted anonymous ip limit[39m[90m                                  [39m [90m1.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90mshow returns audit status[39m[90m                                                                                   [39m [90m0.30s[39m  
+  [32;1m✓[39;22m[90m [39m[90mshow for an unknown audit returns 404[39m[90m                                                                       [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mshow is visible to the owner of a registered audit[39m[90m                                                          [39m [90m0.43s[39m  
+  [32;1m✓[39;22m[90m [39m[90mshow hides a registered audit from a different registered user[39m[90m                                              [39m [90m0.41s[39m  
+  [32;1m✓[39;22m[90m [39m[90mshow hides a registered audit from an anonymous viewer[39m[90m                                                      [39m [90m0.42s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreport endpoint returns the anonymous view for an anonymous viewer[39m[90m                                          [39m [90m0.30s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreport endpoint returns full access for the audits owner[39m[90m                                                    [39m [90m0.47s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreport endpoint does not grant full access to a different registered user[39m[90m                                   [39m [90m0.55s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpdf export returns a pdf for the owner on a plan with the feature[39m[90m                                           [39m [90m0.57s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpdf export is rejected when the owners plan lacks the feature[39m[90m                                               [39m [90m0.41s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpdf export is rejected for a non owner[39m[90m                                                                      [39m [90m0.42s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpdf export is rejected for an anonymous viewer[39m[90m                                                              [39m [90m0.40s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpdf export returns 404 when the report is not ready[39m[90m                                                         [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmy audits lists only the authenticated users own audits[39m[90m                                                     [39m [90m0.67s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmy audits requires authentication[39m[90m                                                                           [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmy websites lists only the authenticated users own websites[39m[90m                                                 [39m [90m0.68s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmy websites requires authentication[39m[90m                                                                         [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrequests beyond the rate limit are throttled[39m[90m                                                                [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\AuditScheduleApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90munauthenticated request is rejected[39m[90m                                                                         [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma user can schedule their own website[39m[90m                                                                       [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma user cannot schedule someone elses website[39m[90m                                                                [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma plan without the scheduled audits feature is rejected[39m[90m                                                     [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma second website beyond the plans full recrawls limit is rejected[39m[90m                                           [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma website cannot be scheduled twice[39m[90m                                                                         [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90minvalid frequency is rejected[39m[90m                                                                               [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma user can list only their own schedules[39m[90m                                                                    [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma user can pause their own schedule[39m[90m                                                                         [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma user cannot update someone elses schedule[39m[90m                                                                 [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma user can delete their own schedule[39m[90m                                                                        [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma user cannot delete someone elses schedule[39m[90m                                                                 [39m [90m0.10s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\AuthTest[39m
+  [32;1m✓[39;22m[90m [39m[90mregistration creates a user and returns a token[39m[90m                                                             [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistration subscribes the user to the default plan[39m[90m                                                        [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistration rejects a duplicate email[39m[90m                                                                      [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistration rejects mismatched password confirmation[39m[90m                                                       [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistration rejects a password with no numbers[39m[90m                                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistration rejects a password under eight characters[39m[90m                                                      [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistration rejects an oversized name[39m[90m                                                                      [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistration safely stores an injection style name without executing it[39m[90m                                     [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogin with correct credentials returns a token[39m[90m                                                              [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistration response includes the new subscription and plan[39m[90m                                                [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogin response includes the current subscription and plan[39m[90m                                                   [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogin with wrong password is rejected[39m[90m                                                                       [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogin with unknown email is rejected[39m[90m                                                                        [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mauthenticated user can fetch their own profile[39m[90m                                                              [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mown profile includes the current subscription and plan[39m[90m                                                      [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90munauthenticated request to user endpoint is rejected[39m[90m                                                        [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogout revokes the current token[39m[90m                                                                            [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90msuccessful api responses include baseline security headers[39m[90m                                                  [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexception rendered api responses also include security headers[39m[90m                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogin attempts beyond the rate limit are throttled[39m[90m                                                          [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregistration attempts beyond the rate limit are throttled[39m[90m                                                   [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\MeApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90manonymous visitor sees the default plans features[39m[90m                                                           [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma locked feature lists which plans include it[39m[90m                                                               [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma globally disabled feature is not advertised as available anywhere[39m[90m                                         [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogged in user sees their own plans allowed ai models[39m[90m                                                       [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mai models not assigned to the plan are not exposed[39m[90m                                                          [39m [90m0.10s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\PlanApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90manyone can list plans[39m[90m                                                                                       [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mplans are ordered by price[39m[90m                                                                                  [39m [90m0.08s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\SeoReportApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthe redirect report separates chains loops and temporary redirects[39m[90m                                          [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe redirect report states what it covers[39m[90m                                                                   [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe og preview shows what each field will actually render[39m[90m                                                   [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe preview says it is derived from tags not captured live[39m[90m                                                  [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe schema report lists which types are present and where[39m[90m                                                   [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe schema report states that only json ld is read[39m[90m                                                          [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe page by page report has one row per crawled page[39m[90m                                                        [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe site report distinguishes not found from unknown[39m[90m                                                        [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90man audit with no site signals reports unknown not missing[39m[90m                                                   [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwith no provider the report says so instead of showing numbers[39m[90m                                              [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma configured provider supplies real attributed data[39m[90m                                                         [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma failing provider reports no data rather than zero[39m[90m                                                         [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma successful answer is cached but a failure is not[39m[90m                                                          [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unknown driver name falls back to no data rather than failing[39m[90m                                            [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe seo detail block is full access content[39m[90m                                                                 [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe service pdf renders the seo views and the backlink state[39m[90m                                                [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe builder is not run for other services[39m[90m                                                                   [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\ServiceReportApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90mowner sees full service reports including pages and screenshots[39m[90m                                             [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90manonymous viewer gets scores but not page findings or low severity issues[39m[90m                                   [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90manonymous issue detail is redacted but not misrepresented[39m[90m                                                   [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma not applicable service is reported as such not scored[39m[90m                                                     [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma service that never ran is 404 not an empty report[39m[90m                                                         [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpage explorer requires full access[39m[90m                                                                          [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mservice pdf renders a real pdf for a plan with pdf export[39m[90m                                                   [39m [90m0.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe service pdf header names the site it audited[39m[90m                                                            [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90mservice pdf is refused for an anonymous viewer[39m[90m                                                              [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mservice pdf 404s for a service that never ran[39m[90m                                                               [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mservice reports 404 before the report exists[39m[90m                                                                [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\WebsiteApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90mauditing the same domain twice reuses one website record[39m[90m                                                    [39m [90m0.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwww and bare domain are the same website[39m[90m                                                                    [39m [90m0.34s[39m  
+  [32;1m✓[39;22m[90m [39m[90murl spelling differences do not create a second website[39m[90m                                                     [39m [90m0.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma different domain gets its own website[39m[90m                                                                     [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtwo users auditing the same domain get separate website records[39m[90m                                             [39m [90m0.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe database itself rejects a duplicate domain for one user[39m[90m                                                 [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90manonymous audits of the same domain do not share a website record[39m[90m                                           [39m [90m0.33s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma repeat audit updates the primary url but not the user edited profile[39m[90m                                      [39m [90m0.24s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe listing shows one card per domain with its audit count[39m[90m                                                  [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe card reports the latest audits scores and issue counts[39m[90m                                                  [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma card keeps the last completed scores while a re audit is running[39m[90m                                          [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma website with only a failed audit reports no scores[39m[90m                                                        [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe listing only contains the callers own websites[39m[90m                                                          [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdetail can be addressed by domain and returns every section[39m[90m                                                 [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdetail can also be addressed by id and by domain spelling variants[39m[90m                                          [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mscore trends are chronological and exclude unfinished audits[39m[90m                                                [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma category no audit scored is absent from the trends rather than flat at zero[39m[90m                               [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mservice scores exclude the overall score[39m[90m                                                                    [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90missue trends report counts per audit over time[39m[90m                                                              [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudit history includes failed runs that the trends exclude[39m[90m                                                  [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecommendations only include issues that carry one[39m[90m                                                          [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwebsite endpoints require authentication[39m[90m                                                                    [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90manother users website is not found by id[39m[90m                                                                    [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90manother users website is not found by domain[39m[90m                                                                [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90manother users website cannot be edited[39m[90m                                                                      [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90man anonymous website is not visible to any logged in user[39m[90m                                                   [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe owner can edit the website profile[39m[90m                                                                      [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90midentity fields cannot be rewritten through the profile endpoint[39m[90m                                            [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mprofile validation rejects bad values[39m[90m                                                                       [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\AuditModuleRegistryFeatureGatingTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma plan that disables seo and accessibility skips only those modules[39m[90m                                         [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma plan with every feature disabled fails the audit instead of scoring it zero[39m[90m                               [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma failed empty audit still releases its owners slot[39m[90m                                                         [39m [90m0.19s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Audit\AuditLifecycleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mevery non terminal state holds a slot and every terminal state releases it[39m[90m                                  [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma terminal audit cannot be transitioned again[39m[90m                                                               [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma terminal transition stamps terminated at[39m[90m                                                                  [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfailing an audit records the stage it died in[39m[90m                                                               [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma plan allowing one active audit refuses a second[39m[90m                                                           [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma plan allowing several active audits permits up to its limit[39m[90m                                               [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90meach active state counts toward the limit[39m[90m                                                                   [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma user with no subscription has no slots at all[39m[90m                                                             [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mone users running audits do not consume another users slots[39m[90m                                                 [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe anonymous active limit comes from config[39m[90m                                                                [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma guests running audit consumes their slot[39m[90m                                                                  [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma completed audit releases its slot[39m[90m                                                                         [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma failed audit releases its slot[39m[90m                                                                            [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma cancelled audit releases its slot[39m[90m                                                                         [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe slot check and the insert happen under one lock[39m[90m                                                         [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe guarded callback never runs when the owner is at capacity[39m[90m                                               [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma burst of requests creates no more audits than the plan allows[39m[90m                                             [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe owner can cancel a running audit[39m[90m                                                                        [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma completed audit cannot be cancelled[39m[90m                                                                       [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90manother user cannot cancel someone elses audit[39m[90m                                                              [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcancelling twice is refused the second time[39m[90m                                                                 [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma cancelled audit stops the pipeline rather than completing[39m[90m                                                 [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe status endpoint reports the lifecycle flags the ui needs[39m[90m                                                [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Audit\AuditPipelineIntegrityTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma generated report records the audit date[39m[90m                                                                   [39m [90m0.31s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtwo page jobs finishing together dispatch analysis only once[39m[90m                                                [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma scheduled audit does not exceed the plans concurrent limit[39m[90m                                                [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma skipped schedule still moves its next run forward[39m[90m                                                         [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcancelling an audit closes its running crawl job[39m[90m                                                            [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfailing an audit closes its running crawl job[39m[90m                                                               [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstuck audit recovery also frees the global crawl slot[39m[90m                                                       [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcompleting an audit leaves its already completed crawl job alone[39m[90m                                            [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma stranger cannot cancel an anonymous audit from another ip[39m[90m                                                 [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe guest who started an anonymous audit can still cancel it[39m[90m                                                [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Audit\AuditProgressTest[39m
+  [32;1m✓[39;22m[90m [39m[90meach status reports the stage a person would recognise[39m[90m                                                      [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma crawl with nothing discovered yet reads as discovering[39m[90m                                                    [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mscreenshots are reported once one actually exists[39m[90m                                                           [39m [90m0.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe analysis stage follows which scores have been written[39m[90m                                                   [39m [90m0.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma terminal audit reports no current stage[39m[90m                                                                   [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery named stage is listed with its state[39m[90m                                                                  [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma completed audit shows every stage done[39m[90m                                                                    [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpages discovered is what the crawler found not the plan limit[39m[90m                                               [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mservices are done because a result exists[39m[90m                                                                   [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mservices are pending before analysis begins[39m[90m                                                                 [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno estimate is offered before the first page completes[39m[90m                                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe estimate is projected from the measured page rate[39m[90m                                                       [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma slower crawl produces a longer estimate[39m[90m                                                                   [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma finished audit offers no estimate[39m[90m                                                                         [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma large audit says plainly that it will take longer[39m[90m                                                         [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma small audit is not given a warning it does not need[39m[90m                                                       [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe status endpoint carries the progress payload[39m[90m                                                            [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Audit\AuditReliabilityTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma crawler failure fails the audit and records the stage[39m[90m                                                     [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma crawler failure releases the owners slot[39m[90m                                                                  [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma job the queue gives up on still fails the audit[39m[90m                                                           [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery pipeline job marks the audit failed when the queue gives up[39m[90m                                           [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mone failing module does not fail the whole audit[39m[90m                                                            [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma module failure is retried before the category is written off[39m[90m                                              [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma module failure on the final attempt writes off the category[39m[90m                                               [39m [90m0.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma module the queue gives up on also records an unassessable score[39m[90m                                           [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma cancelled audit stops the crawl job before it does anything[39m[90m                                               [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma cancelled audit stops the report job[39m[90m                                                                      [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecovery fails an audit that stopped making progress[39m[90m                                                        [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecovery leaves an audit that is merely slow alone[39m[90m                                                          [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecovery never touches a finished audit[39m[90m                                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecovery falls back to updated at for rows predating progress tracking[39m[90m                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma dry run reports without changing anything[39m[90m                                                                 [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe threshold can be overridden per run[39m[90m                                                                     [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mprogress updates keep an audit out of recovery[39m[90m                                                              [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Audit\AuditSnapshotTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma written snapshot cannot be updated[39m[90m                                                                        [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma written snapshot cannot be changed by attribute assignment[39m[90m                                                [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe stored content survives an attempted rewrite[39m[90m                                                            [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma written snapshot cannot be deleted[39m[90m                                                                        [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrebuilding returns the existing snapshot rather than writing a new one[39m[90m                                      [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma snapshot is not affected by a later change to its website[39m[90m                                                 [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe snapshot records every field the spec requires[39m[90m                                                          [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe snapshot stores the scoring weights not just their version[39m[90m                                              [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mservice results record which services did not run[39m[90m                                                           [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecommendations only include issues that carry one[39m[90m                                                          [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mscreenshots and performance data are recorded[39m[90m                                                               [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mai provenance records the provider that actually answered[39m[90m                                                   [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma failed ai call is not reported as the answering provider[39m[90m                                                  [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe backfill command writes snapshots for historical audits[39m[90m                                                 [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma backfilled snapshot says so[39m[90m                                                                               [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma snapshot written by the pipeline is not marked backfilled[39m[90m                                                 [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe backfill is a no op once every audit has a snapshot[39m[90m                                                     [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma dry run writes nothing[39m[90m                                                                                    [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unfinished audit is not backfilled[39m[90m                                                                       [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe report pipeline writes a snapshot when an audit completes[39m[90m                                               [39m [90m0.14s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Audit\ConversionSignalsTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma page with no call to action is reported[39m[90m                                                                   [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mgeneric button wording is reported with examples[39m[90m                                                            [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mspecific wording containing a vague phrase is not flagged[39m[90m                                                   [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma long form is reported and hidden fields do not count[39m[90m                                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma short form is not reported[39m[90m                                                                                [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrepeated links to one destination count once[39m[90m                                                                [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma page that links nowhere is reported[39m[90m                                                                       [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma site with no contact route is reported[39m[90m                                                                    [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma mailto link counts as a contact route[39m[90m                                                                     [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreview markup counts as social proof[39m[90m                                                                        [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma local business with no tap to call is reported[39m[90m                                                            [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma blog is not asked for a phone number[39m[90m                                                                      [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma shop with no shipping or returns information is reported[39m[90m                                                  [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma returns policy linked by text alone is found[39m[90m                                                              [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma shop with no reachable cart is reported[39m[90m                                                                   [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfindings state that they cover crawled pages only[39m[90m                                                           [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Audit\DeepAccessibilityTest[39m
+  [32;1m✓[39;22m[90m [39m[90man issue carries every field the spec requires[39m[90m                                                              [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90man axe rule is grouped under a named check area[39m[90m                                                             [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery spec check area has a rule mapped to it[39m[90m                                                               [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unmapped axe rule is still reported rather than dropped[39m[90m                                                  [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwcag criteria and level are parsed from axe tags[39m[90m                                                            [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma best practice rule carries no wcag reference[39m[90m                                                              [39m [90m0.29s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe strictest conformance level wins[39m[90m                                                                        [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe report counts issues by severity[39m[90m                                                                        [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe report records affected pages and elements[39m[90m                                                              [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpassed checks come from what axe actually ran[39m[90m                                                               [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mincomplete results are reported separately from passes[39m[90m                                                      [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcoverage distinguishes a scanned page from an unscanned one[39m[90m                                                 [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery check area is listed including ones with no findings[39m[90m                                                  [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery check area explains why it matters[39m[90m                                                                    [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery result carries the automated assessment disclaimer[39m[90m                                                    [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma clean scan still carries the disclaimer[39m[90m                                                                   [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe disclaimer never claims compliance or certification[39m[90m                                                     [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90molder audits without node detail still produce selectors[39m[90m                                                    [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Audit\DeepSeoTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma noindex meta tag excludes a page from search[39m[90m                                                              [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90man x robots tag header excludes a page that looks fine in the markup[39m[90m                                        [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma canonical pointing at another page makes this one non indexable[39m[90m                                           [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma self referencing canonical is not a problem[39m[90m                                                               [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90man error page is reported once as a status problem[39m[90m                                                          [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma missing robots txt and sitemap are reported[39m[90m                                                               [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma failed robots fetch is not reported as a missing file[39m[90m                                                     [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma sitemap found only by guessing is reported as undeclared[39m[90m                                                  [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma redirect chain is reported with its hops and types[39m[90m                                                        [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma single redirect is not called a chain[39m[90m                                                                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma redirect loop is reported as critical[39m[90m                                                                     [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma temporary redirect is flagged only when the status was recorded[39m[90m                                           [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma broken internal link names the page it is on[39m[90m                                                              [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma link to an uncrawled page is never called broken[39m[90m                                                          [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90morphan pages are pages nothing links to[39m[90m                                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwww and bare domain links count as internal[39m[90m                                                                 [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma nofollow link to your own page is reported[39m[90m                                                                [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing open graph tags are reported with the predicted preview[39m[90m                                             [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma page crawled before social tags were captured is not reported[39m[90m                                             [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtwitter falls back to open graph but still needs a card type[39m[90m                                                [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma product missing required properties is reported[39m[90m                                                           [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma subtype is audited as the type it inherits from[39m[90m                                                           [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mschema nested in a graph is found[39m[90m                                                                           [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma declared but empty property does not count as present[39m[90m                                                     [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma site with no organization schema is told so once[39m[90m                                                          [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma skipped heading level is reported but going back up is not[39m[90m                                                [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mimages without declared dimensions are reported only when captured[39m[90m                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe breakdown says which checks actually ran[39m[90m                                                                [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mindexability directives are reported verbatim[39m[90m                                                               [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Audit\FailureRecordingTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma long failure message still terminates the audit[39m[90m                                                           [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe message is kept rather than cut to the old width[39m[90m                                                        [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma pathological message is bounded[39m[90m                                                                           [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery error message column is text not a narrow string[39m[90m                                                      [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Audit\ProfessionalPerformanceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mopportunities carry their measured savings and the resources they blame[39m[90m                                     [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma finding with no measured saving is a diagnostic not an opportunity[39m[90m                                        [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno opportunities reports null savings not zero[39m[90m                                                              [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmobile and desktop findings never mix[39m[90m                                                                       [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma page measured only on desktop reports no mobile findings[39m[90m                                                  [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe category rollup uses mobile when both exist[39m[90m                                                             [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall twelve categories are reported even when empty[39m[90m                                                          [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90minp comes from real user data and never from the lab run[39m[90m                                                    [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma url with no field data says why rather than omitting inp[39m[90m                                                  [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90massets without a cache lifetime are reported with the files responsible[39m[90m                                     [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma handful of uncached assets is not reported[39m[90m                                                                [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90muncompressed text resources are reported[39m[90m                                                                    [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90man audit crawled before headers were captured reports nothing[39m[90m                                               [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma free viewer keeps the score and the savings total but not the list[39m[90m                                        [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma free viewer still sees why inp is missing[39m[90m                                                                 [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe pdf shows savings for opportunities and none for diagnostics[39m[90m                                            [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma page with no measurement is excluded rather than scored zero[39m[90m                                              [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma missing lighthouse score stays null[39m[90m                                                                       [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Audit\SiteClassificationTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma shopify store with product data is ecommerce[39m[90m                                                              [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma subscription product is saas not ecommerce[39m[90m                                                                [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90man address and opening hours make a local business[39m[90m                                                          [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdated articles make a blog[39m[90m                                                                                  [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mproject pages make a portfolio[39m[90m                                                                              [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma quote cta and services section make a service business[39m[90m                                                    [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma single page with one action is a landing page[39m[90m                                                             [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma multi page site is never called a landing page[39m[90m                                                            [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mconflicting signals report other rather than guessing[39m[90m                                                       [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma crawl with no pages classifies as other with a reason[39m[90m                                                     [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe classification always carries its evidence[39m[90m                                                              [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma blog gets no ecommerce score even with a checkout link[39m[90m                                                    [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe skip reason explains the decision in the owners terms[39m[90m                                                   [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe product audit is skipped for the same reason[39m[90m                                                            [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma local business can still be audited as a shop[39m[90m                                                             [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery type has a label and a description[39m[90m                                                                    [39m [90m0.02s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\BackupDatabaseTest[39m
+  [32;1m✓[39;22m[90m [39m[90mit refuses a connection it cannot actually dump[39m[90m                                                             [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mit does not leave a file behind when it refuses[39m[90m                                                           [39m [90m110.48s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdumps are git ignored[39m[90m                                                                                     [39m [90m122.21s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CascadeDeleteTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdeleting a website cascades to its audits[39m[90m                                                                   [39m [90m0.41s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a user nulls the websites user id instead of deleting the website[39m[90m                                  [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting an audit cascades to its crawl job pages issues and scores[39m[90m                                         [39m [90m0.40s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a crawl job cascades to its crawl urls[39m[90m                                                             [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a crawl url nulls the audit pages crawl url id instead of deleting the page[39m[90m                        [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting an audit page cascades to its issues[39m[90m                                                               [39m [90m0.25s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno orphaned crawl urls remain after deleting the owning audit[39m[90m                                               [39m [90m0.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a user cascades to their subscription[39m[90m                                                              [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a plan with an active subscription is prevented[39m[90m                                                    [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a user cascades to their usage logs[39m[90m                                                                [39m [90m0.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a website or audit nulls the usage logs references instead of deleting the log[39m[90m                     [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a lead cascades to its activities[39m[90m                                                                  [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting an audit nulls the leads audit id instead of deleting the lead[39m[90m                                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a user nulls the lead activities user id instead of deleting the activity[39m[90m                          [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a cms page cascades to its sections[39m[90m                                                                [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a user cascades to their audit schedules[39m[90m                                                           [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a website cascades to its audit schedules[39m[90m                                                          [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a user nulls the api usage logs user id instead of deleting the log[39m[90m                                [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting an audit nulls the api usage logs audit id instead of deleting the log[39m[90m                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a plan cascades to its plan features pivot rows[39m[90m                                                    [39m [90m0.23s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a feature cascades to its plan features pivot rows[39m[90m                                                 [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a plan cascades to its plan ai models pivot rows[39m[90m                                                   [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting an api provider cascades to its ai models[39m[90m                                                          [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting an audit cascades to its screenshots[39m[90m                                                               [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting an audit issue cascades to its issue pages pivot rows[39m[90m                                              [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting a page cascades to its issue pages pivot rows[39m[90m                                                      [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Competitor\BusinessContextAndCompetitorTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthe aio goal can be saved through the profile endpoint[39m[90m                                                      [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe context builder includes only fields the owner filled in[39m[90m                                                [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcontext is sufficient only once the aio goal is set[39m[90m                                                         [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing fields are reported for the onboarding prompt[39m[90m                                                       [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe detail endpoint reports onboarding completeness[39m[90m                                                         [39m [90m0.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90mten default prompts run when the profile is complete[39m[90m                                                        [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcontext dependent prompts are skipped when the goal is missing[39m[90m                                              [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcustom prompts are appended after the defaults[39m[90m                                                              [39m [90m0.57s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe execution budget truncates custom prompts before defaults[39m[90m                                               [39m [90m3.99s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe owner can add and remove a custom prompt[39m[90m                                                                [39m [90m0.32s[39m  
+  [32;1m✓[39;22m[90m [39m[90madding beyond the plan limit is refused at the point of adding[39m[90m                                              [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma plan with no custom prompts is told so[39m[90m                                                                    [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mprompts on another users website are not reachable[39m[90m                                                          [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe prompt index shows the defaults alongside custom ones[39m[90m                                                   [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdiscovery is skipped when the plan does not include it[39m[90m                                                      [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdiscovery is skipped when the owner named their own competitors[39m[90m                                             [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdiscovery is skipped when there is no business context to reason from[39m[90m                                       [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdiscovery stores suggested competitors[39m[90m                                                                      [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdiscovery never returns the site itself as its own competitor[39m[90m                                               [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdiscovery discards entries that are not resolvable domains[39m[90m                                                  [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdiscovery never relabels an owner named competitor[39m[90m                                                          [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unanalyzed competitor reports null scores not zero[39m[90m                                                       [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mowner named competitors are listed before discovered ones[39m[90m                                                   [39m [90m0.10s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CrawlAndAnalyzePipelineTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfull pipeline produces a completed audit with all category scores[39m[90m                                           [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mscreenshot storage paths are stored relative to the disk not as absolute paths[39m[90m                              [39m [90m0.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpipeline marks audit failed when the homepage crawl fails[39m[90m                                                   [39m [90m0.08s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\DatabaseMigrationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mmigrate fresh runs cleanly[39m[90m                                                                                [39m [90m101.47s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrolling back the last migration reverses it and remigrating restores the schema[39m[90m                           [39m [90m107.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrolling back every migration drops every application table[39m[90m                                                [39m [90m215.71s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\ExampleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthe application returns a successful response[39m[90m                                                               [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\IssuePageRelationshipTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma multi page issue is queryable by page and a page is queryable by issue[39m[90m                                    [39m [90m0.62s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lead\ConsultationRequestTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma request from a report is attached to that reports website[39m[90m                                                 [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe website is taken from the audit not from the request[39m[90m                                                    [39m [90m0.23s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma request with no audit still records the lead[39m[90m                                                              [39m [90m0.27s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfindings are kept only if they are really on that audit[39m[90m                                                     [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfindings from a different audit are not accepted[39m[90m                                                            [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfindings are dropped when no audit is named[39m[90m                                                                 [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90monly real services can be requested[39m[90m                                                                         [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe placement that produced the request is recorded[39m[90m                                                         [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unknown placement is rejected[39m[90m                                                                            [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90msales is notified when a request comes in[39m[90m                                                                   [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnobody configured means no notification and no lost lead[39m[90m                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma failing notification never costs the lead[39m[90m                                                                 [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe pipeline has a proposal stage[39m[90m                                                                           [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwon replaces converted[39m[90m                                                                                      [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mleads can be listed for one website[39m[90m                                                                         [39m [90m0.16s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Plan\EntitlementTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma new website beyond the plans limit is refused[39m[90m                                                             [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mre auditing a website already owned still works at the limit[39m[90m                                                [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mone users websites do not count against another[39m[90m                                                             [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe monthly audit limit is enforced on top of the daily one[39m[90m                                                 [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90musage from last month does not count against this month[39m[90m                                                     [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma null monthly limit means unlimited[39m[90m                                                                        [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe page limit comes from the plan and ignores the payload[39m[90m                                                  [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreport visibility percent decides how much an owner sees[39m[90m                                                    [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe issues per service cap lowers what the percentage allowed[39m[90m                                               [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma built feature follows the plans configuration[39m[90m                                                             [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma feature that is not built yet never reports as allowed[39m[90m                                                    [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpdf export is refused without the entitlement[39m[90m                                                               [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma schedule more frequent than the plan allows is refused[39m[90m                                                    [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma less frequent schedule than the ceiling is always allowed[39m[90m                                                 [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90man upgrade takes effect immediately[39m[90m                                                                         [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma downgrade takes effect immediately too[39m[90m                                                                    [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90man expired subscription falls back to the default plan[39m[90m                                                      [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma cancelled subscription also falls back[39m[90m                                                                    [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma subscription inside its paid period is still active[39m[90m                                                       [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma subscription to a deactivated plan falls back[39m[90m                                                             [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma user with no subscription at all resolves to nothing[39m[90m                                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe guest tier comes from config not a plan row[39m[90m                                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe entitlements endpoint describes the callers plan[39m[90m                                                        [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe entitlements endpoint works for a guest[39m[90m                                                                 [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlimits cannot be raised through the request payload[39m[90m                                                         [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma non admin cannot edit plan limits[39m[90m                                                                         [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Plan\LapsedSubscriptionAccessTest[39m
+  [32;1m✓[39;22m[90m [39m[90man expired subscription loses its plans feature access[39m[90m                                                      [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90man active subscription keeps its plan[39m[90m                                                                       [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma subscription to a withdrawn plan falls back too[39m[90m                                                           [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma guest still resolves to the default plan[39m[90m                                                                  [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcategory gating follows the resolved plan[39m[90m                                                                   [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma lapsed subscribers scheduled audit uses the fallback page limit[39m[90m                                           [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90man active subscribers scheduled audit keeps the paid page limit[39m[90m                                             [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Report\AuditComparisonTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma score movement reads the way the spec writes it[39m[90m                                                           [39m [90m0.31s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma decline is reported as plainly as an improvement[39m[90m                                                          [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe biggest movement leads[39m[90m                                                                                  [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unchanged score produces no insight[39m[90m                                                                      [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma service that stopped applying is not reported as a collapse[39m[90m                                               [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma service that started applying has nothing to compare against[39m[90m                                              [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma service that never ran is not described as inapplicable[39m[90m                                                   [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma service that could not be assessed says so[39m[90m                                                                [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe stored not applicable reason survives when neither run scored[39m[90m                                           [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery scored service appears in the comparison[39m[90m                                                              [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe overall score is named like a service not an enum[39m[90m                                                       [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlanding page is not labelled the same as cro[39m[90m                                                                [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90man incomparable service never becomes an insight[39m[90m                                                            [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma service neither audit ran is left out entirely[39m[90m                                                            [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma finding on a page that was not recrawled is not called resolved[39m[90m                                           [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma finding on a page that was recrawled and is gone is resolved[39m[90m                                              [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma site wide finding is never excused as not rechecked[39m[90m                                                       [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma narrower crawl carries a caveat ahead of every other insight[39m[90m                                              [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma wider crawl says new findings may be new to the comparison[39m[90m                                                [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90midentical coverage is reported as like for like[39m[90m                                                             [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma trailing slash does not make a page look uncrawled[39m[90m                                                        [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma finding absent before and present now is new[39m[90m                                                              [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe same finding on both runs is persisting not new or resolved[39m[90m                                             [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfindings are listed worst first[39m[90m                                                                             [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mseverity counts move with the findings[39m[90m                                                                      [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe default comparison is the previous completed run[39m[90m                                                        [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe first audit of a site has nothing to compare against[39m[90m                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe endpoint compares against the previous run[39m[90m                                                              [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe first audit reports that there is nothing to compare[39m[90m                                                    [39m [90m0.24s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma stranger cannot read a comparison[39m[90m                                                                         [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma comparison cannot be pointed at another websites audit[39m[90m                                                    [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma failed run cannot be named as the comparison point[39m[90m                                                        [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Report\ReportInterfaceTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma page score uses the same severity weights as the category scores[39m[90m                                          [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma page with no issues scores 100[39m[90m                                                                            [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma page score never goes below zero[39m[90m                                                                          [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90meach page is scored from its own issues[39m[90m                                                                     [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery finding carries a reason[39m[90m                                                                              [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unmapped code falls back to its category rather than silence[39m[90m                                             [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90maccessibility reasons come from the check definitions[39m[90m                                                       [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe reason reaches the serialized issue[39m[90m                                                                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma free viewer still gets the reason[39m[90m                                                                         [39m [90m0.10s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Report\ScreenshotsAndBrandingTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma screenshot url is signed rather than a raw storage path[39m[90m                                                   [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe owner can load their own screenshot[39m[90m                                                                     [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unsigned url is refused[39m[90m                                                                                  [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma valid signed url is useless to another user[39m[90m                                                               [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma valid signed url is useless to an anonymous visitor[39m[90m                                                       [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma missing screenshot reads as not found rather than erroring[39m[90m                                                [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma screenshot captured before the disk moved is still served[39m[90m                                                 [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma report can load more screenshots than the audit throttle allows[39m[90m                                           [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma pdf export is filtered by the owners plan like the web report[39m[90m                                             [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe pdf and the web report apply the same filter[39m[90m                                                            [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbranding falls back to the product when the plan excludes it[39m[90m                                                [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbranding applies when the plan allows it[39m[90m                                                                    [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90man empty profile is treated as no branding[39m[90m                                                                  [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma lapsed plan stops branding without deleting it[39m[90m                                                            [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90man anonymous audit never carries someone elses branding[39m[90m                                                     [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma logo is inlined as a data uri for the pdf[39m[90m                                                                 [39m [90m0.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90man oversized logo is dropped rather than failing the export[39m[90m                                                 [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbranding can be saved and read back[39m[90m                                                                         [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbranding is saved on a plan that cannot use it yet[39m[90m                                                          [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma logo upload is stored privately[39m[90m                                                                           [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbranding requires authentication[39m[90m                                                                            [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Security\AuditUrlSecurityTest[39m
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "not a url"[39m[90m                                                 [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "scheme only"[39m[90m                                               [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "no host"[39m[90m                                                   [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "spaces"[39m[90m                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "javascript"[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "file"[39m[90m                                                      [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "data"[39m[90m                                                      [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "ftp"[39m[90m                                                       [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "gopher"[39m[90m                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "localhost"[39m[90m                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "localhost uppercase"[39m[90m                                       [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "localhost trailing dot"[39m[90m                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "localhost subdomain"[39m[90m                                       [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "loopback ipv4"[39m[90m                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "loopback ipv4 alternate"[39m[90m                                   [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "loopback ipv6"[39m[90m                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "private 10/8"[39m[90m                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "private 172.16/12"[39m[90m                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "private 192.168/16"[39m[90m                                        [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "carrier grade nat"[39m[90m                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "ipv6 unique local"[39m[90m                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "ipv4 mapped ipv6 private"[39m[90m                                  [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "link local"[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "aws metadata"[39m[90m                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "gcp metadata"[39m[90m                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "nat64 wrapped metadata"[39m[90m                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "decimal ip"[39m[90m                                                [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "octal ip"[39m[90m                                                  [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "hex ip"[39m[90m                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "embedded credentials"[39m[90m                                      [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "credentials masking an internal host"[39m[90m                      [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "redis port"[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "postgres port"[39m[90m                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "high port"[39m[90m                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "shell metacharacters"[39m[90m                                      [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "shell substitution"[39m[90m                                        [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "shell pipe"[39m[90m                                                [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "sql injection"[39m[90m                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "xss script tag"[39m[90m                                            [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "xss in host"[39m[90m                                               [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "crlf injection"[39m[90m                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90munsafe url is rejected by the api with data set "null byte"[39m[90m                                                 [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90msql injection payload does not reach the database[39m[90m                                                           [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe stored url is the normalized one[39m[90m                                                                        [39m [90m0.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe stored domain is lowercased and stripped of the dns root dot[39m[90m                                            [39m [90m0.31s[39m  
+  [32;1m✓[39;22m[90m [39m[90mguest cannot raise its page limit through the payload[39m[90m                                                       [39m [90m0.31s[39m  
+  [32;1m✓[39;22m[90m [39m[90mguest cannot assign itself a user id through the payload[39m[90m                                                    [39m [90m0.27s[39m  
+  [32;1m✓[39;22m[90m [39m[90mguest cannot set the audit status through the payload[39m[90m                                                       [39m [90m0.24s[39m  
+  [32;1m✓[39;22m[90m [39m[90mguest second audit is refused and creates nothing[39m[90m                                                           [39m [90m0.57s[39m  
+  [32;1m✓[39;22m[90m [39m[90mguest cannot reuse its free audit by varying the url spelling[39m[90m                                               [39m [90m0.23s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudit creation is rate limited[39m[90m                                                                              [39m [90m0.28s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Security\PublicSurfaceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mevery unauthenticated api route is rate limited[39m[90m                                                             [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe public surface has not quietly grown[39m[90m                                                                    [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma public read endpoint actually returns 429 past its limit[39m[90m                                                  [39m [90m0.12s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Share\ReportSharingTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthe owner can create a share and the url carries no audit id[39m[90m                                                [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe token is stored hashed never in plaintext[39m[90m                                                               [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe password is stored hashed[39m[90m                                                                               [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma share cannot be created without a password[39m[90m                                                                [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe url is returned once and never again[39m[90m                                                                    [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma stranger cannot create a share on someone elses audit[39m[90m                                                     [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90man anonymous caller cannot create a share[39m[90m                                                                   [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma plan without sharing cannot create one[39m[90m                                                                    [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma lapsed subscription loses sharing[39m[90m                                                                         [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma valid password unlocks the report[39m[90m                                                                         [39m [90m0.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90man invalid password is refused and yields no access[39m[90m                                                         [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnothing about the report is returned before the password[39m[90m                                                    [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe report cannot be read without unlocking[39m[90m                                                                 [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrepeated invalid passwords lock the link[39m[90m                                                                    [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma successful unlock clears earlier failures[39m[90m                                                                 [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma revoked link stops working[39m[90m                                                                                [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90man expired link stops working[39m[90m                                                                               [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mregenerating kills the old url and keeps the history[39m[90m                                                        [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe password can be changed and the old one stops working[39m[90m                                                   [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unknown token is indistinguishable from a revoked one[39m[90m                                                    [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma malformed token never reaches the database[39m[90m                                                                [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtokens are unique and high entropy[39m[90m                                                                          [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90man access token for one share does not unlock another[39m[90m                                                       [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma share of one audit cannot read another audits screenshots[39m[90m                                                 [39m [90m0.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma forged access token is refused[39m[90m                                                                            [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpdf download is refused when the share disallows it[39m[90m                                                         [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpdf download works when the share allows it[39m[90m                                                                 [39m [90m0.31s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma share cannot grant a pdf the owners plan does not allow[39m[90m                                                   [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mscreenshots are withheld when the share disallows them[39m[90m                                                      [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mscreenshots load when the share allows them[39m[90m                                                                 [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecommendations are withheld when the share disallows them[39m[90m                                                  [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma share recipient cannot use the owners endpoints[39m[90m                                                           [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe share access token is not accepted as a bearer token[39m[90m                                                    [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery shared response tells crawlers to stay away[39m[90m                                                           [39m [90m0.34s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery named event is recorded[39m[90m                                                                               [39m [90m0.33s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe owner can see failed attempts on their share[39m[90m                                                            [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe history survives the share being deleted[39m[90m                                                                [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\UniqueConstraintsTest[39m
+  [32;1m✓[39;22m[90m [39m[90maudit scores rejects a duplicate category for the same audit[39m[90m                                                [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mai analyses rejects a duplicate cache key[39m[90m                                                                   [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\WebsiteDeduplicationMigrationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthe column is renamed and the new fields exist[39m[90m                                                              [39m [90m6.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexisting rows are backfilled with a normalized domain and a name[39m[90m                                          [39m [90m108.50s[39m  
+  [32;1m✓[39;22m[90m [39m[90mduplicate rows for one user are merged onto the earliest[39m[90m                                                  [39m [90m111.83s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtwo users with the same domain are not merged together[39m[90m                                                    [39m [90m107.32s[39m  
+  [32;1m✓[39;22m[90m [39m[90manonymous rows are left alone[39m[90m                                                                             [39m [90m115.85s[39m  
+  [32;1m✓[39;22m[90m [39m[90musage logs are repointed at the surviving website[39m[90m                                                         [39m [90m111.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma duplicates schedule is moved and the surplus dropped[39m[90m                                                    [39m [90m110.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma schedule on the survivor wins and the duplicates is dropped[39m[90m                                             [39m [90m110.42s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe unique index is in place after the merge[39m[90m                                                              [39m [90m112.70s[39m  
+
+  [90mTests:[39m    [32;1m1041 passed[39;22m[90m (2636 assertions)[39m
+  [90mDuration:[39m [39m1744.88s[39m
+

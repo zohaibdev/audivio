@@ -26,12 +26,12 @@ const steps = [
 export function HowItWorksPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-16">
-      <h1 className="text-3xl font-bold text-slate-900 dark:text-white">How it works</h1>
+      <h1 className="text-3xl font-bold text-ink">How it works</h1>
       <ol className="mt-10 space-y-8">
         {steps.map((step) => (
           <li key={step.title} className="border-l-2 border-indigo-500 pl-6">
-            <h2 className="font-semibold text-slate-900 dark:text-white">{step.title}</h2>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{step.description}</p>
+            <h2 className="font-semibold text-ink">{step.title}</h2>
+            <p className="mt-1 text-sm text-muted">{step.description}</p>
           </li>
         ))}
       </ol>

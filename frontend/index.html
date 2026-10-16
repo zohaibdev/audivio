@@ -4,7 +4,28 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>Audivio — AI website audits</title>
+    <!--
+      Applied before first paint so a returning dark-mode visitor never
+      sees a white flash. Light is the default when nothing is stored,
+      matching ThemeContext — the two must agree or the page would repaint
+      once React mounts, which is the flash this exists to prevent (§58).
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('audivio.theme');
+          var dark =
+            stored === 'dark' ||
+            (stored === 'system' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {
+          /* Storage blocked — fall through to the light default. */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

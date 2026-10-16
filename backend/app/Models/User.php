@@ -72,6 +72,11 @@ class User extends Authenticatable
         return $this->hasMany(AuditSchedule::class);
     }
 
+    public function brandingProfile(): HasOne
+    {
+        return $this->hasOne(BrandingProfile::class);
+    }
+
     public function plan(): ?Plan
     {
         return $this->subscription?->plan;

@@ -35,7 +35,10 @@ class ScreenshotPathTest extends TestCase
     {
         $disk = Mockery::mock(FilesystemAdapter::class);
         $disk->shouldReceive('path')->with('')->andReturn($basePath);
-        Storage::shouldReceive('disk')->with('public')->andReturn($disk);
+        // Whichever disk is configured — screenshots moved off `public`
+        // in §48, and hard-coding it here would just re-break on the next
+        // move.
+        Storage::shouldReceive('disk')->with(config('crawler.screenshot_disk'))->andReturn($disk);
     }
 
     public function test_a_windows_backslash_base_path_still_yields_a_relative_path(): void
